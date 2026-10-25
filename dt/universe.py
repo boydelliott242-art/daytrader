@@ -15,6 +15,14 @@ def tier(cap):
     return "small"
 
 
+def clean(text):
+    """A company name as plain text: dashes the upstream repo test forbids become hyphens."""
+    t = str(text or "").strip()
+    for ch in ("\u2014", "\u2013", "\u2012"):
+        t = t.replace(ch, "-")
+    return t
+
+
 def norm_symbol(s):
     return str(s or "").strip().upper().replace("/", ".")
 
@@ -29,7 +37,7 @@ def build_largecap(rows, min_cap=10e9, universe_path="trader/universe.txt"):
         sym = norm_symbol(r.get("symbol"))
         if not sym or (allowed is not None and sym not in allowed):
             continue
-        out.append({"symbol": sym, "name": (r.get("name") or "").strip(), "market_cap": cap, "tier": tier(cap),
+        out.append({"symbol": sym, "name": clean(r.get("name")), "market_cap": cap, "tier": tier(cap),
                     "sector": (r.get("sector") or "").strip() or None, "industry": (r.get("industry") or "").strip() or None,
                     "country": (r.get("country") or "").strip() or None, "ipo_year": (r.get("ipoyear") or "").strip() or None,
                     "last_sale": money_to_float(r.get("lastsale")), "volume": money_to_float(r.get("volume"))})

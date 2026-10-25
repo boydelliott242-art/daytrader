@@ -1,175 +1,4954 @@
 {
   "created_by": "trader-desk",
-  "mode": "live",
-  "as_of": "2026-10-23 10:15 ET",
-  "example": true,
+  "mode": "morning",
+  "as_of": "2026-10-25 19:30 ET",
+  "created_at": "2026-10-25T23:30:44Z",
+  "date": "2026-10-26",
+  "next_session": "2026-10-27",
   "regime": {
-    "spy_close": 763.9600219726562,
-    "spy_sma20": 770.7194976806641,
-    "spy_sma50": 768.1665966796875,
-    "trend": "trend_flat",
-    "ret5d_pct": -1.015,
-    "vix": 19.03,
-    "vix_bucket": "vix_15_20",
-    "vix3m": 20.12,
-    "backwardation": false,
-    "prev_range_atr": 0.913,
-    "live": {
-      "at": "10:15",
-      "spy_gap_pct": -0.532,
-      "spy_or": "inside",
-      "spy_vs_vwap_pct": -0.008,
-      "breadth_above_open_pct": 55.6,
-      "breadth_up_pct": 38.9,
-      "breadth_n": 18,
-      "sectors": [
-        {
-          "etf": "XLK",
-          "name": "Technology",
-          "move_pct": 0.704
-        },
-        {
-          "etf": "XLF",
-          "name": "Financials",
-          "move_pct": -0.294
-        }
-      ]
+    "created_by": "trader-regime",
+    "as_of": "2026-10-25T23:30:44Z",
+    "date": "2026-10-26",
+    "daily": {
+      "spy_close": 759.97,
+      "spy_sma20": 770.15,
+      "spy_sma50": 767.81,
+      "trend": "flat",
+      "ret5d_pct": -0.43,
+      "vix": 19.45,
+      "vix_bucket": "15-20",
+      "vix3m": 20.48,
+      "backwardation": false,
+      "prev_range_atr": 0.672,
+      "through": "2026-10-23",
+      "spy_rows": 501,
+      "prev_range": 4.79,
+      "spy_atr20": 7.13
     },
+    "live": null,
     "tags": [
       "trend_flat",
       "vix_15_20",
-      "prev_normal"
-    ]
+      "prev_quiet"
+    ],
+    "source": {
+      "cache_root": "trader/cache",
+      "kind": "daily"
+    },
+    "note": "Context, not a forecast: a regime tag says what the market did before this session, never what it will do. Most people who day trade lose money."
   },
-  "universe": 18,
-  "scanned": 18,
-  "matched": 1,
-  "excluded": {
-    "earnings": [],
-    "blocked": [],
-    "note": "offline example: the earnings calendar was not read"
+  "regime_tags": [
+    "trend_flat",
+    "vix_15_20",
+    "prev_quiet"
+  ],
+  "universe": 917,
+  "universe_file": "trader/largecap.txt",
+  "exclusions": {
+    "earnings": [
+      {
+        "symbol": "VZ",
+        "date": "2026-10-26",
+        "when": "pre-market",
+        "name": "Verizon Communications Inc.",
+        "reason": "reports today (pre-market)"
+      },
+      {
+        "symbol": "WELL",
+        "date": "2026-10-26",
+        "when": "after-close",
+        "name": "Welltower Inc.",
+        "reason": "reports today (after the close)"
+      },
+      {
+        "symbol": "CDNS",
+        "date": "2026-10-26",
+        "when": "after-close",
+        "name": "Cadence Design Systems, Inc.",
+        "reason": "reports today (after the close)"
+      },
+      {
+        "symbol": "NUE",
+        "date": "2026-10-26",
+        "when": "after-close",
+        "name": "Nucor Corporation",
+        "reason": "reports today (after the close)"
+      },
+      {
+        "symbol": "PSA",
+        "date": "2026-10-26",
+        "when": "after-close",
+        "name": "Public Storage",
+        "reason": "reports today (after the close)"
+      },
+      {
+        "symbol": "HIG",
+        "date": "2026-10-26",
+        "when": "after-close",
+        "name": "The Hartford Insurance Group, Inc.",
+        "reason": "reports today (after the close)"
+      },
+      {
+        "symbol": "CLS",
+        "date": "2026-10-26",
+        "when": "after-close",
+        "name": "Celestica, Inc.",
+        "reason": "reports today (after the close)"
+      },
+      {
+        "symbol": "CINF",
+        "date": "2026-10-26",
+        "when": "after-close",
+        "name": "Cincinnati Financial Corporation",
+        "reason": "reports today (after the close)"
+      },
+      {
+        "symbol": "BRO",
+        "date": "2026-10-26",
+        "when": "after-close",
+        "name": "Brown & Brown, Inc.",
+        "reason": "reports today (after the close)"
+      },
+      {
+        "symbol": "PFG",
+        "date": "2026-10-26",
+        "when": "after-close",
+        "name": "Principal Financial Group Inc",
+        "reason": "reports today (after the close)"
+      },
+      {
+        "symbol": "PKX",
+        "date": "2026-10-26",
+        "when": "unknown",
+        "name": "POSCO HOLDINGS INC.",
+        "reason": "reports today (time not given)"
+      },
+      {
+        "symbol": "CX",
+        "date": "2026-10-26",
+        "when": "pre-market",
+        "name": "Cemex S.A.B. de C.V.",
+        "reason": "reports today (pre-market)"
+      },
+      {
+        "symbol": "SUI",
+        "date": "2026-10-26",
+        "when": "after-close",
+        "name": "Sun Communities, Inc.",
+        "reason": "reports today (after the close)"
+      },
+      {
+        "symbol": "SMMT",
+        "date": "2026-10-26",
+        "when": "unknown",
+        "name": "Summit Therapeutics Inc. ",
+        "reason": "reports today (time not given)"
+      },
+      {
+        "symbol": "BMRN",
+        "date": "2026-10-26",
+        "when": "unknown",
+        "name": "BioMarin Pharmaceutical Inc.",
+        "reason": "reports today (time not given)"
+      },
+      {
+        "symbol": "GGB",
+        "date": "2026-10-26",
+        "when": "after-close",
+        "name": "Gerdau S.A.",
+        "reason": "reports today (after the close)"
+      },
+      {
+        "symbol": "KO",
+        "date": "2026-10-27",
+        "when": "pre-market",
+        "name": "Coca-Cola Company (The)",
+        "reason": "reports tomorrow pre-market (2026-10-27)"
+      },
+      {
+        "symbol": "NVS",
+        "date": "2026-10-27",
+        "when": "pre-market",
+        "name": "Novartis AG",
+        "reason": "reports tomorrow pre-market (2026-10-27)"
+      },
+      {
+        "symbol": "BA",
+        "date": "2026-10-27",
+        "when": "pre-market",
+        "name": "Boeing Company (The)",
+        "reason": "reports tomorrow pre-market (2026-10-27)"
+      },
+      {
+        "symbol": "SPGI",
+        "date": "2026-10-27",
+        "when": "pre-market",
+        "name": "S&P Global Inc.",
+        "reason": "reports tomorrow pre-market (2026-10-27)"
+      },
+      {
+        "symbol": "GLW",
+        "date": "2026-10-27",
+        "when": "pre-market",
+        "name": "Corning Incorporated",
+        "reason": "reports tomorrow pre-market (2026-10-27)"
+      },
+      {
+        "symbol": "HCA",
+        "date": "2026-10-27",
+        "when": "pre-market",
+        "name": "HCA Healthcare, Inc.",
+        "reason": "reports tomorrow pre-market (2026-10-27)"
+      },
+      {
+        "symbol": "FCX",
+        "date": "2026-10-27",
+        "when": "pre-market",
+        "name": "Freeport-McMoran, Inc.",
+        "reason": "reports tomorrow pre-market (2026-10-27)"
+      },
+      {
+        "symbol": "JCI",
+        "date": "2026-10-27",
+        "when": "pre-market",
+        "name": "Johnson Controls International plc",
+        "reason": "reports tomorrow pre-market (2026-10-27)"
+      },
+      {
+        "symbol": "UPS",
+        "date": "2026-10-27",
+        "when": "pre-market",
+        "name": "United Parcel Service, Inc.",
+        "reason": "reports tomorrow pre-market (2026-10-27)"
+      },
+      {
+        "symbol": "AMT",
+        "date": "2026-10-27",
+        "when": "pre-market",
+        "name": "American Tower Corporation (REIT)",
+        "reason": "reports tomorrow pre-market (2026-10-27)"
+      },
+      {
+        "symbol": "SHW",
+        "date": "2026-10-27",
+        "when": "pre-market",
+        "name": "Sherwin-Williams Company (The)",
+        "reason": "reports tomorrow pre-market (2026-10-27)"
+      },
+      {
+        "symbol": "ECL",
+        "date": "2026-10-27",
+        "when": "pre-market",
+        "name": "Ecolab Inc.",
+        "reason": "reports tomorrow pre-market (2026-10-27)"
+      },
+      {
+        "symbol": "HLT",
+        "date": "2026-10-27",
+        "when": "pre-market",
+        "name": "Hilton Worldwide Holdings Inc.",
+        "reason": "reports tomorrow pre-market (2026-10-27)"
+      },
+      {
+        "symbol": "ITW",
+        "date": "2026-10-27",
+        "when": "pre-market",
+        "name": "Illinois Tool Works Inc.",
+        "reason": "reports tomorrow pre-market (2026-10-27)"
+      },
+      {
+        "symbol": "RCL",
+        "date": "2026-10-27",
+        "when": "pre-market",
+        "name": "Royal Caribbean Cruises Ltd.",
+        "reason": "reports tomorrow pre-market (2026-10-27)"
+      },
+      {
+        "symbol": "PCAR",
+        "date": "2026-10-27",
+        "when": "pre-market",
+        "name": "PACCAR Inc.",
+        "reason": "reports tomorrow pre-market (2026-10-27)"
+      },
+      {
+        "symbol": "PYPL",
+        "date": "2026-10-27",
+        "when": "pre-market",
+        "name": "PayPal Holdings, Inc.",
+        "reason": "reports tomorrow pre-market (2026-10-27)"
+      },
+      {
+        "symbol": "IQV",
+        "date": "2026-10-27",
+        "when": "pre-market",
+        "name": "IQVIA Holdings, Inc.",
+        "reason": "reports tomorrow pre-market (2026-10-27)"
+      },
+      {
+        "symbol": "CNC",
+        "date": "2026-10-27",
+        "when": "pre-market",
+        "name": "Centene Corporation",
+        "reason": "reports tomorrow pre-market (2026-10-27)"
+      },
+      {
+        "symbol": "CNP",
+        "date": "2026-10-27",
+        "when": "pre-market",
+        "name": "CenterPoint Energy, Inc.",
+        "reason": "reports tomorrow pre-market (2026-10-27)"
+      },
+      {
+        "symbol": "XYL",
+        "date": "2026-10-27",
+        "when": "pre-market",
+        "name": "Xylem Inc.",
+        "reason": "reports tomorrow pre-market (2026-10-27)"
+      },
+      {
+        "symbol": "HUBB",
+        "date": "2026-10-27",
+        "when": "pre-market",
+        "name": "Hubbell Inc",
+        "reason": "reports tomorrow pre-market (2026-10-27)"
+      },
+      {
+        "symbol": "CMS",
+        "date": "2026-10-27",
+        "when": "pre-market",
+        "name": "CMS Energy Corporation",
+        "reason": "reports tomorrow pre-market (2026-10-27)"
+      },
+      {
+        "symbol": "SOFI",
+        "date": "2026-10-27",
+        "when": "pre-market",
+        "name": "SoFi Technologies, Inc. ",
+        "reason": "reports tomorrow pre-market (2026-10-27)"
+      },
+      {
+        "symbol": "TRU",
+        "date": "2026-10-27",
+        "when": "pre-market",
+        "name": "TransUnion",
+        "reason": "reports tomorrow pre-market (2026-10-27)"
+      },
+      {
+        "symbol": "LECO",
+        "date": "2026-10-27",
+        "when": "pre-market",
+        "name": "Lincoln Electric Holdings, Inc.",
+        "reason": "reports tomorrow pre-market (2026-10-27)"
+      },
+      {
+        "symbol": "WSO",
+        "date": "2026-10-27",
+        "when": "pre-market",
+        "name": "Watsco, Inc.",
+        "reason": "reports tomorrow pre-market (2026-10-27)"
+      },
+      {
+        "symbol": "ARCC",
+        "date": "2026-10-27",
+        "when": "pre-market",
+        "name": "Ares Capital Corporation",
+        "reason": "reports tomorrow pre-market (2026-10-27)"
+      },
+      {
+        "symbol": "IVZ",
+        "date": "2026-10-27",
+        "when": "pre-market",
+        "name": "Invesco Plc",
+        "reason": "reports tomorrow pre-market (2026-10-27)"
+      },
+      {
+        "symbol": "AIT",
+        "date": "2026-10-27",
+        "when": "pre-market",
+        "name": "Applied Industrial Technologies, Inc.",
+        "reason": "reports tomorrow pre-market (2026-10-27)"
+      },
+      {
+        "symbol": "INIO",
+        "date": "2026-10-27",
+        "when": "pre-market",
+        "name": "INNIO N.V.",
+        "reason": "reports tomorrow pre-market (2026-10-27)"
+      }
+    ],
+    "blocked": []
   },
-  "candidates": [
+  "earnings_week": [
     {
-      "rank": 1,
+      "symbol": "V",
+      "date": "2026-10-27",
+      "when": "after-close",
+      "name": "Visa Inc.",
+      "reason": "reports 2026-10-27 (after-close)"
+    },
+    {
+      "symbol": "HSBC",
+      "date": "2026-10-27",
+      "when": "unknown",
+      "name": "HSBC Holdings plc",
+      "reason": "reports 2026-10-27 (unknown)"
+    },
+    {
+      "symbol": "STX",
+      "date": "2026-10-27",
+      "when": "after-close",
+      "name": "Seagate Technology Holdings PLC",
+      "reason": "reports 2026-10-27 (after-close)"
+    },
+    {
+      "symbol": "WM",
+      "date": "2026-10-27",
+      "when": "after-close",
+      "name": "Waste Management, Inc.",
+      "reason": "reports 2026-10-27 (after-close)"
+    },
+    {
+      "symbol": "HOOD",
+      "date": "2026-10-27",
+      "when": "after-close",
+      "name": "Robinhood Markets, Inc.",
+      "reason": "reports 2026-10-27 (after-close)"
+    },
+    {
+      "symbol": "NXPI",
+      "date": "2026-10-27",
+      "when": "after-close",
+      "name": "NXP Semiconductors N.V.",
+      "reason": "reports 2026-10-27 (after-close)"
+    },
+    {
+      "symbol": "OKE",
+      "date": "2026-10-27",
+      "when": "after-close",
+      "name": "ONEOK, Inc.",
+      "reason": "reports 2026-10-27 (after-close)"
+    },
+    {
+      "symbol": "BKR",
+      "date": "2026-10-27",
+      "when": "after-close",
+      "name": "Baker Hughes Company",
+      "reason": "reports 2026-10-27 (after-close)"
+    },
+    {
+      "symbol": "TER",
+      "date": "2026-10-27",
+      "when": "after-close",
+      "name": "Teradyne, Inc.",
+      "reason": "reports 2026-10-27 (after-close)"
+    },
+    {
+      "symbol": "VTR",
+      "date": "2026-10-27",
+      "when": "after-close",
+      "name": "Ventas, Inc.",
+      "reason": "reports 2026-10-27 (after-close)"
+    },
+    {
+      "symbol": "ACGL",
+      "date": "2026-10-27",
+      "when": "after-close",
+      "name": "Arch Capital Group Ltd.",
+      "reason": "reports 2026-10-27 (after-close)"
+    },
+    {
+      "symbol": "EQT",
+      "date": "2026-10-27",
+      "when": "after-close",
+      "name": "EQT Corporation",
+      "reason": "reports 2026-10-27 (after-close)"
+    },
+    {
+      "symbol": "EXR",
+      "date": "2026-10-27",
+      "when": "after-close",
+      "name": "Extra Space Storage Inc",
+      "reason": "reports 2026-10-27 (after-close)"
+    },
+    {
+      "symbol": "FE",
+      "date": "2026-10-27",
+      "when": "after-close",
+      "name": "FirstEnergy Corp.",
+      "reason": "reports 2026-10-27 (after-close)"
+    },
+    {
+      "symbol": "FFIV",
+      "date": "2026-10-27",
+      "when": "after-close",
+      "name": "F5, Inc.",
+      "reason": "reports 2026-10-27 (after-close)"
+    },
+    {
+      "symbol": "PPG",
+      "date": "2026-10-27",
+      "when": "after-close",
+      "name": "PPG Industries, Inc.",
+      "reason": "reports 2026-10-27 (after-close)"
+    },
+    {
+      "symbol": "LPLA",
+      "date": "2026-10-27",
+      "when": "after-close",
+      "name": "LPL Financial Holdings Inc.",
+      "reason": "reports 2026-10-27 (after-close)"
+    },
+    {
+      "symbol": "EXE",
+      "date": "2026-10-27",
+      "when": "after-close",
+      "name": "Expand Energy Corporation",
+      "reason": "reports 2026-10-27 (after-close)"
+    },
+    {
+      "symbol": "ESS",
+      "date": "2026-10-27",
+      "when": "after-close",
+      "name": "Essex Property Trust, Inc.",
+      "reason": "reports 2026-10-27 (after-close)"
+    },
+    {
+      "symbol": "LOGI",
+      "date": "2026-10-27",
+      "when": "after-close",
+      "name": "Logitech International S.A.",
+      "reason": "reports 2026-10-27 (after-close)"
+    },
+    {
+      "symbol": "RNR",
+      "date": "2026-10-27",
+      "when": "after-close",
+      "name": "RenaissanceRe Holdings Ltd.",
+      "reason": "reports 2026-10-27 (after-close)"
+    },
+    {
+      "symbol": "WPC",
+      "date": "2026-10-27",
+      "when": "after-close",
+      "name": "W. P. Carey Inc.",
+      "reason": "reports 2026-10-27 (after-close)"
+    },
+    {
+      "symbol": "CSGP",
+      "date": "2026-10-27",
+      "when": "after-close",
+      "name": "CoStar Group, Inc.",
+      "reason": "reports 2026-10-27 (after-close)"
+    },
+    {
+      "symbol": "ICLR",
+      "date": "2026-10-27",
+      "when": "after-close",
+      "name": "ICON plc",
+      "reason": "reports 2026-10-27 (after-close)"
+    },
+    {
+      "symbol": "MANH",
+      "date": "2026-10-27",
+      "when": "after-close",
+      "name": "Manhattan Associates, Inc.",
+      "reason": "reports 2026-10-27 (after-close)"
+    },
+    {
+      "symbol": "UHS",
+      "date": "2026-10-27",
+      "when": "after-close",
+      "name": "Universal Health Services, Inc.",
+      "reason": "reports 2026-10-27 (after-close)"
+    },
+    {
+      "symbol": "CR",
+      "date": "2026-10-27",
+      "when": "after-close",
+      "name": "Crane Company",
+      "reason": "reports 2026-10-27 (after-close)"
+    },
+    {
+      "symbol": "UMBF",
+      "date": "2026-10-27",
+      "when": "after-close",
+      "name": "UMB Financial Corporation",
+      "reason": "reports 2026-10-27 (after-close)"
+    },
+    {
+      "symbol": "RRC",
+      "date": "2026-10-27",
+      "when": "after-close",
+      "name": "Range Resources Corporation",
+      "reason": "reports 2026-10-27 (after-close)"
+    },
+    {
+      "symbol": "GOOG",
+      "date": "2026-10-28",
+      "when": "after-close",
+      "name": "Alphabet Inc.",
+      "reason": "reports 2026-10-28 (after-close)"
+    },
+    {
+      "symbol": "GOOGL",
+      "date": "2026-10-28",
+      "when": "after-close",
+      "name": "Alphabet Inc.",
+      "reason": "reports 2026-10-28 (after-close)"
+    },
+    {
+      "symbol": "MSFT",
+      "date": "2026-10-28",
+      "when": "after-close",
+      "name": "Microsoft Corporation",
+      "reason": "reports 2026-10-28 (after-close)"
+    },
+    {
+      "symbol": "GEV",
+      "date": "2026-10-28",
+      "when": "pre-market",
+      "name": "GE Vernova Inc.",
+      "reason": "reports 2026-10-28 (pre-market)"
+    },
+    {
+      "symbol": "SAN",
+      "date": "2026-10-28",
+      "when": "pre-market",
+      "name": "Banco Santander, S.A.",
+      "reason": "reports 2026-10-28 (pre-market)"
+    },
+    {
+      "symbol": "KLAC",
+      "date": "2026-10-28",
+      "when": "after-close",
+      "name": "KLA Corporation ",
+      "reason": "reports 2026-10-28 (after-close)"
+    },
+    {
+      "symbol": "APH",
+      "date": "2026-10-28",
+      "when": "pre-market",
+      "name": "Amphenol Corporation",
+      "reason": "reports 2026-10-28 (pre-market)"
+    },
+    {
+      "symbol": "TMUS",
+      "date": "2026-10-28",
+      "when": "after-close",
+      "name": "T-Mobile US, Inc.",
+      "reason": "reports 2026-10-28 (after-close)"
+    },
+    {
+      "symbol": "NOW",
+      "date": "2026-10-28",
+      "when": "after-close",
+      "name": "ServiceNow, Inc.",
+      "reason": "reports 2026-10-28 (after-close)"
+    },
+    {
+      "symbol": "UBS",
+      "date": "2026-10-28",
+      "when": "pre-market",
+      "name": "UBS AG",
+      "reason": "reports 2026-10-28 (pre-market)"
+    },
+    {
+      "symbol": "BBVA",
+      "date": "2026-10-28",
+      "when": "after-close",
+      "name": "Banco Bilbao Vizcaya Argentaria S.A.",
+      "reason": "reports 2026-10-28 (after-close)"
+    },
+    {
+      "symbol": "FTNT",
+      "date": "2026-10-28",
+      "when": "after-close",
+      "name": "Fortinet, Inc.",
+      "reason": "reports 2026-10-28 (after-close)"
+    },
+    {
+      "symbol": "ADP",
+      "date": "2026-10-28",
+      "when": "pre-market",
+      "name": "Automatic Data Processing, Inc.",
+      "reason": "reports 2026-10-28 (pre-market)"
+    },
+    {
+      "symbol": "PSX",
+      "date": "2026-10-28",
+      "when": "pre-market",
+      "name": "Phillips 66",
+      "reason": "reports 2026-10-28 (pre-market)"
+    },
+    {
+      "symbol": "GSK",
+      "date": "2026-10-28",
+      "when": "pre-market",
+      "name": "GSK plc",
+      "reason": "reports 2026-10-28 (pre-market)"
+    },
+    {
+      "symbol": "EQIX",
+      "date": "2026-10-28",
+      "when": "after-close",
+      "name": "Equinix, Inc.",
+      "reason": "reports 2026-10-28 (after-close)"
+    },
+    {
+      "symbol": "AEM",
+      "date": "2026-10-28",
+      "when": "after-close",
+      "name": "Agnico Eagle Mines Limited",
+      "reason": "reports 2026-10-28 (after-close)"
+    },
+    {
+      "symbol": "CP",
+      "date": "2026-10-28",
+      "when": "after-close",
+      "name": "Canadian Pacific Kansas City Limited",
+      "reason": "reports 2026-10-28 (after-close)"
+    },
+    {
+      "symbol": "VRT",
+      "date": "2026-10-28",
+      "when": "pre-market",
+      "name": "Vertiv Holdings, LLC",
+      "reason": "reports 2026-10-28 (pre-market)"
+    },
+    {
+      "symbol": "ORLY",
+      "date": "2026-10-28",
+      "when": "after-close",
+      "name": "O'Reilly Automotive, Inc.",
+      "reason": "reports 2026-10-28 (after-close)"
+    },
+    {
+      "symbol": "FDX",
+      "date": "2026-10-28",
+      "when": "after-close",
+      "name": "FedEx Corporation",
+      "reason": "reports 2026-10-28 (after-close)"
+    },
+    {
+      "symbol": "AEP",
+      "date": "2026-10-28",
+      "when": "pre-market",
+      "name": "American Electric Power Company, Inc.",
+      "reason": "reports 2026-10-28 (pre-market)"
+    },
+    {
+      "symbol": "BSX",
+      "date": "2026-10-28",
+      "when": "pre-market",
+      "name": "Boston Scientific Corporation",
+      "reason": "reports 2026-10-28 (pre-market)"
+    },
+    {
+      "symbol": "AON",
+      "date": "2026-10-28",
+      "when": "pre-market",
+      "name": "Aon plc",
+      "reason": "reports 2026-10-28 (pre-market)"
+    },
+    {
+      "symbol": "CVNA",
+      "date": "2026-10-28",
+      "when": "after-close",
+      "name": "Carvana Co.",
+      "reason": "reports 2026-10-28 (after-close)"
+    },
+    {
+      "symbol": "TEL",
+      "date": "2026-10-28",
+      "when": "pre-market",
+      "name": "TE Connectivity plc",
+      "reason": "reports 2026-10-28 (pre-market)"
+    },
+    {
+      "symbol": "GRMN",
+      "date": "2026-10-28",
+      "when": "pre-market",
+      "name": "Garmin Ltd.",
+      "reason": "reports 2026-10-28 (pre-market)"
+    },
+    {
+      "symbol": "EBAY",
+      "date": "2026-10-28",
+      "when": "after-close",
+      "name": "eBay Inc.",
+      "reason": "reports 2026-10-28 (after-close)"
+    },
+    {
+      "symbol": "HONA",
+      "date": "2026-10-28",
+      "when": "after-close",
+      "name": "Honeywell Aerospace Inc.",
+      "reason": "reports 2026-10-28 (after-close)"
+    },
+    {
+      "symbol": "F",
+      "date": "2026-10-28",
+      "when": "after-close",
+      "name": "Ford Motor Company",
+      "reason": "reports 2026-10-28 (after-close)"
+    },
+    {
+      "symbol": "UMC",
+      "date": "2026-10-28",
+      "when": "pre-market",
+      "name": "United Microelectronics Corporation",
+      "reason": "reports 2026-10-28 (pre-market)"
+    },
+    {
+      "symbol": "FMX",
+      "date": "2026-10-28",
+      "when": "pre-market",
+      "name": "Fomento Economico Mexicano S.A.B. de C.V.",
+      "reason": "reports 2026-10-28 (pre-market)"
+    },
+    {
+      "symbol": "ODFL",
+      "date": "2026-10-28",
+      "when": "pre-market",
+      "name": "Old Dominion Freight Line, Inc.",
+      "reason": "reports 2026-10-28 (pre-market)"
+    },
+    {
+      "symbol": "BIIB",
+      "date": "2026-10-28",
+      "when": "pre-market",
+      "name": "Biogen Inc.",
+      "reason": "reports 2026-10-28 (pre-market)"
+    },
+    {
+      "symbol": "CMG",
+      "date": "2026-10-28",
+      "when": "after-close",
+      "name": "Chipotle Mexican Grill, Inc.",
+      "reason": "reports 2026-10-28 (after-close)"
+    },
+    {
+      "symbol": "GEHC",
+      "date": "2026-10-28",
+      "when": "pre-market",
+      "name": "GE HealthCare Technologies Inc.",
+      "reason": "reports 2026-10-28 (pre-market)"
+    },
+    {
+      "symbol": "RJF",
+      "date": "2026-10-28",
+      "when": "after-close",
+      "name": "Raymond James Financial, Inc.",
+      "reason": "reports 2026-10-28 (after-close)"
+    },
+    {
+      "symbol": "OTIS",
+      "date": "2026-10-28",
+      "when": "pre-market",
+      "name": "Otis Worldwide Corporation",
+      "reason": "reports 2026-10-28 (pre-market)"
+    },
+    {
+      "symbol": "AWK",
+      "date": "2026-10-28",
+      "when": "after-close",
+      "name": "American Water Works",
+      "reason": "reports 2026-10-28 (after-close)"
+    },
+    {
+      "symbol": "FLEX",
+      "date": "2026-10-28",
+      "when": "pre-market",
+      "name": "Flex Ltd.",
+      "reason": "reports 2026-10-28 (pre-market)"
+    },
+    {
+      "symbol": "KGC",
+      "date": "2026-10-28",
+      "when": "after-close",
+      "name": "Kinross Gold Corporation",
+      "reason": "reports 2026-10-28 (after-close)"
+    },
+    {
+      "symbol": "LH",
+      "date": "2026-10-28",
+      "when": "pre-market",
+      "name": "Labcorp Holdings Inc.",
+      "reason": "reports 2026-10-28 (pre-market)"
+    },
+    {
+      "symbol": "VICI",
+      "date": "2026-10-28",
+      "when": "after-close",
+      "name": "VICI Properties Inc.",
+      "reason": "reports 2026-10-28 (after-close)"
+    },
+    {
+      "symbol": "NMR",
+      "date": "2026-10-28",
+      "when": "pre-market",
+      "name": "Nomura Holdings Inc ADR",
+      "reason": "reports 2026-10-28 (pre-market)"
+    },
+    {
+      "symbol": "AER",
+      "date": "2026-10-28",
+      "when": "pre-market",
+      "name": "AerCap Holdings N.V.",
+      "reason": "reports 2026-10-28 (pre-market)"
+    },
+    {
+      "symbol": "SW",
+      "date": "2026-10-28",
+      "when": "pre-market",
+      "name": "Smurfit WestRock plc",
+      "reason": "reports 2026-10-28 (pre-market)"
+    },
+    {
+      "symbol": "DINO",
+      "date": "2026-10-28",
+      "when": "pre-market",
+      "name": "HF Sinclair Corporation",
+      "reason": "reports 2026-10-28 (pre-market)"
+    },
+    {
+      "symbol": "AMRZ",
+      "date": "2026-10-28",
+      "when": "after-close",
+      "name": "Amrize Ltd",
+      "reason": "reports 2026-10-28 (after-close)"
+    },
+    {
+      "symbol": "ARXS",
+      "date": "2026-10-28",
+      "when": "after-close",
+      "name": "Arxis, Inc.",
+      "reason": "reports 2026-10-28 (after-close)"
+    },
+    {
+      "symbol": "NI",
+      "date": "2026-10-28",
+      "when": "pre-market",
+      "name": "NiSource, Inc",
+      "reason": "reports 2026-10-28 (pre-market)"
+    },
+    {
+      "symbol": "GFL",
+      "date": "2026-10-28",
+      "when": "after-close",
+      "name": "GFL Environmental Inc.",
+      "reason": "reports 2026-10-28 (after-close)"
+    },
+    {
+      "symbol": "FTV",
+      "date": "2026-10-28",
+      "when": "pre-market",
+      "name": "Fortive Corporation",
+      "reason": "reports 2026-10-28 (pre-market)"
+    },
+    {
+      "symbol": "IP",
+      "date": "2026-10-28",
+      "when": "pre-market",
+      "name": "International Paper Company",
+      "reason": "reports 2026-10-28 (pre-market)"
+    },
+    {
+      "symbol": "CLH",
+      "date": "2026-10-28",
+      "when": "pre-market",
+      "name": "Clean Harbors, Inc.",
+      "reason": "reports 2026-10-28 (pre-market)"
+    },
+    {
+      "symbol": "IEX",
+      "date": "2026-10-28",
+      "when": "pre-market",
+      "name": "IDEX Corporation",
+      "reason": "reports 2026-10-28 (pre-market)"
+    },
+    {
+      "symbol": "CHRW",
+      "date": "2026-10-28",
+      "when": "pre-market",
+      "name": "C.H. Robinson Worldwide, Inc.",
+      "reason": "reports 2026-10-28 (pre-market)"
+    },
+    {
+      "symbol": "INVH",
+      "date": "2026-10-28",
+      "when": "after-close",
+      "name": "Invitation Homes Inc.",
+      "reason": "reports 2026-10-28 (after-close)"
+    },
+    {
+      "symbol": "TYL",
+      "date": "2026-10-28",
+      "when": "after-close",
+      "name": "Tyler Technologies, Inc.",
+      "reason": "reports 2026-10-28 (after-close)"
+    },
+    {
+      "symbol": "EG",
+      "date": "2026-10-28",
+      "when": "after-close",
+      "name": "Everest Group, Ltd.",
+      "reason": "reports 2026-10-28 (after-close)"
+    },
+    {
+      "symbol": "MAS",
+      "date": "2026-10-28",
+      "when": "pre-market",
+      "name": "Masco Corporation",
+      "reason": "reports 2026-10-28 (pre-market)"
+    },
+    {
+      "symbol": "GEN",
+      "date": "2026-10-28",
+      "when": "after-close",
+      "name": "Gen Digital Inc.",
+      "reason": "reports 2026-10-28 (after-close)"
+    },
+    {
+      "symbol": "JLL",
+      "date": "2026-10-28",
+      "when": "pre-market",
+      "name": "Jones Lang LaSalle Incorporated",
+      "reason": "reports 2026-10-28 (pre-market)"
+    },
+    {
+      "symbol": "MAA",
+      "date": "2026-10-28",
+      "when": "after-close",
+      "name": "Mid-America Apartment Communities, Inc.",
+      "reason": "reports 2026-10-28 (after-close)"
+    },
+    {
+      "symbol": "CSL",
+      "date": "2026-10-28",
+      "when": "after-close",
+      "name": "Carlisle Companies Incorporated",
+      "reason": "reports 2026-10-28 (after-close)"
+    },
+    {
+      "symbol": "PAG",
+      "date": "2026-10-28",
+      "when": "pre-market",
+      "name": "Penske Automotive Group, Inc.",
+      "reason": "reports 2026-10-28 (pre-market)"
+    },
+    {
+      "symbol": "LII",
+      "date": "2026-10-28",
+      "when": "pre-market",
+      "name": "Lennox International, Inc.",
+      "reason": "reports 2026-10-28 (pre-market)"
+    },
+    {
+      "symbol": "AGI",
+      "date": "2026-10-28",
+      "when": "after-close",
+      "name": "Alamos Gold Inc.",
+      "reason": "reports 2026-10-28 (after-close)"
+    },
+    {
+      "symbol": "EHC",
+      "date": "2026-10-28",
+      "when": "after-close",
+      "name": "Encompass Health Corporation",
+      "reason": "reports 2026-10-28 (after-close)"
+    },
+    {
+      "symbol": "STLA",
+      "date": "2026-10-28",
+      "when": "pre-market",
+      "name": "Stellantis N.V.",
+      "reason": "reports 2026-10-28 (pre-market)"
+    },
+    {
+      "symbol": "AR",
+      "date": "2026-10-28",
+      "when": "after-close",
+      "name": "Antero Resources Corporation",
+      "reason": "reports 2026-10-28 (after-close)"
+    },
+    {
+      "symbol": "NXT",
+      "date": "2026-10-28",
+      "when": "after-close",
+      "name": "Nextpower Inc.",
+      "reason": "reports 2026-10-28 (after-close)"
+    },
+    {
+      "symbol": "AVTR",
+      "date": "2026-10-28",
+      "when": "pre-market",
+      "name": "Avantor, Inc.",
+      "reason": "reports 2026-10-28 (pre-market)"
+    },
+    {
+      "symbol": "SCI",
+      "date": "2026-10-28",
+      "when": "after-close",
+      "name": "Service Corporation International",
+      "reason": "reports 2026-10-28 (after-close)"
+    },
+    {
+      "symbol": "STRL",
+      "date": "2026-10-28",
+      "when": "after-close",
+      "name": "Sterling Infrastructure, Inc.",
+      "reason": "reports 2026-10-28 (after-close)"
+    },
+    {
+      "symbol": "GNRC",
+      "date": "2026-10-28",
+      "when": "pre-market",
+      "name": "Generac Holdings Inc.",
+      "reason": "reports 2026-10-28 (pre-market)"
+    },
+    {
+      "symbol": "ALGN",
+      "date": "2026-10-28",
+      "when": "after-close",
+      "name": "Align Technology, Inc.",
+      "reason": "reports 2026-10-28 (after-close)"
+    },
+    {
+      "symbol": "GKOS",
+      "date": "2026-10-28",
+      "when": "after-close",
+      "name": "Glaukos Corporation",
+      "reason": "reports 2026-10-28 (after-close)"
+    },
+    {
+      "symbol": "OGE",
+      "date": "2026-10-28",
+      "when": "pre-market",
+      "name": "OGE Energy Corp",
+      "reason": "reports 2026-10-28 (pre-market)"
+    },
+    {
+      "symbol": "AMZN",
+      "date": "2026-10-29",
+      "when": "after-close",
+      "name": "Amazon.com, Inc.",
+      "reason": "reports 2026-10-29 (after-close)"
+    },
+    {
+      "symbol": "LLY",
+      "date": "2026-10-29",
+      "when": "pre-market",
+      "name": "Eli Lilly and Company",
+      "reason": "reports 2026-10-29 (pre-market)"
+    },
+    {
+      "symbol": "MA",
+      "date": "2026-10-29",
+      "when": "pre-market",
+      "name": "Mastercard Incorporated",
+      "reason": "reports 2026-10-29 (pre-market)"
+    },
+    {
+      "symbol": "INTC",
+      "date": "2026-10-29",
+      "when": "after-close",
+      "name": "Intel Corporation",
+      "reason": "reports 2026-10-29 (after-close)"
+    },
+    {
+      "symbol": "MRK",
+      "date": "2026-10-29",
+      "when": "pre-market",
+      "name": "Merck & Company, Inc.",
+      "reason": "reports 2026-10-29 (pre-market)"
+    },
+    {
+      "symbol": "CAT",
+      "date": "2026-10-29",
+      "when": "pre-market",
+      "name": "Caterpillar, Inc.",
+      "reason": "reports 2026-10-29 (pre-market)"
+    },
+    {
+      "symbol": "SHEL",
+      "date": "2026-10-29",
+      "when": "pre-market",
+      "name": "Shell PLC",
+      "reason": "reports 2026-10-29 (pre-market)"
+    },
+    {
+      "symbol": "LIN",
+      "date": "2026-10-29",
+      "when": "pre-market",
+      "name": "Linde plc",
+      "reason": "reports 2026-10-29 (pre-market)"
+    },
+    {
+      "symbol": "TTE",
+      "date": "2026-10-29",
+      "when": "pre-market",
+      "name": "TotalEnergies SE",
+      "reason": "reports 2026-10-29 (pre-market)"
+    },
+    {
+      "symbol": "GILD",
+      "date": "2026-10-29",
+      "when": "after-close",
+      "name": "Gilead Sciences, Inc.",
+      "reason": "reports 2026-10-29 (after-close)"
+    },
+    {
+      "symbol": "SNDK",
+      "date": "2026-10-29",
+      "when": "after-close",
+      "name": "Sandisk Corporation",
+      "reason": "reports 2026-10-29 (after-close)"
+    },
+    {
+      "symbol": "BUD",
+      "date": "2026-10-29",
+      "when": "pre-market",
+      "name": "Anheuser-Busch Inbev SA",
+      "reason": "reports 2026-10-29 (pre-market)"
+    },
+    {
+      "symbol": "BMY",
+      "date": "2026-10-29",
+      "when": "pre-market",
+      "name": "Bristol-Myers Squibb Company",
+      "reason": "reports 2026-10-29 (pre-market)"
+    },
+    {
+      "symbol": "MO",
+      "date": "2026-10-29",
+      "when": "pre-market",
+      "name": "Altria Group",
+      "reason": "reports 2026-10-29 (pre-market)"
+    },
+    {
+      "symbol": "SYK",
+      "date": "2026-10-29",
+      "when": "after-close",
+      "name": "Stryker Corporation",
+      "reason": "reports 2026-10-29 (after-close)"
+    },
+    {
+      "symbol": "SBUX",
+      "date": "2026-10-29",
+      "when": "after-close",
+      "name": "Starbucks Corporation",
+      "reason": "reports 2026-10-29 (after-close)"
+    },
+    {
+      "symbol": "TT",
+      "date": "2026-10-29",
+      "when": "pre-market",
+      "name": "Trane Technologies plc",
+      "reason": "reports 2026-10-29 (pre-market)"
+    },
+    {
+      "symbol": "ING",
+      "date": "2026-10-29",
+      "when": "pre-market",
+      "name": "ING Group, N.V.",
+      "reason": "reports 2026-10-29 (pre-market)"
+    },
+    {
+      "symbol": "ICE",
+      "date": "2026-10-29",
+      "when": "pre-market",
+      "name": "Intercontinental Exchange Inc.",
+      "reason": "reports 2026-10-29 (pre-market)"
+    },
+    {
+      "symbol": "ASX",
+      "date": "2026-10-29",
+      "when": "pre-market",
+      "name": "ASE Technology Holding Co., Ltd.",
+      "reason": "reports 2026-10-29 (pre-market)"
+    },
+    {
+      "symbol": "MDLZ",
+      "date": "2026-10-29",
+      "when": "after-close",
+      "name": "Mondelez International, Inc.",
+      "reason": "reports 2026-10-29 (after-close)"
+    },
+    {
+      "symbol": "LYG",
+      "date": "2026-10-29",
+      "when": "pre-market",
+      "name": "Lloyds Banking Group Plc",
+      "reason": "reports 2026-10-29 (pre-market)"
+    },
+    {
+      "symbol": "PWR",
+      "date": "2026-10-29",
+      "when": "pre-market",
+      "name": "Quanta Services, Inc.",
+      "reason": "reports 2026-10-29 (pre-market)"
+    },
+    {
+      "symbol": "EPD",
+      "date": "2026-10-29",
+      "when": "pre-market",
+      "name": "Enterprise Products Partners L.P.",
+      "reason": "reports 2026-10-29 (pre-market)"
+    },
+    {
+      "symbol": "HWM",
+      "date": "2026-10-29",
+      "when": "pre-market",
+      "name": "Howmet Aerospace Inc.",
+      "reason": "reports 2026-10-29 (pre-market)"
+    },
+    {
+      "symbol": "RSG",
+      "date": "2026-10-29",
+      "when": "after-close",
+      "name": "Republic Services, Inc.",
+      "reason": "reports 2026-10-29 (after-close)"
+    },
+    {
+      "symbol": "AJG",
+      "date": "2026-10-29",
+      "when": "after-close",
+      "name": "Arthur J. Gallagher & Co.",
+      "reason": "reports 2026-10-29 (after-close)"
+    },
+    {
+      "symbol": "TAK",
+      "date": "2026-10-29",
+      "when": "pre-market",
+      "name": "Takeda Pharmaceutical Company Limited",
+      "reason": "reports 2026-10-29 (pre-market)"
+    },
+    {
+      "symbol": "DLR",
+      "date": "2026-10-29",
+      "when": "after-close",
+      "name": "Digital Realty Trust, Inc.",
+      "reason": "reports 2026-10-29 (after-close)"
+    },
+    {
+      "symbol": "MSTR",
+      "date": "2026-10-29",
+      "when": "after-close",
+      "name": "Strategy Inc",
+      "reason": "reports 2026-10-29 (after-close)"
+    },
+    {
+      "symbol": "LNG",
+      "date": "2026-10-29",
+      "when": "pre-market",
+      "name": "Cheniere Energy, Inc.",
+      "reason": "reports 2026-10-29 (pre-market)"
+    },
+    {
+      "symbol": "CRH",
+      "date": "2026-10-29",
+      "when": "pre-market",
+      "name": "CRH PLC",
+      "reason": "reports 2026-10-29 (pre-market)"
+    },
+    {
+      "symbol": "MPWR",
+      "date": "2026-10-29",
+      "when": "after-close",
+      "name": "Monolithic Power Systems, Inc.",
+      "reason": "reports 2026-10-29 (after-close)"
+    },
+    {
+      "symbol": "ABEV",
+      "date": "2026-10-29",
+      "when": "unknown",
+      "name": "Ambev S.A.",
+      "reason": "reports 2026-10-29 (unknown)"
+    },
+    {
+      "symbol": "VALE",
+      "date": "2026-10-29",
+      "when": "after-close",
+      "name": "VALE S.A.",
+      "reason": "reports 2026-10-29 (after-close)"
+    },
+    {
+      "symbol": "XEL",
+      "date": "2026-10-29",
+      "when": "pre-market",
+      "name": "Xcel Energy Inc.",
+      "reason": "reports 2026-10-29 (pre-market)"
+    },
+    {
+      "symbol": "LHX",
+      "date": "2026-10-29",
+      "when": "pre-market",
+      "name": "L3Harris Technologies, Inc.",
+      "reason": "reports 2026-10-29 (pre-market)"
+    },
+    {
+      "symbol": "CARR",
+      "date": "2026-10-29",
+      "when": "pre-market",
+      "name": "Carrier Global Corporation",
+      "reason": "reports 2026-10-29 (pre-market)"
+    },
+    {
+      "symbol": "AMP",
+      "date": "2026-10-29",
+      "when": "pre-market",
+      "name": "AMERIPRISE FINANCIAL SERVICES, LLC",
+      "reason": "reports 2026-10-29 (pre-market)"
+    },
+    {
+      "symbol": "COIN",
+      "date": "2026-10-29",
+      "when": "after-close",
+      "name": "Coinbase Global, Inc.",
+      "reason": "reports 2026-10-29 (after-close)"
+    },
+    {
+      "symbol": "HLN",
+      "date": "2026-10-29",
+      "when": "pre-market",
+      "name": "Haleon plc",
+      "reason": "reports 2026-10-29 (pre-market)"
+    },
+    {
+      "symbol": "DHI",
+      "date": "2026-10-29",
+      "when": "pre-market",
+      "name": "D.R. Horton, Inc.",
+      "reason": "reports 2026-10-29 (pre-market)"
+    },
+    {
+      "symbol": "ARES",
+      "date": "2026-10-29",
+      "when": "pre-market",
+      "name": "Ares Management Corporation",
+      "reason": "reports 2026-10-29 (pre-market)"
+    },
+    {
+      "symbol": "ILMN",
+      "date": "2026-10-29",
+      "when": "after-close",
+      "name": "Illumina, Inc.",
+      "reason": "reports 2026-10-29 (after-close)"
+    },
+    {
+      "symbol": "STM",
+      "date": "2026-10-29",
+      "when": "pre-market",
+      "name": "STMicroelectronics N.V.",
+      "reason": "reports 2026-10-29 (pre-market)"
+    },
+    {
+      "symbol": "TWLO",
+      "date": "2026-10-29",
+      "when": "after-close",
+      "name": "Twilio Inc.",
+      "reason": "reports 2026-10-29 (after-close)"
+    },
+    {
+      "symbol": "RBLX",
+      "date": "2026-10-29",
+      "when": "after-close",
+      "name": "Roblox Corporation",
+      "reason": "reports 2026-10-29 (after-close)"
+    },
+    {
+      "symbol": "WEC",
+      "date": "2026-10-29",
+      "when": "pre-market",
+      "name": "WEC Energy Group, Inc.",
+      "reason": "reports 2026-10-29 (pre-market)"
+    },
+    {
+      "symbol": "RMD",
+      "date": "2026-10-29",
+      "when": "after-close",
+      "name": "ResMed Inc.",
+      "reason": "reports 2026-10-29 (after-close)"
+    },
+    {
+      "symbol": "HSY",
+      "date": "2026-10-29",
+      "when": "pre-market",
+      "name": "Hershey Company (The)",
+      "reason": "reports 2026-10-29 (pre-market)"
+    },
+    {
+      "symbol": "VMC",
+      "date": "2026-10-29",
+      "when": "pre-market",
+      "name": "Vulcan Materials Company",
+      "reason": "reports 2026-10-29 (pre-market)"
+    },
+    {
+      "symbol": "QSR",
+      "date": "2026-10-29",
+      "when": "pre-market",
+      "name": "Restaurant Brands International Inc.",
+      "reason": "reports 2026-10-29 (pre-market)"
+    },
+    {
+      "symbol": "RKT",
+      "date": "2026-10-29",
+      "when": "unknown",
+      "name": "Rocket Companies, Inc.",
+      "reason": "reports 2026-10-29 (unknown)"
+    },
+    {
+      "symbol": "CTSH",
+      "date": "2026-10-29",
+      "when": "pre-market",
+      "name": "Cognizant Technology Solutions Corporation",
+      "reason": "reports 2026-10-29 (pre-market)"
+    },
+    {
+      "symbol": "CQP",
+      "date": "2026-10-29",
+      "when": "pre-market",
+      "name": "Cheniere Energy Partners, LP",
+      "reason": "reports 2026-10-29 (pre-market)"
+    },
+    {
+      "symbol": "WTW",
+      "date": "2026-10-29",
+      "when": "pre-market",
+      "name": "Willis Towers Watson Public Limited Company",
+      "reason": "reports 2026-10-29 (pre-market)"
+    },
+    {
+      "symbol": "ALNY",
+      "date": "2026-10-29",
+      "when": "pre-market",
+      "name": "Alnylam Pharmaceuticals, Inc.",
+      "reason": "reports 2026-10-29 (pre-market)"
+    },
+    {
+      "symbol": "DXCM",
+      "date": "2026-10-29",
+      "when": "after-close",
+      "name": "DexCom, Inc.",
+      "reason": "reports 2026-10-29 (after-close)"
+    },
+    {
+      "symbol": "EME",
+      "date": "2026-10-29",
+      "when": "pre-market",
+      "name": "EMCOR Group, Inc.",
+      "reason": "reports 2026-10-29 (pre-market)"
+    },
+    {
+      "symbol": "RDDT",
+      "date": "2026-10-29",
+      "when": "after-close",
+      "name": "Reddit, Inc.",
+      "reason": "reports 2026-10-29 (after-close)"
+    },
+    {
+      "symbol": "TECK",
+      "date": "2026-10-29",
+      "when": "pre-market",
+      "name": "Teck Resources Ltd",
+      "reason": "reports 2026-10-29 (pre-market)"
+    },
+    {
+      "symbol": "IR",
+      "date": "2026-10-29",
+      "when": "after-close",
+      "name": "Ingersoll Rand Inc.",
+      "reason": "reports 2026-10-29 (after-close)"
+    },
+    {
+      "symbol": "TW",
+      "date": "2026-10-29",
+      "when": "pre-market",
+      "name": "Tradeweb Markets Inc.",
+      "reason": "reports 2026-10-29 (pre-market)"
+    },
+    {
+      "symbol": "WST",
+      "date": "2026-10-29",
+      "when": "pre-market",
+      "name": "West Pharmaceutical Services, Inc.",
+      "reason": "reports 2026-10-29 (pre-market)"
+    },
+    {
+      "symbol": "FTI",
+      "date": "2026-10-29",
+      "when": "pre-market",
+      "name": "TechnipFMC plc",
+      "reason": "reports 2026-10-29 (pre-market)"
+    },
+    {
+      "symbol": "VLTO",
+      "date": "2026-10-29",
+      "when": "after-close",
+      "name": "Veralto Corp.",
+      "reason": "reports 2026-10-29 (after-close)"
+    },
+    {
+      "symbol": "INCY",
+      "date": "2026-10-29",
+      "when": "pre-market",
+      "name": "Incyte Corporation",
+      "reason": "reports 2026-10-29 (pre-market)"
+    },
+    {
+      "symbol": "EIX",
+      "date": "2026-10-29",
+      "when": "after-close",
+      "name": "Edison International",
+      "reason": "reports 2026-10-29 (after-close)"
+    },
+    {
+      "symbol": "XPO",
+      "date": "2026-10-29",
+      "when": "pre-market",
+      "name": "XPO, Inc.",
+      "reason": "reports 2026-10-29 (pre-market)"
+    },
+    {
+      "symbol": "TROW",
+      "date": "2026-10-29",
+      "when": "pre-market",
+      "name": "T. Rowe Price Group, Inc.",
+      "reason": "reports 2026-10-29 (pre-market)"
+    },
+    {
+      "symbol": "ATI",
+      "date": "2026-10-29",
+      "when": "pre-market",
+      "name": "ATI Inc.",
+      "reason": "reports 2026-10-29 (pre-market)"
+    },
+    {
+      "symbol": "THC",
+      "date": "2026-10-29",
+      "when": "pre-market",
+      "name": "Tenet Healthcare Corporation",
+      "reason": "reports 2026-10-29 (pre-market)"
+    },
+    {
+      "symbol": "INSM",
+      "date": "2026-10-29",
+      "when": "pre-market",
+      "name": "Insmed Incorporated",
+      "reason": "reports 2026-10-29 (pre-market)"
+    },
+    {
+      "symbol": "BG",
+      "date": "2026-10-29",
+      "when": "pre-market",
+      "name": "Bunge Global SA",
+      "reason": "reports 2026-10-29 (pre-market)"
+    },
+    {
+      "symbol": "ENTG",
+      "date": "2026-10-29",
+      "when": "pre-market",
+      "name": "Entegris, Inc.",
+      "reason": "reports 2026-10-29 (pre-market)"
+    },
+    {
+      "symbol": "FSLR",
+      "date": "2026-10-29",
+      "when": "after-close",
+      "name": "First Solar, Inc.",
+      "reason": "reports 2026-10-29 (after-close)"
+    },
+    {
+      "symbol": "LNT",
+      "date": "2026-10-29",
+      "when": "after-close",
+      "name": "Alliant Energy Corporation",
+      "reason": "reports 2026-10-29 (after-close)"
+    },
+    {
+      "symbol": "RIVN",
+      "date": "2026-10-29",
+      "when": "after-close",
+      "name": "Rivian Automotive, Inc.",
+      "reason": "reports 2026-10-29 (after-close)"
+    },
+    {
+      "symbol": "TPG",
+      "date": "2026-10-29",
+      "when": "pre-market",
+      "name": "TPG Inc.",
+      "reason": "reports 2026-10-29 (pre-market)"
+    },
+    {
+      "symbol": "APG",
+      "date": "2026-10-29",
+      "when": "pre-market",
+      "name": "APi Group Corporation",
+      "reason": "reports 2026-10-29 (pre-market)"
+    },
+    {
+      "symbol": "H",
+      "date": "2026-10-29",
+      "when": "pre-market",
+      "name": "Hyatt Hotels Corporation",
+      "reason": "reports 2026-10-29 (pre-market)"
+    },
+    {
+      "symbol": "FDXF",
+      "date": "2026-10-29",
+      "when": "after-close",
+      "name": "FedEx Freight Holding Company, Inc.",
+      "reason": "reports 2026-10-29 (after-close)"
+    },
+    {
+      "symbol": "EXEL",
+      "date": "2026-10-29",
+      "when": "after-close",
+      "name": "Exelixis, Inc.",
+      "reason": "reports 2026-10-29 (after-close)"
+    },
+    {
+      "symbol": "FTAI",
+      "date": "2026-10-29",
+      "when": "pre-market",
+      "name": "FTAI Aviation Ltd.",
+      "reason": "reports 2026-10-29 (pre-market)"
+    },
+    {
+      "symbol": "KIM",
+      "date": "2026-10-29",
+      "when": "pre-market",
+      "name": "Kimco Realty Corporation",
+      "reason": "reports 2026-10-29 (pre-market)"
+    },
+    {
+      "symbol": "WCC",
+      "date": "2026-10-29",
+      "when": "pre-market",
+      "name": "WESCO International, Inc.",
+      "reason": "reports 2026-10-29 (pre-market)"
+    },
+    {
+      "symbol": "OWL",
+      "date": "2026-10-29",
+      "when": "pre-market",
+      "name": "Blue Owl Capital Inc. ",
+      "reason": "reports 2026-10-29 (pre-market)"
+    },
+    {
+      "symbol": "GDDY",
+      "date": "2026-10-29",
+      "when": "after-close",
+      "name": "GoDaddy Inc.",
+      "reason": "reports 2026-10-29 (after-close)"
+    },
+    {
+      "symbol": "WY",
+      "date": "2026-10-29",
+      "when": "after-close",
+      "name": "Weyerhaeuser Company",
+      "reason": "reports 2026-10-29 (after-close)"
+    },
+    {
+      "symbol": "AVY",
+      "date": "2026-10-29",
+      "when": "pre-market",
+      "name": "Avery Dennison Corporation",
+      "reason": "reports 2026-10-29 (pre-market)"
+    },
+    {
+      "symbol": "MTZ",
+      "date": "2026-10-29",
+      "when": "after-close",
+      "name": "MasTec, Inc.",
+      "reason": "reports 2026-10-29 (after-close)"
+    },
+    {
+      "symbol": "TXT",
+      "date": "2026-10-29",
+      "when": "pre-market",
+      "name": "Textron Inc.",
+      "reason": "reports 2026-10-29 (pre-market)"
+    },
+    {
+      "symbol": "BBIO",
+      "date": "2026-10-29",
+      "when": "after-close",
+      "name": "BridgeBio Pharma, Inc.",
+      "reason": "reports 2026-10-29 (after-close)"
+    },
+    {
+      "symbol": "BAX",
+      "date": "2026-10-29",
+      "when": "pre-market",
+      "name": "Baxter International Inc.",
+      "reason": "reports 2026-10-29 (pre-market)"
+    },
+    {
+      "symbol": "PINS",
+      "date": "2026-10-29",
+      "when": "after-close",
+      "name": "Pinterest, Inc.",
+      "reason": "reports 2026-10-29 (after-close)"
+    },
+    {
+      "symbol": "DTM",
+      "date": "2026-10-29",
+      "when": "pre-market",
+      "name": "DT Midstream, Inc.",
+      "reason": "reports 2026-10-29 (pre-market)"
+    },
+    {
+      "symbol": "TLK",
+      "date": "2026-10-29",
+      "when": "unknown",
+      "name": "PT Telekomunikasi Indonesia, Tbk",
+      "reason": "reports 2026-10-29 (unknown)"
+    },
+    {
+      "symbol": "DVA",
+      "date": "2026-10-29",
+      "when": "after-close",
+      "name": "DaVita Inc.",
+      "reason": "reports 2026-10-29 (after-close)"
+    },
+    {
+      "symbol": "ERIE",
+      "date": "2026-10-29",
+      "when": "after-close",
+      "name": "Erie Indemnity Company",
+      "reason": "reports 2026-10-29 (after-close)"
+    },
+    {
+      "symbol": "SKM",
+      "date": "2026-10-29",
+      "when": "unknown",
+      "name": "SK Telecom Co., Ltd.",
+      "reason": "reports 2026-10-29 (unknown)"
+    },
+    {
+      "symbol": "GLPI",
+      "date": "2026-10-29",
+      "when": "after-close",
+      "name": "Gaming and Leisure Properties, Inc.",
+      "reason": "reports 2026-10-29 (after-close)"
+    },
+    {
+      "symbol": "RYAN",
+      "date": "2026-10-29",
+      "when": "after-close",
+      "name": "Ryan Specialty Holdings, Inc.",
+      "reason": "reports 2026-10-29 (after-close)"
+    },
+    {
+      "symbol": "BWA",
+      "date": "2026-10-29",
+      "when": "pre-market",
+      "name": "BorgWarner Inc.",
+      "reason": "reports 2026-10-29 (pre-market)"
+    },
+    {
+      "symbol": "HII",
+      "date": "2026-10-29",
+      "when": "pre-market",
+      "name": "Huntington Ingalls Industries, Inc.",
+      "reason": "reports 2026-10-29 (pre-market)"
+    },
+    {
+      "symbol": "ARW",
+      "date": "2026-10-29",
+      "when": "unknown",
+      "name": "Arrow Electronics, Inc.",
+      "reason": "reports 2026-10-29 (unknown)"
+    },
+    {
       "symbol": "XOM",
-      "name": "Exxon Mobil Corporation",
-      "sector": "Energy",
-      "tier": "mega",
-      "setup": "orb15_gap",
-      "config_id": "orb15_gap|r=1.5",
-      "label": "15-minute opening-range breakout after a gap up of 0.5% or more, stop at the range midpoint, target 1.5R",
-      "signal": {
-        "setup": "orb15_gap",
-        "params": {
-          "or_minutes": 15,
-          "gap_min": 0.005,
-          "stop_rule": "or_mid",
-          "target_r": 1.5
-        },
-        "k": 3,
-        "entry": 181.16,
-        "stop": 179.97,
-        "target": 182.95,
-        "target_r": 1.5,
-        "stop_rule": "or_mid",
-        "entry_time": "9:50 AM",
-        "risk_per_share": 1.19,
-        "opening_range": {
-          "high": 180.95,
-          "low": 179.0,
-          "minutes": 15
-        },
-        "level": null,
-        "gap_pct": 0.64
-      },
-      "lab": {
-        "status": "watch",
-        "oos": {
-          "n": 66,
-          "target": 23,
-          "stop": 32,
-          "close": 11,
-          "green": 30,
-          "win_rate": 0.3485,
-          "win_ci95": [
-            0.2448,
-            0.4689
-          ],
-          "exp_R": 0.0216,
-          "exp_ci95": [
-            -0.2491,
-            0.3009
-          ],
-          "pf": 1.041,
-          "avg_win_R": 1.2196,
-          "avg_loss_R": -0.9768,
-          "max_dd_R": 13.177,
-          "median_R": -0.5114,
-          "n_symbols": 18,
-          "n_sessions": 19
-        },
-        "regime_slice": {
-          "tag": "vix_15_20",
-          "stats": {
-            "n": 144,
-            "target": 33,
-            "stop": 63,
-            "close": 48,
-            "green": 62,
-            "win_rate": 0.2292,
-            "win_ci95": [
-              0.1681,
-              0.3043
-            ],
-            "exp_R": -0.0926,
-            "exp_ci95": [
-              -0.2549,
-              0.0774
-            ],
-            "pf": 0.82,
-            "avg_win_R": 0.9825,
-            "avg_loss_R": -0.9055,
-            "max_dd_R": 25.694,
-            "median_R": -0.3803,
-            "n_symbols": 18,
-            "n_sessions": 44
-          }
-        },
-        "fill_note": "ranked on the next-open fill after 4 bps; the plan price is the idealised number"
-      },
-      "timemachine": {
-        "p_target": 0.3421,
-        "p_stop": 0.492,
-        "p_neither": 0.1659,
-        "p_green": 0.4528,
-        "avg_R": 0.067,
-        "median_close": 181.32,
-        "p5_close": 178.23,
-        "p95_close": 184.41,
-        "replays": 10000,
-        "until": "15:55",
-        "history": {
-          "sessions": 59,
-          "triggered": 42,
-          "target": 7,
-          "stop": 21,
-          "close": 14,
-          "green": 17,
-          "avg_R": -0.191,
-          "note": null
-        },
-        "verdict": "Close to break-even: at 1.5R the target has to come first in 40 % of the replays that hit one side; it did in 41 % (target first 34.2 % vs stop first 49.2 %).",
-        "verdict_notes": [],
-        "seed": 19
-      },
-      "flags": [
-        "late",
-        "watch_only",
-        "regime_against"
-      ],
-      "score": -0.2549
+      "date": "2026-10-30",
+      "when": "pre-market",
+      "name": "ExxonMobil Holdings Corporation",
+      "reason": "reports 2026-10-30 (pre-market)"
+    },
+    {
+      "symbol": "ABBV",
+      "date": "2026-10-30",
+      "when": "pre-market",
+      "name": "AbbVie Inc.",
+      "reason": "reports 2026-10-30 (pre-market)"
+    },
+    {
+      "symbol": "CVX",
+      "date": "2026-10-30",
+      "when": "pre-market",
+      "name": "Chevron Corporation",
+      "reason": "reports 2026-10-30 (pre-market)"
+    },
+    {
+      "symbol": "AZN",
+      "date": "2026-10-30",
+      "when": "pre-market",
+      "name": "AstraZeneca PLC",
+      "reason": "reports 2026-10-30 (pre-market)"
+    },
+    {
+      "symbol": "BP",
+      "date": "2026-10-30",
+      "when": "pre-market",
+      "name": "BP p.l.c.",
+      "reason": "reports 2026-10-30 (pre-market)"
+    },
+    {
+      "symbol": "SNY",
+      "date": "2026-10-30",
+      "when": "pre-market",
+      "name": "Sanofi",
+      "reason": "reports 2026-10-30 (pre-market)"
+    },
+    {
+      "symbol": "GD",
+      "date": "2026-10-30",
+      "when": "pre-market",
+      "name": "General Dynamics Corporation",
+      "reason": "reports 2026-10-30 (pre-market)"
+    },
+    {
+      "symbol": "REGN",
+      "date": "2026-10-30",
+      "when": "pre-market",
+      "name": "Regeneron Pharmaceuticals, Inc.",
+      "reason": "reports 2026-10-30 (pre-market)"
+    },
+    {
+      "symbol": "CL",
+      "date": "2026-10-30",
+      "when": "pre-market",
+      "name": "Colgate-Palmolive Company",
+      "reason": "reports 2026-10-30 (pre-market)"
+    },
+    {
+      "symbol": "CNI",
+      "date": "2026-10-30",
+      "when": "pre-market",
+      "name": "Canadian National Railway Company",
+      "reason": "reports 2026-10-30 (pre-market)"
+    },
+    {
+      "symbol": "NWG",
+      "date": "2026-10-30",
+      "when": "pre-market",
+      "name": "NatWest Group plc",
+      "reason": "reports 2026-10-30 (pre-market)"
+    },
+    {
+      "symbol": "IMO",
+      "date": "2026-10-30",
+      "when": "pre-market",
+      "name": "Imperial Oil Limited",
+      "reason": "reports 2026-10-30 (pre-market)"
+    },
+    {
+      "symbol": "CVE",
+      "date": "2026-10-30",
+      "when": "unknown",
+      "name": "Cenovus Energy Inc",
+      "reason": "reports 2026-10-30 (unknown)"
+    },
+    {
+      "symbol": "D",
+      "date": "2026-10-30",
+      "when": "pre-market",
+      "name": "Dominion Energy, Inc.",
+      "reason": "reports 2026-10-30 (pre-market)"
+    },
+    {
+      "symbol": "EXC",
+      "date": "2026-10-30",
+      "when": "pre-market",
+      "name": "Exelon Corporation",
+      "reason": "reports 2026-10-30 (pre-market)"
+    },
+    {
+      "symbol": "KVUE",
+      "date": "2026-10-30",
+      "when": "pre-market",
+      "name": "Kenvue Inc.",
+      "reason": "reports 2026-10-30 (pre-market)"
+    },
+    {
+      "symbol": "CCJ",
+      "date": "2026-10-30",
+      "when": "pre-market",
+      "name": "Cameco Corporation",
+      "reason": "reports 2026-10-30 (pre-market)"
+    },
+    {
+      "symbol": "CHD",
+      "date": "2026-10-30",
+      "when": "pre-market",
+      "name": "Church & Dwight Company, Inc.",
+      "reason": "reports 2026-10-30 (pre-market)"
+    },
+    {
+      "symbol": "LYB",
+      "date": "2026-10-30",
+      "when": "pre-market",
+      "name": "LyondellBasell Industries NV",
+      "reason": "reports 2026-10-30 (pre-market)"
+    },
+    {
+      "symbol": "NVT",
+      "date": "2026-10-30",
+      "when": "pre-market",
+      "name": "nVent Electric plc",
+      "reason": "reports 2026-10-30 (pre-market)"
+    },
+    {
+      "symbol": "BCH",
+      "date": "2026-10-30",
+      "when": "pre-market",
+      "name": "Banco De Chile",
+      "reason": "reports 2026-10-30 (pre-market)"
+    },
+    {
+      "symbol": "MGA",
+      "date": "2026-10-30",
+      "when": "pre-market",
+      "name": "Magna International, Inc.",
+      "reason": "reports 2026-10-30 (pre-market)"
+    },
+    {
+      "symbol": "RBC",
+      "date": "2026-10-30",
+      "when": "pre-market",
+      "name": "RBC Bearings Incorporated",
+      "reason": "reports 2026-10-30 (pre-market)"
+    },
+    {
+      "symbol": "BSAC",
+      "date": "2026-10-30",
+      "when": "pre-market",
+      "name": "Banco Santander Chile",
+      "reason": "reports 2026-10-30 (pre-market)"
+    },
+    {
+      "symbol": "BTSG",
+      "date": "2026-10-30",
+      "when": "pre-market",
+      "name": "BrightSpring Health Services, Inc.",
+      "reason": "reports 2026-10-30 (pre-market)"
+    },
+    {
+      "symbol": "CBOE",
+      "date": "2026-10-30",
+      "when": "pre-market",
+      "name": "Cboe Global Markets, Inc.",
+      "reason": "reports 2026-10-30 (pre-market)"
+    },
+    {
+      "symbol": "AAPL",
+      "date": "2026-11-02",
+      "when": "after-close",
+      "name": "Apple Inc.",
+      "reason": "reports 2026-11-02 (after-close)"
+    },
+    {
+      "symbol": "PLTR",
+      "date": "2026-11-02",
+      "when": "after-close",
+      "name": "Palantir Technologies Inc.",
+      "reason": "reports 2026-11-02 (after-close)"
+    },
+    {
+      "symbol": "VRTX",
+      "date": "2026-11-02",
+      "when": "after-close",
+      "name": "Vertex Pharmaceuticals Incorporated",
+      "reason": "reports 2026-11-02 (after-close)"
+    },
+    {
+      "symbol": "MAR",
+      "date": "2026-11-02",
+      "when": "pre-market",
+      "name": "Marriott International",
+      "reason": "reports 2026-11-02 (pre-market)"
+    },
+    {
+      "symbol": "WMB",
+      "date": "2026-11-02",
+      "when": "after-close",
+      "name": "Williams Companies, Inc. (The)",
+      "reason": "reports 2026-11-02 (after-close)"
+    },
+    {
+      "symbol": "FANG",
+      "date": "2026-11-02",
+      "when": "after-close",
+      "name": "Diamondback Energy, Inc.",
+      "reason": "reports 2026-11-02 (after-close)"
+    },
+    {
+      "symbol": "O",
+      "date": "2026-11-02",
+      "when": "after-close",
+      "name": "Realty Income Corporation",
+      "reason": "reports 2026-11-02 (after-close)"
+    },
+    {
+      "symbol": "ETR",
+      "date": "2026-11-02",
+      "when": "pre-market",
+      "name": "Entergy Corporation",
+      "reason": "reports 2026-11-02 (pre-market)"
+    },
+    {
+      "symbol": "IDXX",
+      "date": "2026-11-02",
+      "when": "pre-market",
+      "name": "IDEXX Laboratories, Inc.",
+      "reason": "reports 2026-11-02 (pre-market)"
+    },
+    {
+      "symbol": "EL",
+      "date": "2026-11-02",
+      "when": "pre-market",
+      "name": "Estee Lauder Companies, Inc. (The)",
+      "reason": "reports 2026-11-02 (pre-market)"
+    },
+    {
+      "symbol": "PEG",
+      "date": "2026-11-02",
+      "when": "pre-market",
+      "name": "Public Service Enterprise Group Incorporated",
+      "reason": "reports 2026-11-02 (pre-market)"
+    },
+    {
+      "symbol": "ON",
+      "date": "2026-11-02",
+      "when": "after-close",
+      "name": "ON Semiconductor Corporation",
+      "reason": "reports 2026-11-02 (after-close)"
+    },
+    {
+      "symbol": "RYAAY",
+      "date": "2026-11-02",
+      "when": "pre-market",
+      "name": "Ryanair Holdings plc",
+      "reason": "reports 2026-11-02 (pre-market)"
+    },
+    {
+      "symbol": "FOX",
+      "date": "2026-11-02",
+      "when": "pre-market",
+      "name": "Fox Corporation",
+      "reason": "reports 2026-11-02 (pre-market)"
+    },
+    {
+      "symbol": "FOXA",
+      "date": "2026-11-02",
+      "when": "pre-market",
+      "name": "Fox Corporation",
+      "reason": "reports 2026-11-02 (pre-market)"
+    },
+    {
+      "symbol": "ROKU",
+      "date": "2026-11-02",
+      "when": "after-close",
+      "name": "Roku, Inc.",
+      "reason": "reports 2026-11-02 (after-close)"
+    },
+    {
+      "symbol": "L",
+      "date": "2026-11-02",
+      "when": "pre-market",
+      "name": "Loews Corporation",
+      "reason": "reports 2026-11-02 (pre-market)"
+    },
+    {
+      "symbol": "TSEM",
+      "date": "2026-11-02",
+      "when": "pre-market",
+      "name": "Tower Semiconductor Ltd.",
+      "reason": "reports 2026-11-02 (pre-market)"
+    },
+    {
+      "symbol": "SBAC",
+      "date": "2026-11-02",
+      "when": "after-close",
+      "name": "SBA Communications Corporation",
+      "reason": "reports 2026-11-02 (after-close)"
+    },
+    {
+      "symbol": "PS",
+      "date": "2026-11-02",
+      "when": "after-close",
+      "name": "Pershing Square Inc.",
+      "reason": "reports 2026-11-02 (after-close)"
+    },
+    {
+      "symbol": "VNOM",
+      "date": "2026-11-02",
+      "when": "after-close",
+      "name": "Viper Energy, Inc. ",
+      "reason": "reports 2026-11-02 (after-close)"
+    },
+    {
+      "symbol": "CRBG",
+      "date": "2026-11-02",
+      "when": "after-close",
+      "name": "Corebridge Financial Inc.",
+      "reason": "reports 2026-11-02 (after-close)"
+    },
+    {
+      "symbol": "CHKP",
+      "date": "2026-11-02",
+      "when": "pre-market",
+      "name": "Check Point Software Technologies Ltd.",
+      "reason": "reports 2026-11-02 (pre-market)"
+    },
+    {
+      "symbol": "EQH",
+      "date": "2026-11-02",
+      "when": "after-close",
+      "name": "Equitable Holdings, Inc.",
+      "reason": "reports 2026-11-02 (after-close)"
+    },
+    {
+      "symbol": "NBIX",
+      "date": "2026-11-02",
+      "when": "after-close",
+      "name": "Neurocrine Biosciences, Inc.",
+      "reason": "reports 2026-11-02 (after-close)"
+    },
+    {
+      "symbol": "JAZZ",
+      "date": "2026-11-02",
+      "when": "after-close",
+      "name": "Jazz Pharmaceuticals plc",
+      "reason": "reports 2026-11-02 (after-close)"
+    },
+    {
+      "symbol": "LSCC",
+      "date": "2026-11-02",
+      "when": "after-close",
+      "name": "Lattice Semiconductor Corporation",
+      "reason": "reports 2026-11-02 (after-close)"
+    },
+    {
+      "symbol": "CNA",
+      "date": "2026-11-02",
+      "when": "pre-market",
+      "name": "CNA Financial Corporation",
+      "reason": "reports 2026-11-02 (pre-market)"
+    },
+    {
+      "symbol": "DOC",
+      "date": "2026-11-02",
+      "when": "after-close",
+      "name": "Healthpeak Properties, Inc.",
+      "reason": "reports 2026-11-02 (after-close)"
+    },
+    {
+      "symbol": "GRAB",
+      "date": "2026-11-02",
+      "when": "after-close",
+      "name": "Grab Holdings Limited",
+      "reason": "reports 2026-11-02 (after-close)"
+    },
+    {
+      "symbol": "BWXT",
+      "date": "2026-11-02",
+      "when": "after-close",
+      "name": "BWX Technologies, Inc.",
+      "reason": "reports 2026-11-02 (after-close)"
+    },
+    {
+      "symbol": "UDR",
+      "date": "2026-11-02",
+      "when": "after-close",
+      "name": "UDR, Inc.",
+      "reason": "reports 2026-11-02 (after-close)"
+    },
+    {
+      "symbol": "TEM",
+      "date": "2026-11-02",
+      "when": "pre-market",
+      "name": "Tempus AI, Inc.",
+      "reason": "reports 2026-11-02 (pre-market)"
+    },
+    {
+      "symbol": "FN",
+      "date": "2026-11-02",
+      "when": "after-close",
+      "name": "Fabrinet",
+      "reason": "reports 2026-11-02 (after-close)"
+    },
+    {
+      "symbol": "CLX",
+      "date": "2026-11-02",
+      "when": "after-close",
+      "name": "Clorox Company (The)",
+      "reason": "reports 2026-11-02 (after-close)"
+    },
+    {
+      "symbol": "MTCH",
+      "date": "2026-11-02",
+      "when": "after-close",
+      "name": "Match Group, Inc.",
+      "reason": "reports 2026-11-02 (after-close)"
+    },
+    {
+      "symbol": "ENSG",
+      "date": "2026-11-02",
+      "when": "unknown",
+      "name": "The Ensign Group, Inc.",
+      "reason": "reports 2026-11-02 (unknown)"
+    },
+    {
+      "symbol": "AMG",
+      "date": "2026-11-02",
+      "when": "unknown",
+      "name": "Affiliated Managers Group, Inc.",
+      "reason": "reports 2026-11-02 (unknown)"
     }
   ],
-  "note": "Candidates matched a rule with a measured record. None is a prediction. Most people who day trade lose money. EXAMPLE: a replay of the desk's board on the fixture's last session, computed by scripts/example_data.py over the offline fixture (tests/fixtures/dt-cache) so the dashboard renders before the tools have run. The tools overwrite this file with --publish."
+  "earnings_days": [
+    "2026-10-26",
+    "2026-10-27",
+    "2026-10-28",
+    "2026-10-29",
+    "2026-10-30",
+    "2026-11-02"
+  ],
+  "daily_hits": [
+    {
+      "symbol": "CRWD",
+      "setups": [
+        "reclaim_ma20"
+      ],
+      "price": 257.57,
+      "rsi": 56.1,
+      "volume": 13400134,
+      "close_date": "2026-10-23"
+    },
+    {
+      "symbol": "GEV",
+      "setups": [
+        "oversold"
+      ],
+      "price": 815.0,
+      "rsi": 29.9,
+      "volume": 3857653,
+      "close_date": "2026-10-23"
+    },
+    {
+      "symbol": "LRCX",
+      "setups": [
+        "oversold"
+      ],
+      "price": 230.1,
+      "rsi": 24.7,
+      "volume": 12738622,
+      "close_date": "2026-10-23"
+    },
+    {
+      "symbol": "AMAT",
+      "setups": [
+        "oversold",
+        "oversold_bounce"
+      ],
+      "price": 377.24,
+      "rsi": 26.1,
+      "volume": 6917215,
+      "close_date": "2026-10-23"
+    },
+    {
+      "symbol": "CRWV",
+      "setups": [
+        "oversold"
+      ],
+      "price": 54.23,
+      "rsi": 26.3,
+      "volume": 46947437,
+      "close_date": "2026-10-23"
+    },
+    {
+      "symbol": "SKHY",
+      "setups": [
+        "oversold_bounce"
+      ],
+      "price": 137.02,
+      "rsi": 34.5,
+      "volume": 16311654,
+      "close_date": "2026-10-23"
+    },
+    {
+      "symbol": "WMT",
+      "setups": [
+        "bull_flag"
+      ],
+      "price": 119.89,
+      "rsi": 69.8,
+      "volume": 18598906,
+      "close_date": "2026-10-23"
+    },
+    {
+      "symbol": "TXN",
+      "setups": [
+        "reclaim_ma20"
+      ],
+      "price": 284.69,
+      "rsi": 55.3,
+      "volume": 7515093,
+      "close_date": "2026-10-23"
+    },
+    {
+      "symbol": "XOM",
+      "setups": [
+        "breakout_20d"
+      ],
+      "price": 183.21,
+      "rsi": 75.9,
+      "volume": 11493872,
+      "close_date": "2026-10-23"
+    },
+    {
+      "symbol": "CAT",
+      "setups": [
+        "oversold"
+      ],
+      "price": 687.0,
+      "rsi": 26.7,
+      "volume": 3014464,
+      "close_date": "2026-10-23"
+    },
+    {
+      "symbol": "V",
+      "setups": [
+        "bull_flag"
+      ],
+      "price": 407.92,
+      "rsi": 70.1,
+      "volume": 5071142,
+      "close_date": "2026-10-23"
+    },
+    {
+      "symbol": "CVX",
+      "setups": [
+        "breakout_20d"
+      ],
+      "price": 233.21,
+      "rsi": 76.5,
+      "volume": 8131403,
+      "close_date": "2026-10-23"
+    },
+    {
+      "symbol": "GE",
+      "setups": [
+        "oversold"
+      ],
+      "price": 285.64,
+      "rsi": 26.1,
+      "volume": 6516403,
+      "close_date": "2026-10-23"
+    },
+    {
+      "symbol": "NOW",
+      "setups": [
+        "breakout_20d"
+      ],
+      "price": 158.96,
+      "rsi": 70.3,
+      "volume": 11057820,
+      "close_date": "2026-10-23"
+    },
+    {
+      "symbol": "MA",
+      "setups": [
+        "bull_flag"
+      ],
+      "price": 623.6,
+      "rsi": 70.2,
+      "volume": 2696779,
+      "close_date": "2026-10-23"
+    },
+    {
+      "symbol": "AMT",
+      "setups": [
+        "breakout_20d"
+      ],
+      "price": 188.97,
+      "rsi": 65.8,
+      "volume": 8706309,
+      "close_date": "2026-10-23"
+    },
+    {
+      "symbol": "FIX",
+      "setups": [
+        "oversold"
+      ],
+      "price": 1160.86,
+      "rsi": 21.1,
+      "volume": 1367036,
+      "close_date": "2026-10-23"
+    },
+    {
+      "symbol": "KLAC",
+      "setups": [
+        "oversold"
+      ],
+      "price": 145.61,
+      "rsi": 23.1,
+      "volume": 10438787,
+      "close_date": "2026-10-23"
+    },
+    {
+      "symbol": "CCI",
+      "setups": [
+        "breakout_20d"
+      ],
+      "price": 85.97,
+      "rsi": 71.8,
+      "volume": 17320678,
+      "close_date": "2026-10-23"
+    },
+    {
+      "symbol": "IBM",
+      "setups": [
+        "breakout_20d"
+      ],
+      "price": 253.56,
+      "rsi": 72.0,
+      "volume": 5845665,
+      "close_date": "2026-10-23"
+    },
+    {
+      "symbol": "SPOT",
+      "setups": [
+        "breakout_20d"
+      ],
+      "price": 584.22,
+      "rsi": 70.6,
+      "volume": 2477533,
+      "close_date": "2026-10-23"
+    },
+    {
+      "symbol": "VRT",
+      "setups": [
+        "oversold"
+      ],
+      "price": 194.32,
+      "rsi": 27.6,
+      "volume": 7371594,
+      "close_date": "2026-10-23"
+    },
+    {
+      "symbol": "BAC",
+      "setups": [
+        "oversold"
+      ],
+      "price": 50.56,
+      "rsi": 26.2,
+      "volume": 27372516,
+      "close_date": "2026-10-23"
+    },
+    {
+      "symbol": "ISRG",
+      "setups": [
+        "breakout_20d"
+      ],
+      "price": 452.29,
+      "rsi": 71.5,
+      "volume": 3005105,
+      "close_date": "2026-10-23"
+    },
+    {
+      "symbol": "HWM",
+      "setups": [
+        "oversold"
+      ],
+      "price": 185.91,
+      "rsi": 19.3,
+      "volume": 6037797,
+      "close_date": "2026-10-23"
+    },
+    {
+      "symbol": "COP",
+      "setups": [
+        "breakout_20d",
+        "bull_flag"
+      ],
+      "price": 150.8,
+      "rsi": 76.5,
+      "volume": 7221306,
+      "close_date": "2026-10-23"
+    },
+    {
+      "symbol": "LMT",
+      "setups": [
+        "breakout_20d"
+      ],
+      "price": 604.18,
+      "rsi": 77.9,
+      "volume": 1802107,
+      "close_date": "2026-10-23"
+    },
+    {
+      "symbol": "ZS",
+      "setups": [
+        "breakout_20d"
+      ],
+      "price": 255.15,
+      "rsi": 72.1,
+      "volume": 3991932,
+      "close_date": "2026-10-23"
+    },
+    {
+      "symbol": "SLB",
+      "setups": [
+        "breakout_20d"
+      ],
+      "price": 53.06,
+      "rsi": 60.0,
+      "volume": 19041356,
+      "close_date": "2026-10-23"
+    },
+    {
+      "symbol": "IREN",
+      "setups": [
+        "oversold"
+      ],
+      "price": 24.91,
+      "rsi": 24.7,
+      "volume": 39056462,
+      "close_date": "2026-10-23"
+    },
+    {
+      "symbol": "NEE",
+      "setups": [
+        "breakout_20d"
+      ],
+      "price": 82.1,
+      "rsi": 62.5,
+      "volume": 11733113,
+      "close_date": "2026-10-23"
+    },
+    {
+      "symbol": "APH",
+      "setups": [
+        "oversold_bounce"
+      ],
+      "price": 74.09,
+      "rsi": 32.4,
+      "volume": 12984227,
+      "close_date": "2026-10-23"
+    },
+    {
+      "symbol": "CART",
+      "setups": [
+        "breakout_20d"
+      ],
+      "price": 56.44,
+      "rsi": 77.4,
+      "volume": 16098050,
+      "close_date": "2026-10-23"
+    },
+    {
+      "symbol": "PWR",
+      "setups": [
+        "oversold"
+      ],
+      "price": 546.43,
+      "rsi": 28.6,
+      "volume": 1620674,
+      "close_date": "2026-10-23"
+    },
+    {
+      "symbol": "CBRS",
+      "setups": [
+        "oversold",
+        "oversold_bounce"
+      ],
+      "price": 110.82,
+      "rsi": 23.9,
+      "volume": 7620682,
+      "close_date": "2026-10-23"
+    },
+    {
+      "symbol": "CLS",
+      "setups": [
+        "oversold"
+      ],
+      "price": 260.01,
+      "rsi": 28.6,
+      "volume": 3122938,
+      "close_date": "2026-10-23"
+    },
+    {
+      "symbol": "PSX",
+      "setups": [
+        "bull_flag"
+      ],
+      "price": 283.18,
+      "rsi": 58.2,
+      "volume": 2766489,
+      "close_date": "2026-10-23"
+    },
+    {
+      "symbol": "PH",
+      "setups": [
+        "oversold"
+      ],
+      "price": 880.57,
+      "rsi": 29.7,
+      "volume": 884231,
+      "close_date": "2026-10-23"
+    },
+    {
+      "symbol": "OXY",
+      "setups": [
+        "breakout_20d"
+      ],
+      "price": 64.17,
+      "rsi": 68.2,
+      "volume": 11211462,
+      "close_date": "2026-10-23"
+    },
+    {
+      "symbol": "FCNCA",
+      "setups": [
+        "breakout_20d"
+      ],
+      "price": 2375.84,
+      "rsi": 78.2,
+      "volume": 298554,
+      "close_date": "2026-10-23"
+    },
+    {
+      "symbol": "TJX",
+      "setups": [
+        "bull_flag"
+      ],
+      "price": 145.06,
+      "rsi": 62.8,
+      "volume": 4857725,
+      "close_date": "2026-10-23"
+    },
+    {
+      "symbol": "SHOP",
+      "setups": [
+        "bull_flag"
+      ],
+      "price": 168.68,
+      "rsi": 58.0,
+      "volume": 4104337,
+      "close_date": "2026-10-23"
+    },
+    {
+      "symbol": "LNG",
+      "setups": [
+        "breakout_20d"
+      ],
+      "price": 298.67,
+      "rsi": 66.9,
+      "volume": 2304671,
+      "close_date": "2026-10-23"
+    },
+    {
+      "symbol": "NOK",
+      "setups": [
+        "oversold_bounce"
+      ],
+      "price": 8.14,
+      "rsi": 33.3,
+      "volume": 84521485,
+      "close_date": "2026-10-23"
+    },
+    {
+      "symbol": "MSI",
+      "setups": [
+        "breakout_20d"
+      ],
+      "price": 481.83,
+      "rsi": 69.2,
+      "volume": 1418573,
+      "close_date": "2026-10-23"
+    },
+    {
+      "symbol": "DVN",
+      "setups": [
+        "breakout_20d"
+      ],
+      "price": 51.39,
+      "rsi": 61.3,
+      "volume": 13271509,
+      "close_date": "2026-10-23"
+    },
+    {
+      "symbol": "MPC",
+      "setups": [
+        "bull_flag"
+      ],
+      "price": 457.22,
+      "rsi": 59.6,
+      "volume": 1460023,
+      "close_date": "2026-10-23"
+    },
+    {
+      "symbol": "CME",
+      "setups": [
+        "bull_flag"
+      ],
+      "price": 305.71,
+      "rsi": 78.0,
+      "volume": 2180288,
+      "close_date": "2026-10-23"
+    },
+    {
+      "symbol": "WM",
+      "setups": [
+        "breakout_20d"
+      ],
+      "price": 239.38,
+      "rsi": 78.0,
+      "volume": 2767354,
+      "close_date": "2026-10-23"
+    },
+    {
+      "symbol": "PBR",
+      "setups": [
+        "breakout_20d",
+        "bull_flag"
+      ],
+      "price": 26.16,
+      "rsi": 73.0,
+      "volume": 25090920,
+      "close_date": "2026-10-23"
+    },
+    {
+      "symbol": "KMI",
+      "setups": [
+        "breakout_20d",
+        "bull_flag"
+      ],
+      "price": 34.43,
+      "rsi": 65.6,
+      "volume": 18955575,
+      "close_date": "2026-10-23"
+    },
+    {
+      "symbol": "OKTA",
+      "setups": [
+        "reclaim_ma20"
+      ],
+      "price": 213.05,
+      "rsi": 56.3,
+      "volume": 3058999,
+      "close_date": "2026-10-23"
+    },
+    {
+      "symbol": "CBOE",
+      "setups": [
+        "breakout_20d"
+      ],
+      "price": 340.42,
+      "rsi": 72.9,
+      "volume": 1864493,
+      "close_date": "2026-10-23"
+    },
+    {
+      "symbol": "MCK",
+      "setups": [
+        "bull_flag"
+      ],
+      "price": 1000.77,
+      "rsi": 66.4,
+      "volume": 628966,
+      "close_date": "2026-10-23"
+    },
+    {
+      "symbol": "CRS",
+      "setups": [
+        "oversold"
+      ],
+      "price": 284.66,
+      "rsi": 11.0,
+      "volume": 2206211,
+      "close_date": "2026-10-23"
+    },
+    {
+      "symbol": "SYK",
+      "setups": [
+        "breakout_20d"
+      ],
+      "price": 307.15,
+      "rsi": 64.3,
+      "volume": 1984803,
+      "close_date": "2026-10-23"
+    },
+    {
+      "symbol": "HON",
+      "setups": [
+        "breakout_20d"
+      ],
+      "price": 221.15,
+      "rsi": 66.1,
+      "volume": 2620851,
+      "close_date": "2026-10-23"
+    },
+    {
+      "symbol": "GMAB",
+      "setups": [
+        "breakout_20d"
+      ],
+      "price": 43.79,
+      "rsi": 78.1,
+      "volume": 13000825,
+      "close_date": "2026-10-23"
+    },
+    {
+      "symbol": "EMR",
+      "setups": [
+        "reclaim_ma20"
+      ],
+      "price": 161.59,
+      "rsi": 55.9,
+      "volume": 3301093,
+      "close_date": "2026-10-23"
+    },
+    {
+      "symbol": "CDE",
+      "setups": [
+        "oversold"
+      ],
+      "price": 13.45,
+      "rsi": 24.1,
+      "volume": 39212315,
+      "close_date": "2026-10-23"
+    },
+    {
+      "symbol": "EOG",
+      "setups": [
+        "breakout_20d",
+        "bull_flag"
+      ],
+      "price": 163.03,
+      "rsi": 75.2,
+      "volume": 3227001,
+      "close_date": "2026-10-23"
+    },
+    {
+      "symbol": "ASTS",
+      "setups": [
+        "oversold_bounce"
+      ],
+      "price": 39.79,
+      "rsi": 31.3,
+      "volume": 13053216,
+      "close_date": "2026-10-23"
+    },
+    {
+      "symbol": "RBRK",
+      "setups": [
+        "breakout_20d"
+      ],
+      "price": 128.74,
+      "rsi": 65.4,
+      "volume": 4022943,
+      "close_date": "2026-10-23"
+    },
+    {
+      "symbol": "CMG",
+      "setups": [
+        "oversold"
+      ],
+      "price": 27.52,
+      "rsi": 25.4,
+      "volume": 18671264,
+      "close_date": "2026-10-23"
+    },
+    {
+      "symbol": "ROP",
+      "setups": [
+        "breakout_20d"
+      ],
+      "price": 438.14,
+      "rsi": 80.5,
+      "volume": 1161480,
+      "close_date": "2026-10-23"
+    },
+    {
+      "symbol": "SHEL",
+      "setups": [
+        "breakout_20d",
+        "bull_flag"
+      ],
+      "price": 108.18,
+      "rsi": 76.6,
+      "volume": 4656592,
+      "close_date": "2026-10-23"
+    },
+    {
+      "symbol": "ELV",
+      "setups": [
+        "bull_flag"
+      ],
+      "price": 439.95,
+      "rsi": 66.6,
+      "volume": 1144955,
+      "close_date": "2026-10-23"
+    },
+    {
+      "symbol": "SE",
+      "setups": [
+        "oversold"
+      ],
+      "price": 74.63,
+      "rsi": 18.6,
+      "volume": 6655701,
+      "close_date": "2026-10-23"
+    },
+    {
+      "symbol": "MDB",
+      "setups": [
+        "reclaim_ma20"
+      ],
+      "price": 371.09,
+      "rsi": 50.2,
+      "volume": 1294212,
+      "close_date": "2026-10-23"
+    },
+    {
+      "symbol": "BP",
+      "setups": [
+        "breakout_20d",
+        "bull_flag"
+      ],
+      "price": 51.32,
+      "rsi": 73.6,
+      "volume": 9154101,
+      "close_date": "2026-10-23"
+    },
+    {
+      "symbol": "WCN",
+      "setups": [
+        "breakout_20d"
+      ],
+      "price": 186.6,
+      "rsi": 80.8,
+      "volume": 2513487,
+      "close_date": "2026-10-23"
+    },
+    {
+      "symbol": "MO",
+      "setups": [
+        "bull_flag"
+      ],
+      "price": 74.31,
+      "rsi": 61.1,
+      "volume": 6299197,
+      "close_date": "2026-10-23"
+    },
+    {
+      "symbol": "KDP",
+      "setups": [
+        "bull_flag"
+      ],
+      "price": 34.68,
+      "rsi": 65.5,
+      "volume": 13465519,
+      "close_date": "2026-10-23"
+    },
+    {
+      "symbol": "TEAM",
+      "setups": [
+        "breakout_20d"
+      ],
+      "price": 227.61,
+      "rsi": 69.6,
+      "volume": 2021693,
+      "close_date": "2026-10-23"
+    },
+    {
+      "symbol": "FLEX",
+      "setups": [
+        "oversold"
+      ],
+      "price": 76.55,
+      "rsi": 22.4,
+      "volume": 5963266,
+      "close_date": "2026-10-23"
+    },
+    {
+      "symbol": "CL",
+      "setups": [
+        "bull_flag"
+      ],
+      "price": 94.04,
+      "rsi": 60.3,
+      "volume": 4732175,
+      "close_date": "2026-10-23"
+    },
+    {
+      "symbol": "HAL",
+      "setups": [
+        "breakout_20d"
+      ],
+      "price": 34.92,
+      "rsi": 61.3,
+      "volume": 12694366,
+      "close_date": "2026-10-23"
+    },
+    {
+      "symbol": "VEEV",
+      "setups": [
+        "breakout_20d",
+        "bull_flag"
+      ],
+      "price": 323.04,
+      "rsi": 76.5,
+      "volume": 1371147,
+      "close_date": "2026-10-23"
+    },
+    {
+      "symbol": "EL",
+      "setups": [
+        "breakout_20d",
+        "bull_flag"
+      ],
+      "price": 108.67,
+      "rsi": 66.9,
+      "volume": 4063570,
+      "close_date": "2026-10-23"
+    },
+    {
+      "symbol": "OMC",
+      "setups": [
+        "breakout_20d"
+      ],
+      "price": 82.68,
+      "rsi": 64.3,
+      "volume": 5295170,
+      "close_date": "2026-10-23"
+    },
+    {
+      "symbol": "CTAS",
+      "setups": [
+        "breakout_20d"
+      ],
+      "price": 224.1,
+      "rsi": 78.2,
+      "volume": 1934715,
+      "close_date": "2026-10-23"
+    },
+    {
+      "symbol": "EBAY",
+      "setups": [
+        "bull_flag"
+      ],
+      "price": 121.41,
+      "rsi": 68.3,
+      "volume": 3556391,
+      "close_date": "2026-10-23"
+    },
+    {
+      "symbol": "HBAN",
+      "setups": [
+        "breakout_20d"
+      ],
+      "price": 15.73,
+      "rsi": 52.6,
+      "volume": 27154564,
+      "close_date": "2026-10-23"
+    },
+    {
+      "symbol": "WMB",
+      "setups": [
+        "reclaim_ma20"
+      ],
+      "price": 71.7,
+      "rsi": 50.3,
+      "volume": 5912143,
+      "close_date": "2026-10-23"
+    },
+    {
+      "symbol": "LEN",
+      "setups": [
+        "breakout_20d"
+      ],
+      "price": 84.92,
+      "rsi": 61.0,
+      "volume": 4930092,
+      "close_date": "2026-10-23"
+    },
+    {
+      "symbol": "CHKP",
+      "setups": [
+        "breakout_20d"
+      ],
+      "price": 159.03,
+      "rsi": 77.3,
+      "volume": 2568477,
+      "close_date": "2026-10-23"
+    },
+    {
+      "symbol": "BBY",
+      "setups": [
+        "breakout_20d"
+      ],
+      "price": 99.87,
+      "rsi": 69.1,
+      "volume": 3978699,
+      "close_date": "2026-10-23"
+    },
+    {
+      "symbol": "EQT",
+      "setups": [
+        "breakout_20d"
+      ],
+      "price": 55.63,
+      "rsi": 63.4,
+      "volume": 7078081,
+      "close_date": "2026-10-23"
+    },
+    {
+      "symbol": "CAH",
+      "setups": [
+        "bull_flag"
+      ],
+      "price": 249.57,
+      "rsi": 60.5,
+      "volume": 1562064,
+      "close_date": "2026-10-23"
+    },
+    {
+      "symbol": "COR",
+      "setups": [
+        "bull_flag"
+      ],
+      "price": 331.0,
+      "rsi": 54.4,
+      "volume": 1168290,
+      "close_date": "2026-10-23"
+    },
+    {
+      "symbol": "PHM",
+      "setups": [
+        "breakout_20d"
+      ],
+      "price": 121.19,
+      "rsi": 58.7,
+      "volume": 3162462,
+      "close_date": "2026-10-23"
+    },
+    {
+      "symbol": "YUM",
+      "setups": [
+        "bull_flag"
+      ],
+      "price": 149.7,
+      "rsi": 57.3,
+      "volume": 2555270,
+      "close_date": "2026-10-23"
+    },
+    {
+      "symbol": "UTHR",
+      "setups": [
+        "breakout_20d"
+      ],
+      "price": 587.5,
+      "rsi": 69.2,
+      "volume": 637875,
+      "close_date": "2026-10-23"
+    },
+    {
+      "symbol": "EME",
+      "setups": [
+        "oversold"
+      ],
+      "price": 647.66,
+      "rsi": 26.6,
+      "volume": 577269,
+      "close_date": "2026-10-23"
+    },
+    {
+      "symbol": "APA",
+      "setups": [
+        "breakout_20d",
+        "bull_flag"
+      ],
+      "price": 51.9,
+      "rsi": 75.1,
+      "volume": 7067921,
+      "close_date": "2026-10-23"
+    },
+    {
+      "symbol": "FANG",
+      "setups": [
+        "breakout_20d",
+        "bull_flag"
+      ],
+      "price": 205.75,
+      "rsi": 62.1,
+      "volume": 1769014,
+      "close_date": "2026-10-23"
+    },
+    {
+      "symbol": "QGEN",
+      "setups": [
+        "breakout_20d"
+      ],
+      "price": 50.39,
+      "rsi": 74.5,
+      "volume": 7144093,
+      "close_date": "2026-10-23"
+    },
+    {
+      "symbol": "WWD",
+      "setups": [
+        "oversold"
+      ],
+      "price": 303.55,
+      "rsi": 29.5,
+      "volume": 1162898,
+      "close_date": "2026-10-23"
+    },
+    {
+      "symbol": "TRGP",
+      "setups": [
+        "breakout_20d"
+      ],
+      "price": 302.37,
+      "rsi": 61.2,
+      "volume": 1125602,
+      "close_date": "2026-10-23"
+    },
+    {
+      "symbol": "ATI",
+      "setups": [
+        "oversold"
+      ],
+      "price": 156.88,
+      "rsi": 24.8,
+      "volume": 2075917,
+      "close_date": "2026-10-23"
+    },
+    {
+      "symbol": "EQNR",
+      "setups": [
+        "breakout_20d"
+      ],
+      "price": 48.82,
+      "rsi": 70.4,
+      "volume": 6658181,
+      "close_date": "2026-10-23"
+    },
+    {
+      "symbol": "NVT",
+      "setups": [
+        "oversold"
+      ],
+      "price": 125.4,
+      "rsi": 28.9,
+      "volume": 2591779,
+      "close_date": "2026-10-23"
+    },
+    {
+      "symbol": "HAS",
+      "setups": [
+        "breakout_20d"
+      ],
+      "price": 117.44,
+      "rsi": 87.6,
+      "volume": 2767347,
+      "close_date": "2026-10-23"
+    },
+    {
+      "symbol": "ALLE",
+      "setups": [
+        "breakout_20d"
+      ],
+      "price": 178.98,
+      "rsi": 79.8,
+      "volume": 1811106,
+      "close_date": "2026-10-23"
+    },
+    {
+      "symbol": "TFC",
+      "setups": [
+        "breakout_20d"
+      ],
+      "price": 48.44,
+      "rsi": 57.4,
+      "volume": 6657643,
+      "close_date": "2026-10-23"
+    },
+    {
+      "symbol": "INSM",
+      "setups": [
+        "oversold"
+      ],
+      "price": 93.39,
+      "rsi": 28.7,
+      "volume": 3414134,
+      "close_date": "2026-10-23"
+    },
+    {
+      "symbol": "CNQ",
+      "setups": [
+        "breakout_20d"
+      ],
+      "price": 55.06,
+      "rsi": 73.8,
+      "volume": 5761283,
+      "close_date": "2026-10-23"
+    },
+    {
+      "symbol": "RF",
+      "setups": [
+        "breakout_20d"
+      ],
+      "price": 28.47,
+      "rsi": 58.7,
+      "volume": 11117894,
+      "close_date": "2026-10-23"
+    },
+    {
+      "symbol": "VALE",
+      "setups": [
+        "oversold_bounce"
+      ],
+      "price": 12.4,
+      "rsi": 30.6,
+      "volume": 25497296,
+      "close_date": "2026-10-23"
+    },
+    {
+      "symbol": "VG",
+      "setups": [
+        "breakout_20d",
+        "reclaim_ma20"
+      ],
+      "price": 14.0,
+      "rsi": 57.2,
+      "volume": 22566019,
+      "close_date": "2026-10-23"
+    },
+    {
+      "symbol": "PTC",
+      "setups": [
+        "bull_flag"
+      ],
+      "price": 193.8,
+      "rsi": 78.8,
+      "volume": 1579247,
+      "close_date": "2026-10-23"
+    },
+    {
+      "symbol": "DOW",
+      "setups": [
+        "breakout_20d"
+      ],
+      "price": 32.61,
+      "rsi": 73.4,
+      "volume": 9383158,
+      "close_date": "2026-10-23"
+    },
+    {
+      "symbol": "CASY",
+      "setups": [
+        "bull_flag"
+      ],
+      "price": 699.26,
+      "rsi": 61.4,
+      "volume": 435347,
+      "close_date": "2026-10-23"
+    },
+    {
+      "symbol": "CW",
+      "setups": [
+        "oversold"
+      ],
+      "price": 464.94,
+      "rsi": 19.1,
+      "volume": 626720,
+      "close_date": "2026-10-23"
+    },
+    {
+      "symbol": "ALL",
+      "setups": [
+        "bull_flag"
+      ],
+      "price": 253.19,
+      "rsi": 62.7,
+      "volume": 1148705,
+      "close_date": "2026-10-23"
+    },
+    {
+      "symbol": "FIG",
+      "setups": [
+        "breakout_20d"
+      ],
+      "price": 24.64,
+      "rsi": 62.0,
+      "volume": 11627570,
+      "close_date": "2026-10-23"
+    },
+    {
+      "symbol": "STRL",
+      "setups": [
+        "oversold"
+      ],
+      "price": 355.3,
+      "rsi": 23.5,
+      "volume": 799949,
+      "close_date": "2026-10-23"
+    },
+    {
+      "symbol": "GFL",
+      "setups": [
+        "breakout_20d"
+      ],
+      "price": 45.56,
+      "rsi": 65.2,
+      "volume": 6202279,
+      "close_date": "2026-10-23"
+    },
+    {
+      "symbol": "GH",
+      "setups": [
+        "reclaim_ma20"
+      ],
+      "price": 169.08,
+      "rsi": 52.0,
+      "volume": 1669621,
+      "close_date": "2026-10-23"
+    },
+    {
+      "symbol": "CRL",
+      "setups": [
+        "breakout_20d"
+      ],
+      "price": 345.37,
+      "rsi": 73.3,
+      "volume": 808452,
+      "close_date": "2026-10-23"
+    },
+    {
+      "symbol": "RIVN",
+      "setups": [
+        "oversold"
+      ],
+      "price": 11.83,
+      "rsi": 20.9,
+      "volume": 23554380,
+      "close_date": "2026-10-23"
+    },
+    {
+      "symbol": "CDW",
+      "setups": [
+        "breakout_20d"
+      ],
+      "price": 165.11,
+      "rsi": 70.9,
+      "volume": 1678650,
+      "close_date": "2026-10-23"
+    },
+    {
+      "symbol": "IQV",
+      "setups": [
+        "breakout_20d"
+      ],
+      "price": 279.36,
+      "rsi": 65.7,
+      "volume": 981196,
+      "close_date": "2026-10-23"
+    },
+    {
+      "symbol": "FN",
+      "setups": [
+        "oversold"
+      ],
+      "price": 314.94,
+      "rsi": 26.9,
+      "volume": 846176,
+      "close_date": "2026-10-23"
+    },
+    {
+      "symbol": "CORT",
+      "setups": [
+        "oversold"
+      ],
+      "price": 85.86,
+      "rsi": 24.6,
+      "volume": 3098611,
+      "close_date": "2026-10-23"
+    },
+    {
+      "symbol": "BTI",
+      "setups": [
+        "bull_flag"
+      ],
+      "price": 59.48,
+      "rsi": 62.4,
+      "volume": 4438215,
+      "close_date": "2026-10-23"
+    },
+    {
+      "symbol": "RPRX",
+      "setups": [
+        "breakout_20d"
+      ],
+      "price": 63.86,
+      "rsi": 70.3,
+      "volume": 4015551,
+      "close_date": "2026-10-23"
+    },
+    {
+      "symbol": "GL",
+      "setups": [
+        "oversold"
+      ],
+      "price": 154.79,
+      "rsi": 25.9,
+      "volume": 1651165,
+      "close_date": "2026-10-23"
+    },
+    {
+      "symbol": "RIO",
+      "setups": [
+        "oversold"
+      ],
+      "price": 83.42,
+      "rsi": 20.8,
+      "volume": 3022209,
+      "close_date": "2026-10-23"
+    },
+    {
+      "symbol": "OKE",
+      "setups": [
+        "breakout_20d"
+      ],
+      "price": 95.83,
+      "rsi": 62.2,
+      "volume": 2560611,
+      "close_date": "2026-10-23"
+    },
+    {
+      "symbol": "PR",
+      "setups": [
+        "breakout_20d",
+        "bull_flag"
+      ],
+      "price": 25.49,
+      "rsi": 68.5,
+      "volume": 9618847,
+      "close_date": "2026-10-23"
+    },
+    {
+      "symbol": "PSA",
+      "setups": [
+        "breakout_20d"
+      ],
+      "price": 309.89,
+      "rsi": 65.9,
+      "volume": 780078,
+      "close_date": "2026-10-23"
+    },
+    {
+      "symbol": "HUBS",
+      "setups": [
+        "breakout_20d"
+      ],
+      "price": 270.88,
+      "rsi": 68.7,
+      "volume": 873917,
+      "close_date": "2026-10-23"
+    },
+    {
+      "symbol": "GGG",
+      "setups": [
+        "oversold"
+      ],
+      "price": 66.99,
+      "rsi": 24.1,
+      "volume": 3389929,
+      "close_date": "2026-10-23"
+    },
+    {
+      "symbol": "DINO",
+      "setups": [
+        "bull_flag"
+      ],
+      "price": 121.66,
+      "rsi": 59.3,
+      "volume": 1852390,
+      "close_date": "2026-10-23"
+    },
+    {
+      "symbol": "MKSI",
+      "setups": [
+        "oversold",
+        "oversold_bounce"
+      ],
+      "price": 196.55,
+      "rsi": 25.5,
+      "volume": 1146075,
+      "close_date": "2026-10-23"
+    },
+    {
+      "symbol": "OVV",
+      "setups": [
+        "breakout_20d",
+        "bull_flag"
+      ],
+      "price": 72.27,
+      "rsi": 73.6,
+      "volume": 3088709,
+      "close_date": "2026-10-23"
+    },
+    {
+      "symbol": "MTZ",
+      "setups": [
+        "oversold"
+      ],
+      "price": 171.05,
+      "rsi": 22.5,
+      "volume": 1289468,
+      "close_date": "2026-10-23"
+    },
+    {
+      "symbol": "ESTC",
+      "setups": [
+        "breakout_20d"
+      ],
+      "price": 102.43,
+      "rsi": 64.6,
+      "volume": 2110923,
+      "close_date": "2026-10-23"
+    },
+    {
+      "symbol": "CACI",
+      "setups": [
+        "breakout_20d"
+      ],
+      "price": 633.98,
+      "rsi": 58.5,
+      "volume": 339443,
+      "close_date": "2026-10-23"
+    },
+    {
+      "symbol": "PINS",
+      "setups": [
+        "bull_flag"
+      ],
+      "price": 22.32,
+      "rsi": 58.8,
+      "volume": 9602363,
+      "close_date": "2026-10-23"
+    },
+    {
+      "symbol": "UL",
+      "setups": [
+        "bull_flag"
+      ],
+      "price": 66.23,
+      "rsi": 62.8,
+      "volume": 3234654,
+      "close_date": "2026-10-23"
+    },
+    {
+      "symbol": "DOCN",
+      "setups": [
+        "oversold_bounce"
+      ],
+      "price": 93.22,
+      "rsi": 31.0,
+      "volume": 2281910,
+      "close_date": "2026-10-23"
+    },
+    {
+      "symbol": "GEHC",
+      "setups": [
+        "breakout_20d"
+      ],
+      "price": 71.45,
+      "rsi": 65.1,
+      "volume": 2976197,
+      "close_date": "2026-10-23"
+    },
+    {
+      "symbol": "BHP",
+      "setups": [
+        "oversold",
+        "oversold_bounce"
+      ],
+      "price": 77.85,
+      "rsi": 27.0,
+      "volume": 2710870,
+      "close_date": "2026-10-23"
+    },
+    {
+      "symbol": "TTE",
+      "setups": [
+        "breakout_20d"
+      ],
+      "price": 92.78,
+      "rsi": 63.9,
+      "volume": 2244594,
+      "close_date": "2026-10-23"
+    },
+    {
+      "symbol": "MEDP",
+      "setups": [
+        "breakout_20d"
+      ],
+      "price": 669.2,
+      "rsi": 67.6,
+      "volume": 309433,
+      "close_date": "2026-10-23"
+    },
+    {
+      "symbol": "CHD",
+      "setups": [
+        "bull_flag"
+      ],
+      "price": 105.19,
+      "rsi": 63.5,
+      "volume": 1965954,
+      "close_date": "2026-10-23"
+    },
+    {
+      "symbol": "BUD",
+      "setups": [
+        "bull_flag"
+      ],
+      "price": 84.26,
+      "rsi": 65.9,
+      "volume": 2446880,
+      "close_date": "2026-10-23"
+    },
+    {
+      "symbol": "LSCC",
+      "setups": [
+        "oversold"
+      ],
+      "price": 96.19,
+      "rsi": 29.7,
+      "volume": 2110668,
+      "close_date": "2026-10-23"
+    },
+    {
+      "symbol": "SU",
+      "setups": [
+        "breakout_20d",
+        "bull_flag"
+      ],
+      "price": 79.38,
+      "rsi": 72.5,
+      "volume": 2555116,
+      "close_date": "2026-10-23"
+    },
+    {
+      "symbol": "ZTS",
+      "setups": [
+        "bull_flag"
+      ],
+      "price": 81.03,
+      "rsi": 68.8,
+      "volume": 2501052,
+      "close_date": "2026-10-23"
+    },
+    {
+      "symbol": "FTV",
+      "setups": [
+        "breakout_20d"
+      ],
+      "price": 60.25,
+      "rsi": 66.2,
+      "volume": 3361876,
+      "close_date": "2026-10-23"
+    },
+    {
+      "symbol": "HALO",
+      "setups": [
+        "breakout_20d",
+        "bull_flag"
+      ],
+      "price": 125.63,
+      "rsi": 74.1,
+      "volume": 1530354,
+      "close_date": "2026-10-23"
+    },
+    {
+      "symbol": "FROG",
+      "setups": [
+        "reclaim_ma20"
+      ],
+      "price": 100.62,
+      "rsi": 57.1,
+      "volume": 1899307,
+      "close_date": "2026-10-23"
+    },
+    {
+      "symbol": "ERIC",
+      "setups": [
+        "bull_flag"
+      ],
+      "price": 10.66,
+      "rsi": 62.7,
+      "volume": 17433100,
+      "close_date": "2026-10-23"
+    },
+    {
+      "symbol": "R",
+      "setups": [
+        "breakout_20d"
+      ],
+      "price": 270.9,
+      "rsi": 77.4,
+      "volume": 684630,
+      "close_date": "2026-10-23"
+    },
+    {
+      "symbol": "LYB",
+      "setups": [
+        "breakout_20d"
+      ],
+      "price": 66.45,
+      "rsi": 68.1,
+      "volume": 2790424,
+      "close_date": "2026-10-23"
+    },
+    {
+      "symbol": "INVH",
+      "setups": [
+        "breakout_20d"
+      ],
+      "price": 27.54,
+      "rsi": 57.4,
+      "volume": 6620885,
+      "close_date": "2026-10-23"
+    },
+    {
+      "symbol": "CCEP",
+      "setups": [
+        "bull_flag"
+      ],
+      "price": 110.84,
+      "rsi": 58.7,
+      "volume": 1623222,
+      "close_date": "2026-10-23"
+    },
+    {
+      "symbol": "FTI",
+      "setups": [
+        "reclaim_ma20"
+      ],
+      "price": 69.89,
+      "rsi": 48.2,
+      "volume": 2566043,
+      "close_date": "2026-10-23"
+    },
+    {
+      "symbol": "RVTY",
+      "setups": [
+        "breakout_20d"
+      ],
+      "price": 158.77,
+      "rsi": 65.8,
+      "volume": 1113334,
+      "close_date": "2026-10-23"
+    },
+    {
+      "symbol": "GKOS",
+      "setups": [
+        "breakout_20d"
+      ],
+      "price": 178.88,
+      "rsi": 63.0,
+      "volume": 961023,
+      "close_date": "2026-10-23"
+    },
+    {
+      "symbol": "DOCU",
+      "setups": [
+        "breakout_20d"
+      ],
+      "price": 85.27,
+      "rsi": 77.0,
+      "volume": 1996272,
+      "close_date": "2026-10-23"
+    },
+    {
+      "symbol": "BBIO",
+      "setups": [
+        "breakout_20d"
+      ],
+      "price": 68.56,
+      "rsi": 51.9,
+      "volume": 2403443,
+      "close_date": "2026-10-23"
+    },
+    {
+      "symbol": "BWA",
+      "setups": [
+        "oversold"
+      ],
+      "price": 54.96,
+      "rsi": 29.4,
+      "volume": 2983628,
+      "close_date": "2026-10-23"
+    },
+    {
+      "symbol": "TW",
+      "setups": [
+        "breakout_20d"
+      ],
+      "price": 122.57,
+      "rsi": 81.9,
+      "volume": 1331338,
+      "close_date": "2026-10-23"
+    },
+    {
+      "symbol": "EXR",
+      "setups": [
+        "breakout_20d"
+      ],
+      "price": 143.41,
+      "rsi": 64.8,
+      "volume": 1120192,
+      "close_date": "2026-10-23"
+    },
+    {
+      "symbol": "AR",
+      "setups": [
+        "breakout_20d",
+        "bull_flag"
+      ],
+      "price": 40.16,
+      "rsi": 68.5,
+      "volume": 3878851,
+      "close_date": "2026-10-23"
+    },
+    {
+      "symbol": "HLN",
+      "setups": [
+        "bull_flag"
+      ],
+      "price": 10.27,
+      "rsi": 67.8,
+      "volume": 15066421,
+      "close_date": "2026-10-23"
+    },
+    {
+      "symbol": "ALB",
+      "setups": [
+        "oversold",
+        "oversold_bounce"
+      ],
+      "price": 93.67,
+      "rsi": 29.2,
+      "volume": 1570010,
+      "close_date": "2026-10-23"
+    },
+    {
+      "symbol": "SWK",
+      "setups": [
+        "breakout_20d"
+      ],
+      "price": 99.24,
+      "rsi": 69.3,
+      "volume": 1476103,
+      "close_date": "2026-10-23"
+    },
+    {
+      "symbol": "AA",
+      "setups": [
+        "oversold"
+      ],
+      "price": 37.91,
+      "rsi": 27.5,
+      "volume": 3774738,
+      "close_date": "2026-10-23"
+    },
+    {
+      "symbol": "RRC",
+      "setups": [
+        "breakout_20d"
+      ],
+      "price": 45.52,
+      "rsi": 71.8,
+      "volume": 3114173,
+      "close_date": "2026-10-23"
+    },
+    {
+      "symbol": "LDOS",
+      "setups": [
+        "breakout_20d"
+      ],
+      "price": 136.08,
+      "rsi": 68.5,
+      "volume": 1036548,
+      "close_date": "2026-10-23"
+    },
+    {
+      "symbol": "JKHY",
+      "setups": [
+        "breakout_20d"
+      ],
+      "price": 162.55,
+      "rsi": 65.6,
+      "volume": 864914,
+      "close_date": "2026-10-23"
+    },
+    {
+      "symbol": "ASND",
+      "setups": [
+        "breakout_20d"
+      ],
+      "price": 243.37,
+      "rsi": 59.5,
+      "volume": 575675,
+      "close_date": "2026-10-23"
+    },
+    {
+      "symbol": "PAYC",
+      "setups": [
+        "breakout_20d"
+      ],
+      "price": 274.59,
+      "rsi": 82.1,
+      "volume": 509908,
+      "close_date": "2026-10-23"
+    },
+    {
+      "symbol": "IFF",
+      "setups": [
+        "breakout_20d",
+        "bull_flag"
+      ],
+      "price": 94.15,
+      "rsi": 80.4,
+      "volume": 1483601,
+      "close_date": "2026-10-23"
+    },
+    {
+      "symbol": "SAIL",
+      "setups": [
+        "breakout_20d"
+      ],
+      "price": 21.79,
+      "rsi": 63.7,
+      "volume": 6398683,
+      "close_date": "2026-10-23"
+    },
+    {
+      "symbol": "IOT",
+      "setups": [
+        "breakout_20d"
+      ],
+      "price": 44.92,
+      "rsi": 64.5,
+      "volume": 3102587,
+      "close_date": "2026-10-23"
+    },
+    {
+      "symbol": "BIDU",
+      "setups": [
+        "oversold"
+      ],
+      "price": 77.2,
+      "rsi": 26.6,
+      "volume": 1804572,
+      "close_date": "2026-10-23"
+    },
+    {
+      "symbol": "FRO",
+      "setups": [
+        "reclaim_ma20"
+      ],
+      "price": 52.94,
+      "rsi": 54.1,
+      "volume": 2608403,
+      "close_date": "2026-10-23"
+    },
+    {
+      "symbol": "KIM",
+      "setups": [
+        "breakout_20d"
+      ],
+      "price": 23.62,
+      "rsi": 64.2,
+      "volume": 5835819,
+      "close_date": "2026-10-23"
+    },
+    {
+      "symbol": "AVTR",
+      "setups": [
+        "breakout_20d"
+      ],
+      "price": 17.29,
+      "rsi": 73.5,
+      "volume": 7873117,
+      "close_date": "2026-10-23"
+    },
+    {
+      "symbol": "BCS",
+      "setups": [
+        "oversold"
+      ],
+      "price": 21.74,
+      "rsi": 25.4,
+      "volume": 6092424,
+      "close_date": "2026-10-23"
+    },
+    {
+      "symbol": "CR",
+      "setups": [
+        "oversold"
+      ],
+      "price": 182.89,
+      "rsi": 26.3,
+      "volume": 706668,
+      "close_date": "2026-10-23"
+    },
+    {
+      "symbol": "RELX",
+      "setups": [
+        "bull_flag"
+      ],
+      "price": 40.54,
+      "rsi": 79.6,
+      "volume": 3150252,
+      "close_date": "2026-10-23"
+    },
+    {
+      "symbol": "SUI",
+      "setups": [
+        "breakout_20d"
+      ],
+      "price": 120.24,
+      "rsi": 62.2,
+      "volume": 1012467,
+      "close_date": "2026-10-23"
+    },
+    {
+      "symbol": "PODD",
+      "setups": [
+        "breakout_20d"
+      ],
+      "price": 149.01,
+      "rsi": 65.5,
+      "volume": 803141,
+      "close_date": "2026-10-23"
+    },
+    {
+      "symbol": "ENB",
+      "setups": [
+        "breakout_20d"
+      ],
+      "price": 48.15,
+      "rsi": 53.4,
+      "volume": 2448061,
+      "close_date": "2026-10-23"
+    },
+    {
+      "symbol": "BALL",
+      "setups": [
+        "bull_flag"
+      ],
+      "price": 64.76,
+      "rsi": 69.9,
+      "volume": 1802468,
+      "close_date": "2026-10-23"
+    },
+    {
+      "symbol": "DD",
+      "setups": [
+        "breakout_20d"
+      ],
+      "price": 136.55,
+      "rsi": 62.5,
+      "volume": 832565,
+      "close_date": "2026-10-23"
+    },
+    {
+      "symbol": "MLI",
+      "setups": [
+        "oversold"
+      ],
+      "price": 54.11,
+      "rsi": 27.6,
+      "volume": 2098711,
+      "close_date": "2026-10-23"
+    },
+    {
+      "symbol": "MDGL",
+      "setups": [
+        "oversold"
+      ],
+      "price": 434.24,
+      "rsi": 28.2,
+      "volume": 234852,
+      "close_date": "2026-10-23"
+    },
+    {
+      "symbol": "AES",
+      "setups": [
+        "breakout_20d"
+      ],
+      "price": 15.0,
+      "rsi": 69.5,
+      "volume": 6653728,
+      "close_date": "2026-10-23"
+    },
+    {
+      "symbol": "PAA",
+      "setups": [
+        "breakout_20d"
+      ],
+      "price": 26.63,
+      "rsi": 77.0,
+      "volume": 3713461,
+      "close_date": "2026-10-23"
+    },
+    {
+      "symbol": "HTHT",
+      "setups": [
+        "bull_flag"
+      ],
+      "price": 46.23,
+      "rsi": 62.8,
+      "volume": 2089362,
+      "close_date": "2026-10-23"
+    },
+    {
+      "symbol": "BSY",
+      "setups": [
+        "breakout_20d"
+      ],
+      "price": 39.7,
+      "rsi": 73.4,
+      "volume": 2423149,
+      "close_date": "2026-10-23"
+    },
+    {
+      "symbol": "VNOM",
+      "setups": [
+        "breakout_20d",
+        "bull_flag"
+      ],
+      "price": 46.94,
+      "rsi": 69.1,
+      "volume": 2027874,
+      "close_date": "2026-10-23"
+    },
+    {
+      "symbol": "DEO",
+      "setups": [
+        "bull_flag"
+      ],
+      "price": 95.97,
+      "rsi": 67.9,
+      "volume": 987694,
+      "close_date": "2026-10-23"
+    },
+    {
+      "symbol": "ING",
+      "setups": [
+        "oversold"
+      ],
+      "price": 31.84,
+      "rsi": 29.4,
+      "volume": 2940884,
+      "close_date": "2026-10-23"
+    },
+    {
+      "symbol": "WTFC",
+      "setups": [
+        "breakout_20d"
+      ],
+      "price": 150.77,
+      "rsi": 61.3,
+      "volume": 620933,
+      "close_date": "2026-10-23"
+    },
+    {
+      "symbol": "BPOP",
+      "setups": [
+        "reclaim_ma20"
+      ],
+      "price": 159.24,
+      "rsi": 48.9,
+      "volume": 567542,
+      "close_date": "2026-10-23"
+    },
+    {
+      "symbol": "AMH",
+      "setups": [
+        "breakout_20d"
+      ],
+      "price": 31.92,
+      "rsi": 60.0,
+      "volume": 2642423,
+      "close_date": "2026-10-23"
+    },
+    {
+      "symbol": "SSB",
+      "setups": [
+        "breakout_20d"
+      ],
+      "price": 105.51,
+      "rsi": 62.2,
+      "volume": 787161,
+      "close_date": "2026-10-23"
+    },
+    {
+      "symbol": "NYT",
+      "setups": [
+        "breakout_20d"
+      ],
+      "price": 69.58,
+      "rsi": 59.8,
+      "volume": 1179638,
+      "close_date": "2026-10-23"
+    },
+    {
+      "symbol": "TRP",
+      "setups": [
+        "breakout_20d"
+      ],
+      "price": 62.4,
+      "rsi": 56.8,
+      "volume": 1213128,
+      "close_date": "2026-10-23"
+    },
+    {
+      "symbol": "ULS",
+      "setups": [
+        "bull_flag"
+      ],
+      "price": 73.44,
+      "rsi": 59.2,
+      "volume": 971746,
+      "close_date": "2026-10-23"
+    },
+    {
+      "symbol": "SBS",
+      "setups": [
+        "bull_flag"
+      ],
+      "price": 6.4,
+      "rsi": 63.7,
+      "volume": 10476113,
+      "close_date": "2026-10-23"
+    },
+    {
+      "symbol": "BSP",
+      "setups": [
+        "bull_flag"
+      ],
+      "price": 44.08,
+      "rsi": 54.5,
+      "volume": 1511743,
+      "close_date": "2026-10-23"
+    },
+    {
+      "symbol": "WES",
+      "setups": [
+        "reclaim_ma20"
+      ],
+      "price": 45.13,
+      "rsi": 46.5,
+      "volume": 1468014,
+      "close_date": "2026-10-23"
+    },
+    {
+      "symbol": "JBS",
+      "setups": [
+        "bull_flag"
+      ],
+      "price": 12.42,
+      "rsi": 49.2,
+      "volume": 5278645,
+      "close_date": "2026-10-23"
+    },
+    {
+      "symbol": "DB",
+      "setups": [
+        "oversold"
+      ],
+      "price": 31.2,
+      "rsi": 23.9,
+      "volume": 1975057,
+      "close_date": "2026-10-23"
+    },
+    {
+      "symbol": "YUMC",
+      "setups": [
+        "bull_flag"
+      ],
+      "price": 44.54,
+      "rsi": 61.5,
+      "volume": 1383196,
+      "close_date": "2026-10-23"
+    },
+    {
+      "symbol": "FTS",
+      "setups": [
+        "breakout_20d"
+      ],
+      "price": 57.95,
+      "rsi": 74.9,
+      "volume": 1005969,
+      "close_date": "2026-10-23"
+    },
+    {
+      "symbol": "MPLX",
+      "setups": [
+        "breakout_20d"
+      ],
+      "price": 59.13,
+      "rsi": 59.6,
+      "volume": 982399,
+      "close_date": "2026-10-23"
+    },
+    {
+      "symbol": "TS",
+      "setups": [
+        "reclaim_ma20"
+      ],
+      "price": 58.23,
+      "rsi": 54.2,
+      "volume": 899967,
+      "close_date": "2026-10-23"
+    },
+    {
+      "symbol": "SQM",
+      "setups": [
+        "oversold",
+        "oversold_bounce"
+      ],
+      "price": 57.14,
+      "rsi": 25.5,
+      "volume": 875189,
+      "close_date": "2026-10-23"
+    },
+    {
+      "symbol": "MFG",
+      "setups": [
+        "oversold"
+      ],
+      "price": 9.57,
+      "rsi": 29.0,
+      "volume": 5125658,
+      "close_date": "2026-10-23"
+    },
+    {
+      "symbol": "YPF",
+      "setups": [
+        "reclaim_ma20"
+      ],
+      "price": 50.68,
+      "rsi": 47.3,
+      "volume": 948052,
+      "close_date": "2026-10-23"
+    },
+    {
+      "symbol": "ARXS",
+      "setups": [
+        "reclaim_ma20"
+      ],
+      "price": 51.72,
+      "rsi": 53.5,
+      "volume": 897254,
+      "close_date": "2026-10-23"
+    },
+    {
+      "symbol": "TAK",
+      "setups": [
+        "bull_flag"
+      ],
+      "price": 20.24,
+      "rsi": 70.2,
+      "volume": 2099176,
+      "close_date": "2026-10-23"
+    },
+    {
+      "symbol": "E",
+      "setups": [
+        "breakout_20d"
+      ],
+      "price": 62.08,
+      "rsi": 77.3,
+      "volume": 673166,
+      "close_date": "2026-10-23"
+    },
+    {
+      "symbol": "SSL",
+      "setups": [
+        "breakout_20d"
+      ],
+      "price": 18.03,
+      "rsi": 79.9,
+      "volume": 2205856,
+      "close_date": "2026-10-23"
+    },
+    {
+      "symbol": "WMG",
+      "setups": [
+        "bull_flag"
+      ],
+      "price": 30.86,
+      "rsi": 63.9,
+      "volume": 1180257,
+      "close_date": "2026-10-23"
+    },
+    {
+      "symbol": "EC",
+      "setups": [
+        "reclaim_ma20"
+      ],
+      "price": 17.8,
+      "rsi": 57.1,
+      "volume": 1906336,
+      "close_date": "2026-10-23"
+    },
+    {
+      "symbol": "PAC",
+      "setups": [
+        "breakout_20d"
+      ],
+      "price": 222.42,
+      "rsi": 63.9,
+      "volume": 141982,
+      "close_date": "2026-10-23"
+    },
+    {
+      "symbol": "SKM",
+      "setups": [
+        "oversold"
+      ],
+      "price": 30.62,
+      "rsi": 29.2,
+      "volume": 923289,
+      "close_date": "2026-10-23"
+    },
+    {
+      "symbol": "CIB",
+      "setups": [
+        "breakout_20d"
+      ],
+      "price": 98.0,
+      "rsi": 55.8,
+      "volume": 232284,
+      "close_date": "2026-10-23"
+    },
+    {
+      "symbol": "TME",
+      "setups": [
+        "bull_flag"
+      ],
+      "price": 8.51,
+      "rsi": 55.1,
+      "volume": 2329522,
+      "close_date": "2026-10-23"
+    },
+    {
+      "symbol": "SHG",
+      "setups": [
+        "oversold"
+      ],
+      "price": 66.3,
+      "rsi": 23.7,
+      "volume": 294438,
+      "close_date": "2026-10-23"
+    },
+    {
+      "symbol": "PSO",
+      "setups": [
+        "bull_flag"
+      ],
+      "price": 18.24,
+      "rsi": 74.6,
+      "volume": 546898,
+      "close_date": "2026-10-23"
+    },
+    {
+      "symbol": "NMR",
+      "setups": [
+        "oversold"
+      ],
+      "price": 8.98,
+      "rsi": 27.4,
+      "volume": 719081,
+      "close_date": "2026-10-23"
+    },
+    {
+      "symbol": "CQP",
+      "setups": [
+        "breakout_20d"
+      ],
+      "price": 66.15,
+      "rsi": 58.4,
+      "volume": 62819,
+      "close_date": "2026-10-23"
+    }
+  ],
+  "news": {
+    "CRWD": {
+      "items": 2,
+      "important": 0,
+      "tags": {},
+      "moving": true,
+      "move_pct": 8.25,
+      "titles": [
+        "Up Over 100% in 2026, Is CrowdStrike Still a Buy?",
+        "3 Superior Growth Stocks to Buy Now and Hold for 10 Years"
+      ]
+    },
+    "GEV": {
+      "items": 2,
+      "important": 0,
+      "tags": {
+        "earnings": 1
+      },
+      "moving": false,
+      "move_pct": -1.5,
+      "titles": [
+        "The Fed, Inflation, Verizon, Boeing, Alphabet, GE Vernova, Amazon, and Many More Stocks to Watch This Week",
+        "Can GE Vernova's Gas Turbines Make Up for a Collapsing Wind Business?"
+      ]
+    },
+    "LRCX": {
+      "items": 2,
+      "important": 0,
+      "tags": {},
+      "moving": false,
+      "move_pct": -0.02,
+      "titles": [
+        "Arm Stock Is Down 8% Last Week. What Does Lam Research Have to Do With It?",
+        "Sandisk (SNDK) Flags Industry Supply Chain Constraints As Memory Production Timelines Tighten"
+      ]
+    },
+    "AMAT": {
+      "items": 2,
+      "important": 0,
+      "tags": {},
+      "moving": false,
+      "move_pct": 0.44,
+      "titles": [
+        "Intel vs. SK Hynix: Revenue Trends to Help Investors Weigh Which Artificial Intelligence Stock to Buy",
+        "3 High Quality Stocks With ROE Over 30%"
+      ]
+    },
+    "CRWV": {
+      "items": 4,
+      "important": 0,
+      "tags": {},
+      "moving": false,
+      "move_pct": -2.46,
+      "titles": [
+        "Elon Musk Says 200+ AI Cloud Firms Face Wipeout: Will CoreWeave Survive?",
+        "CoreWeave Slides 11% Toward a 52-Week Low as a $640 Million Interest Bill Rattles Investors",
+        "AI Debt Has Exploded 4X To Nearly $500 Billion: What It Means For NVDA, ORCL And CRWV, According To IO Fund"
+      ]
+    },
+    "SKHY": {
+      "items": 4,
+      "important": 0,
+      "tags": {
+        "earnings": 1
+      },
+      "moving": true,
+      "move_pct": 4.05,
+      "titles": [
+        "Goldman Sachs Cuts Its Price Target for South Korea\u2019s KOSPI",
+        "Intel vs. SK Hynix: Revenue Trends to Help Investors Weigh Which Artificial Intelligence Stock to Buy",
+        "Goldman Sachs cuts Kospi target by 25% amid AI stock selloff"
+      ]
+    },
+    "WMT": {
+      "items": 3,
+      "important": 0,
+      "tags": {
+        "deal": 1
+      },
+      "moving": false,
+      "move_pct": -1.02,
+      "titles": [
+        "Walmart (WMT) Makes Sam's Club Its Exclusive Buy Now Pay Later Checkout Option",
+        "Can Walmart's New Bundled Subscription Beat Amazon?",
+        "Seven Answers to One Question: Who Decides Whether Your Agent Can Pay?"
+      ]
+    },
+    "TXN": {
+      "items": 0,
+      "important": 0,
+      "tags": {},
+      "moving": false,
+      "move_pct": 1.86,
+      "titles": []
+    },
+    "XOM": {
+      "items": 1,
+      "important": 0,
+      "tags": {},
+      "moving": false,
+      "move_pct": 2.79,
+      "titles": [
+        "T-Bills Yield Up to 4.45%. Why Would Retirees Choose Dividend Stocks?"
+      ]
+    },
+    "CAT": {
+      "items": 2,
+      "important": 0,
+      "tags": {
+        "earnings": 2
+      },
+      "moving": false,
+      "move_pct": -2.42,
+      "titles": [
+        "The Fed, Inflation, Verizon, Boeing, Alphabet, GE Vernova, Amazon, and Many More Stocks to Watch This Week",
+        "Can Caterpillar\u2019s $72B Backlog Save Its Stock From a 10% Slump?"
+      ]
+    },
+    "V": {
+      "items": 2,
+      "important": 0,
+      "tags": {
+        "earnings": 1
+      },
+      "moving": false,
+      "move_pct": -1.55,
+      "titles": [
+        "The Fed, Inflation, Verizon, Boeing, Alphabet, GE Vernova, Amazon, and Many More Stocks to Watch This Week",
+        "The Pilot Wall Is a Liability Wall: Onboarding Is the Real Gate"
+      ]
+    },
+    "CVX": {
+      "items": 1,
+      "important": 0,
+      "tags": {},
+      "moving": false,
+      "move_pct": 2.88,
+      "titles": [
+        "How to Build $8,300 a Month in Dividend Income Without Owning a Single Bond"
+      ]
+    },
+    "GE": {
+      "items": 0,
+      "important": 0,
+      "tags": {},
+      "moving": false,
+      "move_pct": -2.69,
+      "titles": []
+    },
+    "NOW": {
+      "items": 1,
+      "important": 0,
+      "tags": {},
+      "moving": false,
+      "move_pct": 1.25,
+      "titles": [
+        "The Enterprise Agent Price Nobody Will Show You"
+      ]
+    },
+    "MA": {
+      "items": 2,
+      "important": 0,
+      "tags": {
+        "earnings": 2
+      },
+      "moving": false,
+      "move_pct": -1.52,
+      "titles": [
+        "The Fed, Inflation, Verizon, Boeing, Alphabet, GE Vernova, Amazon, and Many More Stocks to Watch This Week",
+        "Mastercard Near All-Time Highs: 3 Crucial Metrics That Will Make or Break Q3 Earnings on Oct. 29"
+      ]
+    },
+    "AMT": {
+      "items": 1,
+      "important": 0,
+      "tags": {},
+      "moving": true,
+      "move_pct": 4.08,
+      "titles": [
+        "SpaceX Could Be a Game Changer for These 2 Dividend Stocks"
+      ]
+    },
+    "FIX": {
+      "items": 1,
+      "important": 0,
+      "tags": {
+        "earnings": 1
+      },
+      "moving": true,
+      "move_pct": -9.26,
+      "titles": [
+        "FIX Q3 deep dive: backlog surge and margin mix drive investor debate"
+      ]
+    },
+    "KLAC": {
+      "items": 0,
+      "important": 0,
+      "tags": {},
+      "moving": false,
+      "move_pct": -1.5,
+      "titles": []
+    },
+    "CCI": {
+      "items": 1,
+      "important": 0,
+      "tags": {},
+      "moving": true,
+      "move_pct": 9.06,
+      "titles": [
+        "SpaceX Could Be a Game Changer for These 2 Dividend Stocks"
+      ]
+    },
+    "IBM": {
+      "items": 1,
+      "important": 0,
+      "tags": {},
+      "moving": false,
+      "move_pct": 0.58,
+      "titles": [
+        "IBM CEO Says Open AI Models Are 90% as Good as Frontier Models: \u2018Why Pay 10x More?\u2019"
+      ]
+    }
+  },
+  "news_hours": 18,
+  "steps": {
+    "largecap": {
+      "ran": false,
+      "note": "trader/largecap.json is under 20 h old (as of 2026-10-25T23:25:19Z)"
+    },
+    "regime": {
+      "ran": true,
+      "code": 0,
+      "note": "Context, not a forecast: a regime tag says what the market did before this session, never what it will do. Most people who day trade lose money."
+    },
+    "earnings": {
+      "ran": true,
+      "code": 0,
+      "note": "6 of 6 days read"
+    },
+    "scan": {
+      "ran": true,
+      "code": 0,
+      "note": ""
+    },
+    "news": {
+      "ran": true,
+      "code": 0,
+      "note": ""
+    }
+  },
+  "notes": [
+    "2026-10-25 is not a trading day (weekend): planning for 2026-10-26"
+  ],
+  "seconds": 61.8,
+  "note": "Candidates matched a rule with a measured record. None is a prediction. Most people who day trade lose money."
 }

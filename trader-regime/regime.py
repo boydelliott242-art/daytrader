@@ -547,6 +547,19 @@ def live_read(src, day, cutoff, root, symbols, atr20=None, progress=None):
     return live
 
 
+def futures_for(date_str, out_path):
+    """trader/futures.json (trader-montecarlo futures --write) when it is for this session: {nq, es, tags, cutoff}."""
+    path = os.path.join(os.path.dirname(out_path) or "trader", "futures.json")
+    try:
+        doc = dtio.read_json(path, None)
+    except dtio.IOError_:
+        return None
+    if not isinstance(doc, dict) or doc.get("date") != date_str or not (doc.get("nq") or doc.get("es")):
+        return None
+    return {"nq": doc.get("nq"), "es": doc.get("es"), "tags": list(doc.get("tags") or []), "cutoff": doc.get("cutoff"),
+            "as_of": doc.get("as_of"), "path": path}
+
+
 def live_lines(doc):
     live = doc["live"]
     day = datetime.date.fromisoformat(live["date"])
@@ -585,6 +598,14 @@ def live_lines(doc):
                       " ".join(doc["tags"]) or "(none)"))
     else:
         out.append("  Daily context: none (no SPY daily store).")
+    if live.get("futures"):
+        f = live["futures"]
+        for key, name in (("nq", "NQ"), ("es", "ES")):
+            r = f.get(key)
+            if r:
+                out.append("  %s overnight (to %s): %s %% vs the prior settle %s, range %sx its 20-day average. Tags: %s"
+                           % (name, f.get("cutoff") or "the open", signed(r.get("gap_pct")), r.get("prev_settle"),
+                              "%.2f" % r["range_vs_20d"] if r.get("range_vs_20d") is not None else "n/a", " ".join(r.get("tags") or [])))
     out.append("  Live labels: %s" % " ".join(live["labels"]))
     return out
 
@@ -713,6 +734,12 @@ def cmd_live(a):
         raise
     if note:
         live["note"] = note
+    fut = futures_for(day.isoformat(), a.out)
+    if fut:
+        live["futures"] = fut
+        for t in fut.get("tags") or []:
+            if t not in tags:
+                tags.append(t)
     doc = build_doc(now, day.isoformat(), daily, tags, live,
                     {"cache_root": a.cache_root, "kind": "live", "bars": src.name, "symbols_file": a.symbols_file,
                      "symbols": len(symbols)})

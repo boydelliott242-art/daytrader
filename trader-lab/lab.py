@@ -136,13 +136,23 @@ def load_largecap(path):
     return out
 
 
-def load_context(root):
-    """SPY's 5-minute sessions and the daily rows of SPY, ^VIX and ^VIX3M (empty when missing)."""
+def load_context(root, nq_tags=None):
+    if nq_tags is None:
+        nq_tags = os.path.join("trader", "nq", "session_tags.json")   # trader-nq session-tags, when it has run
+    """SPY's 5-minute sessions and the daily rows of SPY, ^VIX and ^VIX3M (empty when missing), plus the NQ
+    overnight tags per session (trader-nq session-tags) when that file exists."""
     spy = dtbars.load_store("SPY", "bars5m", root) or {}
+    tags = {}
+    doc = dtio.read_json(nq_tags, None) if nq_tags else None
+    if isinstance(doc, dict):
+        for d, rec in (doc.get("sessions") or {}).items():
+            if isinstance(rec, dict) and rec.get("tags"):
+                tags[d] = [str(t) for t in rec["tags"]]
     return {"spy_sessions": spy.get("sessions") or {},
             "spy_daily": dtbars.daily_rows("SPY", root),
             "vix_daily": dtbars.daily_rows("^VIX", root),
-            "vix3m_daily": dtbars.daily_rows("^VIX3M", root)}
+            "vix3m_daily": dtbars.daily_rows("^VIX3M", root),
+            "nq_tags": tags}
 
 
 def session_context(date, daily, spy_bars, spy_daily, cfg):
@@ -160,6 +170,9 @@ def regime_tags(date, ctxd, cache=None):
         return cache[date]
     tags = dtregime.session_tags(date, {"SPY": ctxd["spy_daily"], "^VIX": ctxd["vix_daily"],
                                         "^VIX3M": ctxd["vix3m_daily"]})
+    for t in (ctxd.get("nq_tags") or {}).get(date, []):
+        if t not in tags:
+            tags.append(t)
     if cache is not None:
         cache[date] = tags
     return tags

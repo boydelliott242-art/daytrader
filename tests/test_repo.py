@@ -16,8 +16,9 @@ ORDER_PATH = ["trader-scanner", "trader-entry", "trader-exit", "trader-timemachi
               "trader-pelosi", "trader-risk", "trader-broker", "trader-alerts"]
 V1_ONLY = ["trader-copycat", "trader-screener", "trader-tax", "trader-rebalance"]
 # the large-cap desk built on top (CONTRACTS.md): six more skill folders at the root
-NEW_SKILLS = ["trader-largecap", "trader-regime", "trader-lab", "trader-desk", "trader-scorecard", "trader-paper"]
-NEW_ORDER_PATH = ["trader-desk", "trader-paper", "trader-lab", "trader-scorecard"]
+NEW_SKILLS = ["trader-largecap", "trader-regime", "trader-lab", "trader-desk", "trader-scorecard", "trader-paper",
+              "trader-intel", "trader-montecarlo", "trader-nq"]
+NEW_ORDER_PATH = ["trader-desk", "trader-paper", "trader-lab", "trader-scorecard", "trader-montecarlo", "trader-nq"]
 EXTRA_ROOT = [".gitignore", "CONTRACTS.md", "UPSTREAM_README.md", "CLAUDE.md", "dt", "docs", "scripts", "data", "trader"]
 
 
@@ -30,7 +31,7 @@ def frontmatter(path):
 
 def every_text_file():
     for base, dirs, files in os.walk(ROOT):
-        dirs[:] = [d for d in dirs if d not in (".git", "__pycache__")]
+        dirs[:] = [d for d in dirs if d not in (".git", "__pycache__", "trader", "data")]  # trader/ and data/ are working files
         for f in files:
             if f.endswith((".md", ".py", ".json", ".csv", ".txt", ".xml")) or f == "LICENSE":
                 yield os.path.join(base, f)

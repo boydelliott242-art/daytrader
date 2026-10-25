@@ -310,3 +310,14 @@ Say "matched a rule", never "a buy". Numbers come from the run; CIs are
 printed with every rate. "Approved" means the OOS record cleared the gate,
 not that the trade wins. Most people who day trade lose money; the desk does
 not change that, it only shows the odds before the money.
+
+## Added after the first build: intel, montecarlo, nq
+
+| folder | job |
+| --- | --- |
+| `trader-intel/` | the connector-fed ledger `trader/intel.json` (items with source, url, UTC time; derived earnings and macro maps) and `dt/intel_flags.py` (`flags_for(symbol, date, ledger, now)`: earnings_today, earnings_tomorrow, earnings_week, macro_high_today, news_negative_24h, news_positive_24h, halt_or_risk_24h, analyst_action_24h, insider_selling_7d, social_spike, catalyst). The desk adds them to each candidate's flags as `intel:<flag>`. The Python never calls a connector: Claude does, and writes the items to a file. |
+| `trader-montecarlo/` | `plan`: the upstream time machine at 26,000 replays with Wilson intervals and the reel's 10,000 beside it, `trader/montecarlo.json`; `book`: the lab's trade book resampled 26,000 times by session at the sizing rules (max loss a trade, trades a day, the daily loss limit), window and horizon percentiles, drawdown odds; `futures`: NQ=F and ES=F overnight gap and range with tags `nq_gap_up|down|flat`, `nq_wide|quiet|normal_overnight` (and `es_*`), `trader/futures.json`, which `regime.py live` folds into the day's tags when it is for the same date. |
+| `trader-nq/` | `nq.py` (stdlib) drives `nq_adapter.py` under the user's NQ backtester venv (`~/Claude/Projects/nq-backtester`, or `nq_backtester_path` in the config): the desk's setups on 15 years of 1-minute NQ bars aggregated to 5-minute RTH sessions, one market order at the signal bar's last minute (the engine fills at the next minute's open with its slippage and fees), results in the lab's shapes in `trader/nq/edge.json` and `trades.jsonl.gz` (status by the same gate, by year, a rolling walk-forward by year, the engine's own stats, a two-engine agreement rate against dt.sim); `overnight.json` (15 years of gaps and the ORB after them); `session_tags.json` (the nq tags per session, which the lab merges into its regime tags when present). `orb15_rs` is not applicable on NQ (it needs SPY). |
+
+The desk shows the watch list, every candidate flagged `watch_only`, when the lab approved no config at all,
+and says so; an empty lab table is an honest board, not a broken one.

@@ -245,6 +245,16 @@ footer .wrap { padding-top: 14px; padding-bottom: 24px; }
     <div id="universe-body"></div>
   </section>
 
+  <section id="montecarlo">
+    <h2>26,000 resamples <span class="sub" id="montecarlo-sub"></span></h2>
+    <div id="montecarlo-body"></div>
+  </section>
+
+  <section id="nq">
+    <h2>The NQ bench: fifteen years of futures <span class="sub" id="nq-sub"></span></h2>
+    <div id="nq-body"></div>
+  </section>
+
   <section id="fineprint" class="fine">
     <div class="sec-head"><h2>Fine print</h2><span class="small muted">the upstream README's words, unchanged</span></div>
     <div class="panel">
@@ -275,14 +285,18 @@ footer .wrap { padding-top: 14px; padding-bottom: 24px; }
     edge: "data/edge.json",
     regime: "data/regime.json",
     scorecard: "data/scorecard.json",
-    largecap: "data/largecap.json"
+    largecap: "data/largecap.json",
+    montecarlo: "data/montecarlo.json",
+    nq: "data/nq.json"
   };
   var EMPTY = {
     desk: "The desk has not run yet. <code>desk.py live --write --publish</code> writes today's board here (and <code>desk.py morning</code> the plan before the open).",
     edge: "The lab has not run yet. <code>lab.py run --publish</code> plays every setup over every large cap and every cached session and writes the edge table here.",
     regime: "No regime read yet. <code>regime.py daily --publish</code> writes the market context here; <code>regime.py live --at HH:MM</code> adds the intraday read.",
     scorecard: "No track record yet. The scorecard fills as the desk shows candidates and <code>desk.py grade</code> grades them on the real bars; <code>scorecard.py report --publish</code> writes it here.",
-    largecap: "No universe yet. <code>largecap.py build</code> reads Nasdaq's screener and writes the large-cap list here."
+    largecap: "No universe yet. <code>largecap.py build</code> reads Nasdaq's screener and writes the large-cap list here.",
+    montecarlo: "No Monte Carlo yet. <code>montecarlo.py book --all-approved --publish</code> resamples the lab's trade book 26,000 times at your sizing rules and writes it here.",
+    nq: "No NQ bench yet. <code>nq.py setups --publish</code> runs the desk's setups through the fifteen-year Nasdaq-100 futures backtester and writes the tables here."
   };
 
   // ------------------------------------------------------------ theme: dark by default, a manual toggle remembered per browser
@@ -710,6 +724,52 @@ footer .wrap { padding-top: 14px; padding-bottom: 24px; }
       (doc.note ? '<p class="note">' + esc(doc.note) + "</p>" : "") + "</div>";
   }
 
+  // ------------------------------------------------------------ the Monte Carlo book
+  function renderMonteCarlo(res) {
+    var doc = res.doc;
+    if (!doc || !doc.books || !doc.books.length) { el("montecarlo-body").innerHTML = empty("montecarlo"); sub("montecarlo-sub", ""); return; }
+    var r = doc.rules || {};
+    sub("montecarlo-sub", (doc.resamples || 0).toLocaleString() + " resamples of " + (doc.days || 20) + "-day windows, seed " + (doc.seed || 19) + ", one R = $" + (r.max_loss || 50) + ", at most " + (r.max_trades || 3) + " trades a day, $" + (r.max_daily_loss || 150) + " daily limit; configs tested: " + (doc.configs_tested || "n/a"));
+    var rows = doc.books.map(function (b) {
+      var w = b.window || {}, t = w.total_R || {}, u = w.total_usd || {}, dd = w.max_dd_R || {};
+      return "<tr><td>" + esc(b.config_id) + '</td><td class="r num">' + esc((b.real || {}).sessions) + '</td><td class="r num">' + esc((b.real || {}).trades_taken) +
+        '</td><td class="r num">' + R(t.p5) + '</td><td class="r num">' + R(t.p50) + '</td><td class="r num">' + R(t.p95) +
+        '</td><td class="r num">' + esc(isNum(u.p50) ? "$" + u.p50.toLocaleString() : "n/a") + '</td><td class="r num">' + pct(w.p_negative) +
+        '</td><td class="r num">' + R(dd.p95) + '</td><td class="r num">' + pct(w.p_dd_over_25pct) + "</td></tr>";
+    }).join("");
+    el("montecarlo-body").innerHTML = '<div class="panel"><div class="scroll"><table><thead><tr><th>config</th><th class="r">real sessions</th><th class="r">trades at the rules</th>' +
+      '<th class="r">window p5</th><th class="r">median</th><th class="r">p95</th><th class="r">median $</th><th class="r">ends red</th><th class="r">max DD p95</th><th class="r">DD &gt; 25 %</th></tr></thead><tbody>' + rows + "</tbody></table></div>" +
+      '<p class="note">' + esc((doc.books[0] || {}).caveat || "") + " " + esc(doc.note || "") + "</p></div>";
+  }
+
+  // ------------------------------------------------------------ the NQ bench
+  function renderNq(res) {
+    var doc = res.doc;
+    var e = doc && doc.edge;
+    if (!e || !e.configs) { el("nq-body").innerHTML = empty("nq"); sub("nq-sub", ""); return; }
+    var s = e.sessions || {};
+    sub("nq-sub", (e.instrument || "NQ") + ", " + (s.n || 0) + " sessions " + (s.first || "") + " to " + (s.last || "") + ", " + ((e.costs || {}).fees || "") + " fees, " + ((e.costs || {}).slippage || "") + " slippage, " + (e.fill || "") + " fill; configs tested: " + (e.configs_tested || "n/a"));
+    var rows = e.configs.slice(0, 16).map(function (c) {
+      var o = c.oos || {}, en = c.engine || {};
+      return "<tr><td>" + esc(c.id) + '</td><td><span class="badge ' + esc(c.status) + '">' + esc(c.status) + '</span></td><td class="r num">' + esc(o.n || 0) +
+        '</td><td class="r num">' + pct(o.win_rate) + ' <span class="muted">' + esc(pctCi(o.win_ci95)) + '</span></td><td class="r num">' + R(o.exp_R) + ' <span class="muted">' + esc(rCi(o.exp_ci95)) +
+        '</span></td><td class="r num">' + pf(o.pf) + '</td><td class="r num">' + esc(isNum(en.net_pnl) ? "$" + Math.round(en.net_pnl).toLocaleString() : "n/a") +
+        '</td><td class="r num">' + esc(isNum(en.breakeven_slip_ticks) ? en.breakeven_slip_ticks.toFixed(1) : "n/a") + "</td></tr>";
+    }).join("");
+    var te = e.two_engines || {};
+    var over = doc.overnight, overHtml = "";
+    if (over && over.by_gap_bucket) {
+      var p = over.gap_pct_percentiles || {};
+      overHtml = '<h3>The overnight</h3><p class="note">' + esc(over.sessions) + " sessions: the 08:30 CT open against the prior close, gap percentiles p5 " + esc(p.p5) + " %, median " + esc(p.p50) + " %, p95 " + esc(p.p95) + " %. orb15|r=1 after the gap:</p>" +
+        '<div class="scroll"><table><thead><tr><th>gap bucket (%)</th><th class="r">n</th><th class="r">win rate</th><th class="r">exp R</th></tr></thead><tbody>' +
+        Object.keys(over.by_gap_bucket).map(function (k) { var st = over.by_gap_bucket[k]; return "<tr><td>" + esc(k) + '</td><td class="r num">' + esc(st.n) + '</td><td class="r num">' + pct(st.win_rate) + ' <span class="muted">' + esc(pctCi(st.win_ci95)) + '</span></td><td class="r num">' + R(st.exp_R) + ' <span class="muted">' + esc(rCi(st.exp_ci95)) + "</span></td></tr>"; }).join("") +
+        "</tbody></table></div>";
+    }
+    el("nq-body").innerHTML = '<div class="panel"><div class="scroll"><table><thead><tr><th>config</th><th>status</th><th class="r">OOS n</th><th class="r">win rate</th><th class="r">exp R after costs</th><th class="r">PF</th><th class="r">engine net $</th><th class="r">break-even ticks</th></tr></thead><tbody>' + rows + "</tbody></table></div>" +
+      (te.compared ? '<p class="note">Two engines: the minute engine and the desk\'s own simulator agree on the outcome of ' + esc(pct(te.agreement)) + " of " + esc(te.compared) + " trades.</p>" : "") +
+      overHtml + '<p class="note">' + esc(e.note || "") + "</p></div>";
+  }
+
   // ------------------------------------------------------------ go
   var names = Object.keys(SOURCES);
   Promise.all(names.map(load)).then(function (results) {
@@ -722,6 +782,8 @@ footer .wrap { padding-top: 14px; padding-bottom: 24px; }
     renderRolling(docs.edge);
     renderRecord(docs.scorecard, docs.edge.doc);
     renderUniverse(docs.largecap);
+    renderMonteCarlo(docs.montecarlo);
+    renderNq(docs.nq);
   });
 })();
 </script>

@@ -434,13 +434,15 @@ class HodBreak(Guard):
         self.assertEqual((sig["stop_rule"], sig["level"], sig["entry_time"]), ("consolidation_low", 105.3, "11:00 AM"))
         a = bars.atr(sess, 14, 17)
         self.assertAlmostEqual(a, (7 * 1.1 + 6 * 0.3 + 0.6) / 14)
-        self.assertLessEqual(105.2 - 104.9, 0.6 * a)
-        self.assertLessEqual(105.3 - 105.2, 0.5 * a)
+        self.assertLessEqual(105.2 - 104.9, 1.5 * a)
+        self.assertLessEqual(105.3 - 105.2, 1.0 * a)
         self.assertEqual(run("hod_break|r=2", sess)["target"], 106.7)
 
     def test_a_wide_base_or_an_early_break_does_not_fire(self):
-        wide = make_session(DAY, rows=hod_rows(cons=(105.1, 105.2, 104.2, 105.1)))   # 1.0 range > 0.6 x ATR
+        wide = make_session(DAY, rows=hod_rows(cons=(105.1, 105.2, 103.2, 105.1)))   # 2.0 range > 1.5 x ATR
         self.assertIsNone(run("hod_break|r=1", wide))
+        tight = make_session(DAY, rows=hod_rows(cons=(105.1, 105.2, 104.2, 105.1)))  # 1.0 range: inside 1.5 x ATR, fires
+        self.assertEqual(run("hod_break|r=1", tight)["k"], 17)
         far = make_session(DAY, rows=hod_rows(cons=(104.0, 104.1, 103.9, 104.0), breakout=(104.0, 105.6, 103.9, 105.5)))
         self.assertIsNone(run("hod_break|r=1", far))                                   # base too far under the high
         rows = hod_rows()[:17]
@@ -451,7 +453,9 @@ class HodBreak(Guard):
         self.assertIsNone(run("hod_break|r=1", under))
 
     def test_on_the_tsla_fixture(self):
-        self.assertIsNone(run("hod_break|r=1", TSLA))
+        sig = self.assertNoLookAhead("hod_break|r=1", TSLA)                       # the 12:30 bar closed above the day high
+        self.assertEqual((sig["k"], sig["entry"], sig["stop"], sig["target"], sig["entry_time"]), (36, 368.82, 367.51, 370.13, "12:35 PM"))
+        self.assertEqual(sig["level"], 368.73)
 
 
 def pm_rows(break_slot=54):
@@ -592,7 +596,7 @@ class Registry(unittest.TestCase):
     def test_run_all_keys_on_the_tsla_fixture(self):
         ctx = {"prev_close": TSLA_PREV_CLOSE, "spy": SPY, "window": clock.entry_window(DAY)}
         out = setups.run_all(TSLA, ctx)
-        self.assertEqual(sorted(out), ["inside_break|r=1", "inside_break|r=2", "orb15_gap|r=1", "orb15_gap|r=1.5",
+        self.assertEqual(sorted(out), ["hod_break|r=1", "hod_break|r=2", "inside_break|r=1", "inside_break|r=2", "orb15_gap|r=1", "orb15_gap|r=1.5",
                                        "orb15_gap|r=2", "orb15_rs|r=1", "orb15_rs|r=1.5", "orb15_rs|r=2", "orb15|r=1",
                                        "orb15|r=1.5", "orb15|r=1.5|stop=or_low", "orb15|r=1|stop=or_low", "orb15|r=2",
                                        "orb15|r=2|stop=or_low", "orb30|r=1", "orb30|r=1.5", "orb30|r=2",

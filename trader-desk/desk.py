@@ -64,6 +64,7 @@ ROOT = os.path.dirname(HERE)
 sys.path.insert(0, HERE if os.path.isdir(os.path.join(HERE, "dt")) else ROOT)
 
 from dt import bars, clock, io, net, setups, sim, stats  # noqa: E402
+from dt import intel_flags  # noqa: E402
 
 NOTE = ("Candidates matched a rule with a measured record. None is a prediction. "
         "Most people who day trade lose money.")
@@ -234,6 +235,9 @@ def select_configs(edge, include_watch):
     if edge is None:
         return list(library.values()), {}
     chosen, info = [], {}
+    statuses = [ec.get("status") for ec in edge["configs"] if isinstance(ec, dict)]
+    if "approved" not in statuses and "watch" in statuses:
+        include_watch = True   # nothing cleared the gate: the watch list is shown, every candidate flagged watch_only
     for ec in edge["configs"]:
         if not isinstance(ec, dict):
             continue
@@ -725,6 +729,19 @@ def build_board(a, now_utc, day, cutoff, cfg, symbols, sessions, spy, stores, ed
                           "move_pct": move, "earnings": ex_sym.get(sym) or week.get(sym),
                           "daily_hit": daily_hits.get(sym), "news": nw or None})
     cands = one_per_symbol(cands)
+    ledger = intel_flags.load_ledger(getattr(a, "intel", None) or os.path.join("trader", "intel.json"))
+    if ledger and ledger.get("items"):
+        for c in cands:
+            try:
+                fx = intel_flags.flags_for(c["symbol"], day_s, ledger, now_utc)
+            except Exception as e:  # the ledger is advisory: never let it break the board
+                notes.append("%s: intel flags could not be read (%s)" % (c["symbol"], e))
+                continue
+            c["intel"] = {"flags": fx["flags"], "earnings": fx.get("earnings"),
+                          "items": {k: [{"headline": i.get("headline"), "source": i.get("source"), "url": i.get("url"),
+                                         "time": i.get("time")} for i in v[:3]] for k, v in (fx.get("items") or {}).items()}}
+            for f in fx["flags"]:
+                c["flags"].append("intel:" + f)
     rank_candidates(cands)
     return cands, dropped
 
@@ -886,6 +903,11 @@ def candidate_lines(c, until12="4:00 PM"):
                 words.append("moving (%+.2f %% vs the prior close)" % (c.get("move_pct") or 0.0))
             elif f == "daily_hit" and c.get("daily_hit"):
                 words.append("daily_hit (%s)" % ", ".join(c["daily_hit"].get("setups") or []))
+            elif f.startswith("intel:"):
+                name = f[6:]
+                items = ((c.get("intel") or {}).get("items") or {}).get(name) or []
+                src = (" (%s: %s)" % (items[0].get("source"), (items[0].get("headline") or "")[:70])) if items else ""
+                words.append("intel %s%s" % (name, src))
             else:
                 words.append(f)
         out.append("   flags: " + "; ".join(words))
@@ -1651,6 +1673,7 @@ def main(argv=None):
         p.add_argument("--tm-until", help="end each replay at HH:MM (the time machine's --until; default 16:00)")
         p.add_argument("--seed", type=int, default=TM_SEED)
         p.add_argument("--scorecard-dir", default=os.path.join("trader", "scorecard"))
+        p.add_argument("--intel", default=os.path.join("trader", "intel.json"), help="the intel ledger (trader-intel); flags per candidate")
         p.add_argument("--pause", type=float, default=net.PAUSE, help="seconds between requests (%.1f)" % net.PAUSE)
 
     p = sub.add_parser("live", help="after 9:50 AM ET: the candidate board at the current bar")
@@ -1659,6 +1682,7 @@ def main(argv=None):
     p = sub.add_parser("replay", help="live on a past day from the bar store (no network)")
     live_flags(p)
     p.add_argument("--date", required=True, help="YYYY-MM-DD")
+    p.add_argument("--log-calls", action="store_true", help="also log the board to the scorecard (a replay is after the fact: off by default)")
     p.set_defaults(offline=True)
 
     p = sub.add_parser("pick", help="one candidate -> trader/entry.json and the upstream exit plan")

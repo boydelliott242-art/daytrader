@@ -1,0 +1,151 @@
+{
+  "created_by": "trader-montecarlo",
+  "as_of": "2026-10-25T23:26:19Z",
+  "kind": "book",
+  "resamples": 26000,
+  "seed": 19,
+  "days": 20,
+  "horizon_days": 60,
+  "fill": "next_open",
+  "configs_tested": 31,
+  "rules": {
+    "max_loss": 50.0,
+    "max_trades": 3,
+    "max_daily_loss": 150.0,
+    "budget": 5000.0
+  },
+  "books": [
+    {
+      "config_id": "vwap_reclaim|r=2",
+      "fill": "next_open",
+      "oos_only": true,
+      "oos_first": "2026-09-28",
+      "rules": {
+        "max_loss": 50.0,
+        "max_trades": 3,
+        "max_daily_loss": 150.0,
+        "budget": 5000.0
+      },
+      "real": {
+        "sessions": 20,
+        "trades_taken": 60,
+        "trades_skipped_by_rules": 12708,
+        "total_R": -19.4533,
+        "limit_days": 20
+      },
+      "window": {
+        "days": 20,
+        "resamples": 26000,
+        "seed": 19,
+        "total_R": {
+          "p5": -36.2774,
+          "p25": -26.8894,
+          "p50": -19.8263,
+          "p75": -12.1949,
+          "p95": -0.7405
+        },
+        "total_usd": {
+          "p5": -1813.87,
+          "p25": -1344.47,
+          "p50": -991.31,
+          "p75": -609.75,
+          "p95": -37.03
+        },
+        "p_negative": 0.9553,
+        "max_dd_R": {
+          "p5": 11.1425,
+          "p25": 17.9466,
+          "p50": 23.6908,
+          "p75": 29.5993,
+          "p95": 37.8948
+        },
+        "max_dd_usd": {
+          "p5": 557.12,
+          "p25": 897.33,
+          "p50": 1184.54,
+          "p75": 1479.96,
+          "p95": 1894.74
+        },
+        "p_dd_over_10pct": 0.969,
+        "p_dd_over_25pct": 0.4419,
+        "p_dd_over_50pct": 0.0009,
+        "worst_day_R": {
+          "p5": -3.3228,
+          "p25": -3.3228,
+          "p50": -3.3228,
+          "p75": -3.27,
+          "p95": -3.2447
+        },
+        "trades": {
+          "p5": 60,
+          "p50": 60,
+          "p95": 60
+        },
+        "share_with_a_limit_day": 1.0,
+        "exp_R_per_trade": {
+          "p2_5": -0.6543,
+          "p50": -0.3304,
+          "p97_5": 0.0573
+        }
+      },
+      "horizon": {
+        "days": 60,
+        "resamples": 26000,
+        "seed": 20,
+        "total_R": {
+          "p5": -88.3365,
+          "p25": -71.262,
+          "p50": -58.824,
+          "p75": -46.0402,
+          "p95": -26.7983
+        },
+        "total_usd": {
+          "p5": -4416.82,
+          "p25": -3563.1,
+          "p50": -2941.2,
+          "p75": -2302.01,
+          "p95": -1339.91
+        },
+        "p_negative": 0.9982,
+        "max_dd_R": {
+          "p5": 35.7289,
+          "p25": 51.9402,
+          "p50": 63.5209,
+          "p75": 74.7822,
+          "p95": 90.8583
+        },
+        "max_dd_usd": {
+          "p5": 1786.45,
+          "p25": 2597.01,
+          "p50": 3176.05,
+          "p75": 3739.11,
+          "p95": 4542.91
+        },
+        "p_dd_over_10pct": 0.9999,
+        "p_dd_over_25pct": 0.9912,
+        "p_dd_over_50pct": 0.7852,
+        "worst_day_R": {
+          "p5": -3.3228,
+          "p25": -3.3228,
+          "p50": -3.3228,
+          "p75": -3.3228,
+          "p95": -3.3228
+        },
+        "trades": {
+          "p5": 180,
+          "p50": 180,
+          "p95": 180
+        },
+        "share_with_a_limit_day": 1.0,
+        "exp_R_per_trade": {
+          "p2_5": -0.5206,
+          "p50": -0.3268,
+          "p97_5": -0.113
+        }
+      },
+      "caveat": "Resampling 20 real sessions 26,000 times shows the spread of outcomes those sessions allow. It cannot show what they never did: an earnings gap, a halt, a crash."
+    }
+  ],
+  "refused": [],
+  "note": "A replay is a simulation built from the past, never a prediction. Most people who day trade lose money."
+}

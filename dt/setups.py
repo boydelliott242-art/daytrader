@@ -250,7 +250,7 @@ SETUPS = {
     "vwap_pullback": {"fn": vwap_pullback, "label": "pullback to a rising VWAP that closes back above it",
                       "base": {"touch_atr": 0.1}, "grid": _r((1.0, 2.0))},
     "hod_break": {"fn": hod_break, "label": "high-of-day breakout after a tight consolidation (after 11:00)",
-                  "base": {"cons_bars": 6, "cons_atr": 0.6, "near_atr": 0.5}, "grid": _r((1.0, 2.0))},
+                  "base": {"cons_bars": 6, "cons_atr": 1.5, "near_atr": 1.0}, "grid": _r((1.0, 2.0))},
     "pm_break": {"fn": pm_break, "label": "afternoon breakout above the day high (2:00 to 3:15)",
                  "base": {"first_k": 54, "last_k": 68, "stop_bars": 6}, "grid": _r((1.0, 2.0))},
     "vwap_revert": {"fn": vwap_revert, "label": "mean reversion: green bar 2 sigma under VWAP, target VWAP",

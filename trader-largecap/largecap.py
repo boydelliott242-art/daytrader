@@ -243,6 +243,8 @@ def cmd_build(a):
     if a.write:
         universe.write_largecap(doc, a.out, a.txt)
         written = (a.out, a.txt)
+    if getattr(a, "publish", False):
+        dtio.write_json(os.path.join(a.docs_data, "largecap.json"), doc)
     if a.json:
         out = dict(doc, written=list(written) if written else None)
         print(json.dumps(out, indent=2))
@@ -340,6 +342,8 @@ def main(argv=None):
     p.add_argument("--out", default=DEFAULT_JSON, help="where --write puts the JSON list (default %s)" % DEFAULT_JSON)
     p.add_argument("--txt", default=DEFAULT_TXT, help="where --write puts the SYMBOL|Name list (default %s)" % DEFAULT_TXT)
     p.add_argument("--write", action="store_true", help="write the two files")
+    p.add_argument("--publish", action="store_true", help="also copy the list to docs/data/largecap.json for the dashboard")
+    p.add_argument("--docs-data", default=os.path.join("docs", "data"))
     p.add_argument("--json", action="store_true")
     p.add_argument("--now", help='pin the clock: "2026-10-19 10:15" (New York) or ISO with Z')
     p = sub.add_parser("show", help="print the list, filtered")
