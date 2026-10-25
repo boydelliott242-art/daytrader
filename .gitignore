@@ -17,3 +17,11 @@ trader/alerts.json
 trader/*.log
 data/jobs/
 *.plist
+trader/logs/
+trader/largecap.json
+trader/largecap.txt
+trader/lab/
+trader/scorecard/
+trader/paper/
+trader/regime.json
+trader/desk.json
