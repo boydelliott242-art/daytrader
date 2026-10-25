@@ -5,7 +5,7 @@
 set -e
 name="$1"; logf="$2"; shift 2
 label="com.daytrader.job.$name"
-root="$HOME/Desktop/daytrader"
+root="$HOME/daytrader"
 dir="$root/data/jobs"; mkdir -p "$dir" "$(dirname "$logf")"
 plist="$dir/$label.plist"
 launchctl bootout "gui/$(id -u)/$label" 2>/dev/null || true
