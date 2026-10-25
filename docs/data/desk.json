@@ -1,0 +1,175 @@
+{
+  "created_by": "trader-desk",
+  "mode": "live",
+  "as_of": "2026-10-23 10:15 ET",
+  "example": true,
+  "regime": {
+    "spy_close": 763.9600219726562,
+    "spy_sma20": 770.7194976806641,
+    "spy_sma50": 768.1665966796875,
+    "trend": "trend_flat",
+    "ret5d_pct": -1.015,
+    "vix": 19.03,
+    "vix_bucket": "vix_15_20",
+    "vix3m": 20.12,
+    "backwardation": false,
+    "prev_range_atr": 0.913,
+    "live": {
+      "at": "10:15",
+      "spy_gap_pct": -0.532,
+      "spy_or": "inside",
+      "spy_vs_vwap_pct": -0.008,
+      "breadth_above_open_pct": 55.6,
+      "breadth_up_pct": 38.9,
+      "breadth_n": 18,
+      "sectors": [
+        {
+          "etf": "XLK",
+          "name": "Technology",
+          "move_pct": 0.704
+        },
+        {
+          "etf": "XLF",
+          "name": "Financials",
+          "move_pct": -0.294
+        }
+      ]
+    },
+    "tags": [
+      "trend_flat",
+      "vix_15_20",
+      "prev_normal"
+    ]
+  },
+  "universe": 18,
+  "scanned": 18,
+  "matched": 1,
+  "excluded": {
+    "earnings": [],
+    "blocked": [],
+    "note": "offline example: the earnings calendar was not read"
+  },
+  "candidates": [
+    {
+      "rank": 1,
+      "symbol": "XOM",
+      "name": "Exxon Mobil Corporation",
+      "sector": "Energy",
+      "tier": "mega",
+      "setup": "orb15_gap",
+      "config_id": "orb15_gap|r=1.5",
+      "label": "15-minute opening-range breakout after a gap up of 0.5% or more, stop at the range midpoint, target 1.5R",
+      "signal": {
+        "setup": "orb15_gap",
+        "params": {
+          "or_minutes": 15,
+          "gap_min": 0.005,
+          "stop_rule": "or_mid",
+          "target_r": 1.5
+        },
+        "k": 3,
+        "entry": 181.16,
+        "stop": 179.97,
+        "target": 182.95,
+        "target_r": 1.5,
+        "stop_rule": "or_mid",
+        "entry_time": "9:50 AM",
+        "risk_per_share": 1.19,
+        "opening_range": {
+          "high": 180.95,
+          "low": 179.0,
+          "minutes": 15
+        },
+        "level": null,
+        "gap_pct": 0.64
+      },
+      "lab": {
+        "status": "watch",
+        "oos": {
+          "n": 66,
+          "target": 23,
+          "stop": 32,
+          "close": 11,
+          "green": 30,
+          "win_rate": 0.3485,
+          "win_ci95": [
+            0.2448,
+            0.4689
+          ],
+          "exp_R": 0.0216,
+          "exp_ci95": [
+            -0.2491,
+            0.3009
+          ],
+          "pf": 1.041,
+          "avg_win_R": 1.2196,
+          "avg_loss_R": -0.9768,
+          "max_dd_R": 13.177,
+          "median_R": -0.5114,
+          "n_symbols": 18,
+          "n_sessions": 19
+        },
+        "regime_slice": {
+          "tag": "vix_15_20",
+          "stats": {
+            "n": 144,
+            "target": 33,
+            "stop": 63,
+            "close": 48,
+            "green": 62,
+            "win_rate": 0.2292,
+            "win_ci95": [
+              0.1681,
+              0.3043
+            ],
+            "exp_R": -0.0926,
+            "exp_ci95": [
+              -0.2549,
+              0.0774
+            ],
+            "pf": 0.82,
+            "avg_win_R": 0.9825,
+            "avg_loss_R": -0.9055,
+            "max_dd_R": 25.694,
+            "median_R": -0.3803,
+            "n_symbols": 18,
+            "n_sessions": 44
+          }
+        },
+        "fill_note": "ranked on the next-open fill after 4 bps; the plan price is the idealised number"
+      },
+      "timemachine": {
+        "p_target": 0.3421,
+        "p_stop": 0.492,
+        "p_neither": 0.1659,
+        "p_green": 0.4528,
+        "avg_R": 0.067,
+        "median_close": 181.32,
+        "p5_close": 178.23,
+        "p95_close": 184.41,
+        "replays": 10000,
+        "until": "15:55",
+        "history": {
+          "sessions": 59,
+          "triggered": 42,
+          "target": 7,
+          "stop": 21,
+          "close": 14,
+          "green": 17,
+          "avg_R": -0.191,
+          "note": null
+        },
+        "verdict": "Close to break-even: at 1.5R the target has to come first in 40 % of the replays that hit one side; it did in 41 % (target first 34.2 % vs stop first 49.2 %).",
+        "verdict_notes": [],
+        "seed": 19
+      },
+      "flags": [
+        "late",
+        "watch_only",
+        "regime_against"
+      ],
+      "score": -0.2549
+    }
+  ],
+  "note": "Candidates matched a rule with a measured record. None is a prediction. Most people who day trade lose money. EXAMPLE: a replay of the desk's board on the fixture's last session, computed by scripts/example_data.py over the offline fixture (tests/fixtures/dt-cache) so the dashboard renders before the tools have run. The tools overwrite this file with --publish."
+}

@@ -1,0 +1,50 @@
+{
+  "created_by": "trader-scorecard",
+  "as_of": "2026-10-25T22:36:16Z",
+  "example": true,
+  "fill": "next_open",
+  "calls": 0,
+  "graded": 0,
+  "late": 0,
+  "pending": 0,
+  "first_date": null,
+  "last_date": null,
+  "headline": {
+    "n": 0,
+    "target": 0,
+    "stop": 0,
+    "close": 0,
+    "green": 0,
+    "win_rate": null,
+    "win_ci95": [
+      null,
+      null
+    ],
+    "exp_R": null,
+    "exp_ci95": [
+      null,
+      null
+    ],
+    "pf": null,
+    "avg_win_R": null,
+    "avg_loss_R": null,
+    "max_dd_R": null,
+    "median_R": null,
+    "n_symbols": 0,
+    "n_sessions": 0
+  },
+  "by_setup": {},
+  "by_week": [],
+  "equity_R": [],
+  "equity_usd": [],
+  "max_loss_per_trade_usd": 50.0,
+  "lab_oos_exp_R": 0.0216,
+  "lab_oos_exp_ci95": [
+    -0.2491,
+    0.3009
+  ],
+  "lab_oos_n": 66,
+  "gap_R": null,
+  "recent": [],
+  "note": "EXAMPLE: every call the scheduled desk (10:00, 10:15, 10:30, 11:00 ET) would have shown over the walk-forward's test sessions, approved and watch alike, graded on the real bars; late calls are graded but not counted, computed by scripts/example_data.py over the offline fixture (tests/fixtures/dt-cache) so the dashboard renders before the tools have run. The tools overwrite this file with --publish. Candidates matched a rule with a measured record. None is a prediction. Most people who day trade lose money."
+}

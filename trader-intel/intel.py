@@ -189,6 +189,8 @@ def earnings_headline(symbol, date, when):
 def validate_items(raws):
     """A JSON list -> (valid items, [{"index", "reason", "item"}]). A {"_help": ...} element is the template's
     vocabulary block and is ignored; anything else that is not a valid item is listed, never dropped quietly."""
+    if isinstance(raws, dict) and isinstance(raws.get("items"), list):
+        raws = raws["items"]  # {"note": ..., "items": [...]} is fine too
     if not isinstance(raws, list):
         raise IntelError("the file must hold a JSON list of items (see intel.py template)")
     good, bad = [], []

@@ -154,9 +154,11 @@ def sell_fill(px, cost_bps):
 
 
 def first_slot_at_or_after(date_str, at_et):
-    """The first 5-minute slot of the session whose bar STARTS at or after at_et, or None."""
+    """The first 5-minute slot of the session whose bar STARTS at or after at_et (a New York datetime,
+    or a time of day), or None."""
+    t = at_et if isinstance(at_et, datetime.time) else at_et.time()
     for k in range(clock.slots_of_day(date_str)):
-        if clock.slot_time(date_str, k) >= at_et:
+        if clock.slot_time(date_str, k).time() >= t:
             return k
     return None
 
@@ -318,7 +320,7 @@ def session_bars(sym, date_str, now_utc, offline=None, cache_root=None):
         series, source = read_offline(offline, sym), "offline"
     else:
         today = clock.to_eastern(now_utc).date().isoformat()
-        if date_str < today and cache_root:
+        if cache_root:  # a full stored session wins; the store never holds today's partial session
             try:
                 store = bars.load_store(sym, "bars5m", cache_root)
             except (IOError_, ValueError):
@@ -483,12 +485,19 @@ def cmd_place(a):
         raise PaperError("order %d needs a whole-share qty, got %r" % (a.index, order.get("qty")))
     qty = int(round(q))
     fp = fingerprint(order)
-    risk_pass(_read(a.risk, "risk check", required=False), fp, today, a.index)
     state = load_state(a.state)
+    # the broker day is today when a yes was recorded today; otherwise, when trader-risk's PASS is from an
+    # earlier session that also holds a yes, that session (a past day fills from the bar store). A yes from
+    # another day with today's PASS is no yes for today.
+    risk = _read(a.risk, "risk check", required=False)
+    if not decisions(state, fp, today) and risk and risk.get("date") and str(risk["date"]) < today \
+            and decisions(state, fp, str(risk["date"])):
+        today = str(risk["date"])
+    risk_pass(risk, fp, today, a.index)
     recs = decisions(state, fp, today)
     if not recs:
-        raise PaperError("no yes recorded for order %d today in %s: ticket.py approve records it first"
-                         % (a.index, a.state))
+        raise PaperError("no yes recorded for order %d on %s in %s: ticket.py approve records it first"
+                         % (a.index, today, a.state))
     placed = [r for r in recs if r.get("status") == "placed"]
     if placed:
         raise PaperError("order %d was already placed today%s: nothing to fill twice"
@@ -545,7 +554,7 @@ def cmd_place(a):
     pid = "paper-%s-%d" % (date_str, n)
     ticket = ticket_path(a.ticket)
     run_ticket(ticket, ["result", "--index", a.index, "--status", "placed", "--broker-id", pid,
-                        "--filled-qty", qty, "--filled-price", _p(fill), "--now", clock.iso(now),
+                        "--filled-qty", qty, "--filled-price", _p(fill), "--now", clock.iso(now), "--today", today,
                         "--orders", a.orders, "--state", a.state, "--risk", a.risk, "--config", a.config,
                         "--portfolio", a.portfolio])
     pos = {"id": pid, "symbol": sym, "side": "buy", "qty": qty, "entry": fill, "entry_open": round(open_px, 4),
@@ -562,7 +571,7 @@ def cmd_place(a):
         print(json.dumps({"placed": pos, "book": a.book, "note": SIM}, indent=2))
         return 0
     print("Placed %s on paper: %s %d at %s, the %s bar's open %s plus %s slippage (%s bps round trip, half each way). "
-          "%s." % (pid, sym, qty, _p(fill), hhmm(start), _p(open_px), _p(slip), ("%g" % cost_bps), SIM.capitalize()))
+          "%s." % (pid, sym, qty, _p(fill), hhmm(start), _p(open_px), _p(slip), ("%g" % cost_bps), SIM))
     print("  Stop %s, target %s, risk %s a share, %s at the stop. Flat by %s New York."
           % (_p(pos["stop"]), _p(pos["target"]), _p(pos["risk_per_share"]), _money(pos["risk_per_share"] * qty),
              flat_by))
@@ -626,11 +635,16 @@ def cmd_sync(a):
         print("Paper sync at %s New York, fills %s (stop before target inside a bar):" % (hhmm(now_et), SIM))
         for ln in lines:
             print("  " + ln)
+        closed_now = [r for r in results if r["status"] == "closed"]
+        if closed_now:
+            print("  Totals: %d closed, R %s, %s (%s)" % (
+                len(closed_now), _r(sum(r["R"] or 0 for r in closed_now)),
+                _money(sum(r["pnl_usd"] or 0 for r in closed_now), signed=True), SIM))
         if any(r["status"] == "closed" and r["fill_recorded"] for r in results):
             print("Exits were recorded through ticket.py fill (%s, %s)." % (a.portfolio, a.state))
         if failed:
             print("A fill could not be recorded: fix the line above and record it with ticket.py fill by hand.")
-        print("Most people who day trade lose money; a paper record does not change that.")
+        print("Most people who day trade lose money; a paper record (%s) does not change that." % SIM)
     return 1 if failed else 0
 
 
@@ -658,7 +672,7 @@ def cmd_status(a):
         print("  none")
     for ln in summary_lines(s):
         print(ln)
-    print("Most people who day trade lose money; a paper record does not change that.")
+    print("Most people who day trade lose money; a paper record (%s) does not change that." % SIM)
     return 0
 
 

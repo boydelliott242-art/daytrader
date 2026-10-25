@@ -1,0 +1,214 @@
+{
+ "created_by": "trader-lab",
+ "as_of": "2026-10-18T22:00:00Z",
+ "fill": "next_open",
+ "cost_bps": 4,
+ "configs_tested": 31,
+ "split": {
+  "is": {
+   "first": "2026-07-31",
+   "last": "2026-09-18",
+   "n": 35
+  },
+  "oos": {
+   "first": "2026-09-19",
+   "last": "2026-10-16",
+   "n": 20
+  }
+ },
+ "configs": [
+  {
+   "id": "orb15|r=1",
+   "setup": "orb15",
+   "params": {
+    "or_minutes": 15,
+    "target_r": 1.0,
+    "stop_rule": "or_mid"
+   },
+   "label": "15-minute opening-range breakout, stop at the range midpoint, target 1R",
+   "status": "approved",
+   "oos": {
+    "n": 240,
+    "target": 130,
+    "stop": 90,
+    "close": 20,
+    "green": 130,
+    "win_rate": 0.5417,
+    "win_ci95": [
+     0.48,
+     0.6
+    ],
+    "exp_R": 0.12,
+    "exp_ci95": [
+     0.03,
+     0.21
+    ],
+    "pf": 1.2,
+    "avg_win_R": 1.0,
+    "avg_loss_R": -0.9,
+    "max_dd_R": 6.0,
+    "median_R": 0.1,
+    "n_symbols": 20,
+    "n_sessions": 20
+   },
+   "by_regime": {
+    "trend_flat": {
+     "n": 120,
+     "target": 70,
+     "stop": 40,
+     "close": 10,
+     "green": 70,
+     "win_rate": 0.5833,
+     "win_ci95": [
+      0.49,
+      0.67
+     ],
+     "exp_R": 0.18,
+     "exp_ci95": [
+      0.05,
+      0.31
+     ],
+     "pf": 1.2,
+     "avg_win_R": 1.0,
+     "avg_loss_R": -0.9,
+     "max_dd_R": 6.0,
+     "median_R": 0.1,
+     "n_symbols": 20,
+     "n_sessions": 20
+    },
+    "vix_20_30": {
+     "n": 60,
+     "target": 20,
+     "stop": 35,
+     "close": 5,
+     "green": 20,
+     "win_rate": 0.3333,
+     "win_ci95": [
+      0.22,
+      0.46
+     ],
+     "exp_R": -0.25,
+     "exp_ci95": [
+      -0.5,
+      0.0
+     ],
+     "pf": 1.2,
+     "avg_win_R": 1.0,
+     "avg_loss_R": -0.9,
+     "max_dd_R": 6.0,
+     "median_R": 0.1,
+     "n_symbols": 20,
+     "n_sessions": 20
+    }
+   }
+  },
+  {
+   "id": "orb15|r=2",
+   "setup": "orb15",
+   "params": {
+    "or_minutes": 15,
+    "target_r": 2.0,
+    "stop_rule": "or_mid"
+   },
+   "label": "15-minute opening-range breakout, stop at the range midpoint, target 2R",
+   "status": "watch",
+   "oos": {
+    "n": 240,
+    "target": 70,
+    "stop": 120,
+    "close": 50,
+    "green": 70,
+    "win_rate": 0.2917,
+    "win_ci95": [
+     0.24,
+     0.35
+    ],
+    "exp_R": 0.06,
+    "exp_ci95": [
+     -0.08,
+     0.2
+    ],
+    "pf": 1.2,
+    "avg_win_R": 1.0,
+    "avg_loss_R": -0.9,
+    "max_dd_R": 6.0,
+    "median_R": 0.1,
+    "n_symbols": 20,
+    "n_sessions": 20
+   },
+   "by_regime": {}
+  },
+  {
+   "id": "vwap_reclaim|r=1",
+   "setup": "vwap_reclaim",
+   "params": {
+    "below_bars": 3,
+    "target_r": 1.0
+   },
+   "label": "VWAP reclaim after 3+ bars below, target 1R",
+   "status": "rejected",
+   "oos": {
+    "n": 300,
+    "target": 120,
+    "stop": 170,
+    "close": 10,
+    "green": 120,
+    "win_rate": 0.4,
+    "win_ci95": [
+     0.35,
+     0.45
+    ],
+    "exp_R": -0.2,
+    "exp_ci95": [
+     -0.3,
+     -0.1
+    ],
+    "pf": 1.2,
+    "avg_win_R": 1.0,
+    "avg_loss_R": -0.9,
+    "max_dd_R": 6.0,
+    "median_R": 0.1,
+    "n_symbols": 20,
+    "n_sessions": 20
+   },
+   "by_regime": {}
+  },
+  {
+   "id": "orb15_rs|r=1",
+   "setup": "orb15_rs",
+   "params": {
+    "or_minutes": 15,
+    "rs_min": 0.003,
+    "stop_rule": "or_mid",
+    "target_r": 1.0
+   },
+   "label": "15-minute opening-range breakout with relative strength over SPY, stop at the range midpoint, target 1R",
+   "status": "approved",
+   "oos": {
+    "n": 150,
+    "target": 85,
+    "stop": 55,
+    "close": 10,
+    "green": 85,
+    "win_rate": 0.5667,
+    "win_ci95": [
+     0.49,
+     0.64
+    ],
+    "exp_R": 0.2,
+    "exp_ci95": [
+     0.06,
+     0.34
+    ],
+    "pf": 1.2,
+    "avg_win_R": 1.0,
+    "avg_loss_R": -0.9,
+    "max_dd_R": 6.0,
+    "median_R": 0.1,
+    "n_symbols": 20,
+    "n_sessions": 20
+   },
+   "by_regime": {}
+  }
+ ]
+}

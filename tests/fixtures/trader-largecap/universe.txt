@@ -1,0 +1,186 @@
+AAPL|Apple Inc. Common Stock
+ABBV|AbbVie Inc. Common Stock
+ABT|Abbott Laboratories Common Stock
+ACN|Accenture plc Class A Ordinary Shares (Ireland)
+ADI|Analog Devices Inc. Common Stock
+ADP|Automatic Data Processing Inc. Common Stock
+AMAT|Applied Materials Inc. Common Stock
+AMD|Advanced Micro Devices Inc. Common Stock
+AMGN|Amgen Inc. Common Stock
+AMP|Ameriprise Financial Inc. Common Stock
+AMZN|Amazon.com Inc. Common Stock
+ANET|Arista Networks Inc. Common Stock
+APH|Amphenol Corporation Common Stock
+ARM|Arm Holdings plc American Depositary Shares
+ARMK|Aramark Common Stock
+ASML|ASML Holding N.V. New York Registry Shares
+AVGO|Broadcom Inc. Common Stock
+AWK|American Water Works Company Inc. Common Stock
+AXP|American Express Company Common Stock
+AZN|AstraZeneca PLC Ordinary Shares
+BA|Boeing Company (The) Common Stock
+BABA|Alibaba Group Holding Limited American Depositary Shares each representing eight Ordinary share
+BAC|Bank of America Corporation Common Stock
+BBVA|Banco Bilbao Vizcaya Argentaria S.A. Common Stock
+BHP|BHP Group Limited American Depositary Shares (Each representing two Ordinary Shares)
+BKNG|Booking Holdings Inc. Common Stock
+BLK|BlackRock Inc. Common Stock
+BMO|Bank Of Montreal Common Stock
+BMY|Bristol-Myers Squibb Company Common Stock
+BNS|Bank Nova Scotia Halifax Pfd 3 Ordinary Shares
+BP|BP p.l.c. Common Stock
+BRK.B|Berkshire Hathaway Inc.
+BTI|British American Tobacco  Industries p.l.c. Common Stock ADR
+BTSG|BrightSpring Health Services Inc. Common Stock
+BUD|Anheuser-Busch Inbev SA Sponsored ADR (Belgium)
+C|Citigroup Inc. Common Stock
+CAT|Caterpillar Inc. Common Stock
+CB|Chubb Limited  Common Stock
+CBRE|CBRE Group Inc Common Stock Class A
+CCZ|Comcast Holdings ZONES
+COF|Capital One Financial Corporation Common Stock
+COO|The Cooper Companies Inc. Common Stock
+COP|ConocoPhillips Common Stock
+COST|Costco Wholesale Corporation Common Stock
+CRDO|Credo Technology Group Holding Ltd Ordinary Shares
+CRL|Charles River Laboratories International Inc. Common Stock
+CRM|Salesforce Inc. Common Stock
+CRWD|CrowdStrike Holdings Inc. Class A Common Stock
+CSCO|Cisco Systems Inc. Common Stock (DE)
+CVS|CVS Health Corporation Common Stock
+CVX|Chevron Corporation Common Stock
+DE|Deere & Company Common Stock
+DELL|Dell Technologies Inc. Class C Common Stock 
+DHR|Danaher Corporation Common Stock
+DIS|Walt Disney Company (The) Common Stock
+DOCU|DocuSign Inc. Common Stock
+DTM|DT Midstream Inc. Common Stock 
+EMA|Emera Incorporated Common Shares
+EQNR|Equinor ASA
+ESLT|Elbit Systems Ltd. Ordinary Shares
+ESTC|Elastic N.V. Ordinary Shares
+ETN|Eaton Corporation PLC Ordinary Shares
+FIS|Fidelity National Information Services Inc. Common Stock
+FTNT|Fortinet Inc. Common Stock
+FWONA|Liberty Media Corporation Series A Common Stock
+GE|GE Aerospace Common Stock
+GEV|GE Vernova Inc. Common Stock
+GIB|CGI Inc. Common Stock
+GILD|Gilead Sciences Inc. Common Stock
+GMAB|Genmab A/S ADS
+GOOGM|Alphabet Inc. Depositary Shares representing a 1/20th Interest in a Share of Series A Mandatory Convertible Preferred Stock
+GOOGN|Alphabet Inc. Depositary Shares representing a 1/20th Interest in a Share of Series B Mandatory Convertible Preferred Stock
+GS|Goldman Sachs Group Inc. (The) Common Stock
+HD|Home Depot Inc. (The) Common Stock
+HDB|HDFC Bank Limited Common Stock
+HSBC|HSBC Holdings plc. Common Stock
+HTHT|H World Group Limited American Depositary Shares
+IBM|International Business Machines Corporation Common Stock
+INTC|Intel Corporation Common Stock
+ISRG|Intuitive Surgical Inc. Common Stock
+JNJ|Johnson & Johnson Common Stock
+JPM|JP Morgan Chase & Co. Common Stock
+KEY|KeyCorp Common Stock
+KLAC|KLA Corporation Common Stock
+KO|Coca-Cola Company (The) Common Stock
+LDOS|Leidos Holdings Inc. Common Stock
+LIN|Linde plc Ordinary Shares
+LLY|Eli Lilly and Company Common Stock
+LMT|Lockheed Martin Corporation Common Stock
+LNT|Alliant Energy Corporation Common Stock
+LOW|Lowe's Companies Inc. Common Stock
+MA|Mastercard Incorporated Common Stock
+MCD|McDonald's Corporation Common Stock
+MCK|McKesson Corporation Common Stock
+MDT|Medtronic plc. Ordinary Shares
+META|Meta Platforms Inc. Class A Common Stock
+MFG|Mizuho Financial Group Inc. Sponosred ADR (Japan)
+MKL|Markel Group Inc. Common Stock
+MO|Altria Group Inc.
+MPC|Marathon Petroleum Corporation Common Stock
+MRK|Merck & Company Inc. Common Stock (new)
+MRVL|Marvell Technology Inc. Common Stock
+MS|Morgan Stanley Common Stock
+MSFT|Microsoft Corporation Common Stock
+MU|Micron Technology Inc. Common Stock
+MUFG|Mitsubishi UFJ Financial Group Inc. Common Stock
+NEE|NextEra Energy Inc. Common Stock
+NEM|Newmont Corporation
+NFLX|Netflix Inc. Common Stock
+NMR|Nomura Holdings Inc ADR American Depositary Shares
+NOW|ServiceNow Inc. Common Stock
+NVDA|NVIDIA Corporation Common Stock
+NVO|Novo Nordisk A/S Common Stock
+NVS|Novartis AG Common Stock
+NYT|New York Times Company (The) Common Stock
+ORCL|Oracle Corporation Common Stock
+P|Everpure Inc. Class A common stock
+PANW|Palo Alto Networks Inc. Common Stock
+PAYX|Paychex Inc. Common Stock
+PBR|Petroleo Brasileiro S.A. Petrobras ADS
+PEP|PepsiCo Inc. Common Stock
+PFE|Pfizer Inc. Common Stock
+PG|Procter & Gamble Company (The) Common Stock
+PGR|Progressive Corporation (The) Common Stock
+PLD|Prologis Inc. Common Stock
+PLTR|Palantir Technologies Inc. Class A Common Stock
+PM|Philip Morris International Inc Common Stock
+QCOM|QUALCOMM Incorporated Common Stock
+QQQX|Not In The Screener Inc. Common Stock
+QXO|QXO Inc. Common Stock
+RTX|RTX Corporation Common Stock
+RVTY|Revvity Inc. Common Stock
+RY|Royal Bank Of Canada Common Stock
+SAN|Banco Santander S.A. Sponsored ADR (Spain)
+SAP|SAP  SE ADS
+SBUX|Starbucks Corporation Common Stock
+SCCO|Southern Copper Corporation Common Stock
+SCHW|Charles Schwab Corporation (The) Common Stock
+SHEL|Shell PLC American Depositary Shares (each representing two (2) Ordinary Shares) 
+SHOP|Shopify Inc. Class A Subordinate Voting Shares
+SKHY|SK hynix Inc. American Depositary Shares
+SMFG|Sumitomo Mitsui Financial Group Inc Unsponsored American Depositary Shares (Japan)
+SNDK|Sandisk Corporation Common Stock
+SONY|Sony Group Corporation American Depositary Shares 
+SPCX|Space Exploration Technologies Corp. Class A Common Stock
+SPGI|S&P Global Inc. Common Stock
+SPOT|Spotify Technology S.A. Ordinary Shares
+SSB|SouthState Bank Corporation Common Stock
+STRD|Strategy Inc 10.00% Series A Perpetual Stride Preferred Stock
+STX|Seagate Technology Holdings PLC Ordinary Shares (Ireland)
+SUNB|Sunbelt Rentals Holdings Inc. Common Stock
+SYK|Stryker Corporation Common Stock
+T|AT&T Inc.
+TBB|AT&T Inc. 5.350% Global Notes due 2066
+TD|Toronto Dominion Bank (The) Common Stock
+THC|Tenet Healthcare Corporation Common Stock
+TJX|TJX Companies Inc. (The) Common Stock
+TM|Toyota Motor Corporation Common Stock
+TMO|Thermo Fisher Scientific Inc Common Stock
+TMUS|T-Mobile US Inc. Common Stock
+TOL|Toll Brothers Inc. Common Stock
+TSLA|Tesla Inc. Common Stock
+TSM|Taiwan Semiconductor Manufacturing Company Ltd.
+TTE|TotalEnergies SE Ordinary Shares
+TX|Ternium S.A. Ternium S.A. American Depositary Shares (each representing ten shares USD1.00 par value)
+TXN|Texas Instruments Incorporated Common Stock
+UBER|Uber Technologies Inc. Common Stock
+UBS|UBS Group AG Registered Ordinary Shares
+UI|Ubiquiti Inc. Common Stock
+UL|Unilever PLC American Depositary Shares (each representing One Ordinary Share)
+ULTA|Ulta Beauty Inc. Common Stock
+UNH|UnitedHealth Group Incorporated Common Stock (DE)
+UNP|Union Pacific Corporation Common Stock
+V|Visa Inc.
+VLO|Valero Energy Corporation Common Stock
+VRTX|Vertex Pharmaceuticals Incorporated Common Stock
+VZ|Verizon Communications Inc. Common Stock
+WAB|Westinghouse Air Brake Technologies Corporation Common Stock
+WDC|Western Digital Corporation Common Stock
+WELL|Welltower Inc. Common Stock
+WFC|Wells Fargo & Company Common Stock
+WMT|Walmart Inc. Common Stock
+WPC|W. P. Carey Inc. REIT
+XEL|Xcel Energy Inc. Common Stock
+XOM|ExxonMobil Holdings Corporation Common Stock
+ZZTOP|Zz Top Test Company Common Stock

@@ -61,7 +61,7 @@ def orb(bars, ctx, params, name="orb15"):
     gap_min = params.get("gap_min")
     if gap_min is not None:
         pc = ctx.get("prev_close")
-        if not pc or bars[0]["o"] / pc - 1 < gap_min:
+        if not pc or bars[0]["o"] / pc - 1 < gap_min - 1e-9:
             return None
     range_vol = sum(b["v"] for b in bars[:n]) / float(n)
     spy = ctx.get("spy")
@@ -77,7 +77,7 @@ def orb(bars, ctx, params, name="orb15"):
         if rs_min is not None:
             if not spy or len(spy) <= k or not spy[0]["o"] or not bars[0]["o"]:
                 return None
-            if (b["c"] / bars[0]["o"] - 1) - (spy[k]["c"] / spy[0]["o"] - 1) < rs_min:
+            if (b["c"] / bars[0]["o"] - 1) - (spy[k]["c"] / spy[0]["o"] - 1) < rs_min - 1e-9:
                 return None
         stop = (oh + ol) / 2.0 if stop_rule == "or_mid" else ol
         extra = {}

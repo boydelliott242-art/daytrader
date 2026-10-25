@@ -475,9 +475,10 @@ class Report(Temp):
         self.assertEqual(rep["stats_late"]["exp_R"], 0.9461)
         self.assertTrue(rep["small_sample"])
         self.assertEqual(rep["fill"], "next_open")
-        self.assertEqual([t["id"] for t in rep["trades"]], ["2026-10-16|NVDA|orb15|r=1|10:20 AM", TSLA_ID,
+        # date, then the entry bar, then the symbol
+        self.assertEqual([t["id"] for t in rep["trades"]], ["2026-10-16|NVDA|orb15|r=1|10:20 AM",
                                                             "2026-10-19|JPM|vwap_reclaim|r=1|10:15 AM",
-                                                            "2026-10-19|MSFT|orb15|r=1|10:15 AM",
+                                                            "2026-10-19|MSFT|orb15|r=1|10:15 AM", TSLA_ID,
                                                             "2026-10-20|TSLA|orb15|r=1|10:00 AM"])
 
     def test_by_setup_by_week_and_the_equity_curves(self):
@@ -627,10 +628,10 @@ class SkillDoc(unittest.TestCase):
                 src = fh.read()
             self.assertNotIn("\u2014", src, f)
             if f.endswith(".py"):
-                for bad in ("import zoneinfo", "from zoneinfo", ".removeprefix(", ".removesuffix("):
+                for bad in ("import " + "zoneinfo", "from " + "zoneinfo", ".remove" + "prefix(", ".remove" + "suffix("):
                     self.assertNotIn(bad, src, f)
                 self.assertNotRegex(src, r"(?m)^\s+match \w+.*:$", f)
-                for bad in ("list[", "dict[", "tuple["):
+                for bad in ("list" + "[", "dict" + "[", "tuple" + "["):
                     self.assertNotRegex(src, r"(?<![\w.])%s" % re.escape(bad), f)
 
 

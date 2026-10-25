@@ -189,6 +189,10 @@ def derive_earnings(items):
     out = {}
     for sym in sorted(by):
         lst = _newest_first(by[sym])
+        # the newest word wins; at the same minute a confirmed time (pre / post) beats "unknown"
+        head = [i for i in lst if i.get("time") == lst[0].get("time")]
+        best = next((i for i in head if i.get("when") in ("pre", "post")), lst[0])
+        lst = [best] + [i for i in lst if i is not best]
         rec = earnings_record(lst[0])
         rec["history"] = [earnings_record(i) for i in lst[1:]]
         out[sym] = rec

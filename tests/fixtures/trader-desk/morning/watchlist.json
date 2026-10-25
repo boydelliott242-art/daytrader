@@ -1,0 +1,1 @@
+{"created_by": "trader-scanner", "mode": "daily", "as_of": "2026-10-16", "hits": [{"symbol": "XOM", "price": 183.21, "setups": ["breakout_20d"], "rsi": 75.9}, {"symbol": "TSLA", "price": 354.72, "setups": ["reclaim_ma20"], "rsi": 55.0}]}

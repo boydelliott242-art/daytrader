@@ -66,6 +66,12 @@ class LargecapError(Exception):
 
 # ---------------------------------------------------------------- words and numbers
 
+def tier_possible(t, min_cap):
+    """Can a cap at or above the floor fall in this tier? (the tier's ceiling is above the floor)"""
+    ceiling = {"mega": float("inf"), "large": 200e9, "mid-large": 50e9, "small": 10e9}[t]
+    return ceiling > float(min_cap)
+
+
 def money_short(x):
     """5114261000000 -> $5.11T, 49024608422 -> $49.0B, 10e9 -> $10B, 850e6 -> $850M."""
     if x is None:
@@ -74,8 +80,10 @@ def money_short(x):
     if x >= 1e12:
         return "$%.2fT" % (x / 1e12)
     if x >= 1e9:
-        s = "%.1f" % (x / 1e9)
-        return "$%sB" % (s[:-2] if s.endswith(".0") else s)
+        b = x / 1e9
+        if abs(b - round(b)) < 0.005:
+            return "$%dB" % int(round(b))
+        return "$%.1fB" % b
     if x >= 1e6:
         return "$%.0fM" % (x / 1e6)
     return "$%s" % format(int(round(x)), ",")
@@ -171,7 +179,7 @@ def build(rows, min_cap, universe_path, now_utc):
               "dropped_below_floor": len(rows) - at_floor,
               "dropped_not_in_universe": at_floor - doc["count"],
               "by_tier": {t: sum(1 for s in doc["symbols"] if s["tier"] == t) for t in TIER_ORDER
-                          if any(s["tier"] == t for s in doc["symbols"])},
+                          if tier_possible(t, min_cap)},
               "by_sector": dict(Counter((s.get("sector") or "(no sector)") for s in doc["symbols"]).most_common()),
               "universe_symbols": len(allowed) if allowed is not None else None}
     doc["counts"] = counts
@@ -310,7 +318,7 @@ def cmd_check(a):
     print("%s is in the large-cap list: #%d of %s, %s, tier %s." % (sym, rank, n(count), money_short(s.get("market_cap")),
                                                                      TIER_WORDS.get(s.get("tier"), s.get("tier"))))
     print("  %s. Sector %s, industry %s, country %s%s." % (
-        s.get("name") or "(no name)", s.get("sector") or "n/a", s.get("industry") or "n/a", s.get("country") or "n/a",
+        (s.get("name") or "(no name)").rstrip("."), s.get("sector") or "n/a", s.get("industry") or "n/a", s.get("country") or "n/a",
         (", listed %s" % s["ipo_year"]) if s.get("ipo_year") else ""))
     print("  List as of %s, floor %s. In the list means the lab measures it; it says nothing about today." % (
         doc.get("as_of"), money_short(doc.get("min_cap_usd"))))

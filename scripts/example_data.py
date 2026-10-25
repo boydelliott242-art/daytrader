@@ -461,7 +461,7 @@ def main(argv=None):
         log("  stats %s" % c["id"])
         configs.append(config_blocks(c, trades, dates, split_at, tags_of, a.fill))
     log("rolling walk-forward")
-    roll, picked = rolling(trades, dates, cfgs, a.fill)
+    roll, picked, shown = rolling(trades, dates, cfgs, a.fill)
     counts = {}
     for c in configs:
         counts[c["status"]] = counts.get(c["status"], 0) + 1
@@ -499,7 +499,7 @@ def main(argv=None):
     log("wrote desk.json (%d candidates)" % len(board))
 
     edge["_trades"] = trades
-    sc = scorecard_doc(picked, a.fill, edge, float(cfg.get("max_loss_per_trade_usd") or 50))
+    sc = scorecard_doc(shown, a.fill, edge, float(cfg.get("max_loss_per_trade_usd") or 50))
     io.write_json(os.path.join(a.out, "scorecard.json"), sc)
     log("wrote scorecard.json (%d graded)" % sc["graded"])
 

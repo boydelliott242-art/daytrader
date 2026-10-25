@@ -724,8 +724,28 @@ def build_board(a, now_utc, day, cutoff, cfg, symbols, sessions, spy, stores, ed
                           "score": score, "last_close": round(last, 2), "prev_close": round(pc, 2) if pc else None,
                           "move_pct": move, "earnings": ex_sym.get(sym) or week.get(sym),
                           "daily_hit": daily_hits.get(sym), "news": nw or None})
+    cands = one_per_symbol(cands)
     rank_candidates(cands)
     return cands, dropped
+
+
+def one_per_symbol(cands):
+    """One candidate a symbol: the best-scoring config (fresh before late, then the lab's lower bound),
+    with every other config that fired on the same chart listed under it as also_fired."""
+    by_sym = {}
+    for c in cands:
+        by_sym.setdefault(c["symbol"], []).append(c)
+    out = []
+    for sym in sorted(by_sym):
+        group = by_sym[sym]
+        rank_candidates(group)
+        best = group[0]
+        best["also_fired"] = [{"config_id": c["config_id"], "label": c["label"], "entry": c["signal"]["entry"],
+                               "stop": c["signal"]["stop"], "target": c["signal"]["target"],
+                               "entry_time": c["signal"]["entry_time"], "status": c["lab"]["status"],
+                               "score": c.get("score"), "flags": c["flags"]} for c in group[1:]]
+        out.append(best)
+    return out
 
 
 def shown_slice(cands, top):

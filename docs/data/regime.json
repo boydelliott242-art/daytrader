@@ -1,0 +1,45 @@
+{
+  "created_by": "trader-regime",
+  "as_of": "2026-10-23 10:15 ET",
+  "example": true,
+  "date": "2026-10-23",
+  "daily": {
+    "spy_close": 763.9600219726562,
+    "spy_sma20": 770.7194976806641,
+    "spy_sma50": 768.1665966796875,
+    "trend": "trend_flat",
+    "ret5d_pct": -1.015,
+    "vix": 19.03,
+    "vix_bucket": "vix_15_20",
+    "vix3m": 20.12,
+    "backwardation": false,
+    "prev_range_atr": 0.913
+  },
+  "live": {
+    "at": "10:15",
+    "spy_gap_pct": -0.532,
+    "spy_or": "inside",
+    "spy_vs_vwap_pct": -0.008,
+    "breadth_above_open_pct": 55.6,
+    "breadth_up_pct": 38.9,
+    "breadth_n": 18,
+    "sectors": [
+      {
+        "etf": "XLK",
+        "name": "Technology",
+        "move_pct": 0.704
+      },
+      {
+        "etf": "XLF",
+        "name": "Financials",
+        "move_pct": -0.294
+      }
+    ]
+  },
+  "tags": [
+    "trend_flat",
+    "vix_15_20",
+    "prev_normal"
+  ],
+  "note": "EXAMPLE: the regime read for the fixture's last session, computed by scripts/example_data.py over the offline fixture (tests/fixtures/dt-cache) so the dashboard renders before the tools have run. The tools overwrite this file with --publish."
+}

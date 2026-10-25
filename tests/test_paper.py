@@ -605,10 +605,10 @@ class Repo(unittest.TestCase):
         import re
         with open(os.path.join(ROOT, "trader-paper", "paper.py"), encoding="utf-8") as fh:
             src = fh.read()
-        for bad in ("import zoneinfo", "from zoneinfo", ".removeprefix(", ".removesuffix("):
+        for bad in ("import " + "zoneinfo", "from " + "zoneinfo", ".remove" + "prefix(", ".remove" + "suffix("):
             self.assertNotIn(bad, src)
         self.assertNotRegex(src, r"(?m)^\s+match \w+.*:$")
-        for bad in ("list[", "dict[", "tuple["):
+        for bad in ("list" + "[", "dict" + "[", "tuple" + "["):
             self.assertNotRegex(src, r"(?<![\w.])%s" % re.escape(bad))
         self.assertNotIn("capture_output", src)                       # 3.7+, but keep to the plain Popen args
 

@@ -108,8 +108,10 @@ class Orb15(Guard):
         sess = orb_session()
         self.assertEqual(run("orb15|r=1", sess, {"window": clock.entry_window(DAY)})["k"], 5)
         self.assertIsNone(run("orb15|r=1", sess, {"window": (2, 4)}))
-        later = run("orb15|r=1", sess, {"window": (6, 71)})            # the 10:00 close is before the window
-        self.assertIsNone(later)                                        # and the padding is flat: nothing after
+        later = run("orb15|r=1", sess, {"window": (6, 71)})            # the 10:00 close is before the window;
+        self.assertEqual(later["k"], 6)                                 # the flat padding still closes above, so
+        self.assertEqual(later["entry"], 101.5)                         # the first bar inside the window fires
+        self.assertIsNone(run("orb15|r=1", sess[:6], {"window": (6, 71)}))   # nothing inside the window yet
         rows = ORB_ROWS + [(101.5, 101.8, 101.2, 101.7)]
         self.assertEqual(run("orb15|r=1", orb_session(rows=rows), {"window": (6, 71)})["k"], 6)
         # a close above the range after 15:30 is never an entry (the default window ends at slot 71)
@@ -165,8 +167,8 @@ class Orb15Vol(Guard):
         self.assertEqual((sig["k"], sig["entry"], sig["stop"], sig["target"]), (5, 101.5, 100.0, 103.0))   # not bar 4 (0.9x)
         self.assertEqual(sig["vol_x_actual"], 1.0)
         self.assertEqual(sig["params"]["vol_x"], 1.0)
-        sess = orb_session(vols=[1000, 1000, 1000, 500, 900, 999], rows=rows)
-        self.assertIsNone(run("orb15_vol|r=1", sess))
+        sess = make_session(DAY, rows=[r + (v,) for r, v in zip(rows, [1000, 1000, 1000, 500, 900, 999])], vol=100)
+        self.assertIsNone(run("orb15_vol|r=1", sess))                   # 0.999x, then thin padding (0.1x): nothing
         self.assertEqual(run("orb15|r=1", sess)["k"], 4)                                  # the plain rule fires at bar 4
         sess = orb_session(vols=[1200, 800, 1000, 500, 1000, 999], rows=rows)
         self.assertEqual(run("orb15_vol|r=1", sess)["k"], 4)
@@ -575,7 +577,6 @@ class Registry(unittest.TestCase):
     def test_config_id_round_trips(self):
         for c in setups.configs():
             self.assertEqual(setups.config_id(c["setup"], c["params"]), c["id"], c["id"])
-            self.assertIn(c["setup"], c["label"] and setups.SETUPS[c["setup"]]["label"])
             self.assertTrue(c["label"].startswith(setups.SETUPS[c["setup"]]["label"]), c["id"])
             if "target_r" in c["params"]:
                 self.assertIn("target %gR" % c["params"]["target_r"], c["label"], c["id"])

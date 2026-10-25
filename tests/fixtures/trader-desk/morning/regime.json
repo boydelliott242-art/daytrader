@@ -1,0 +1,23 @@
+{
+ "created_by": "trader-regime",
+ "as_of": "2026-10-19T12:00:00Z",
+ "date": "2026-10-19",
+ "daily": {
+  "spy_close": 756.21,
+  "spy_sma20": 760.1,
+  "spy_sma50": 745.3,
+  "trend": "flat",
+  "ret5d_pct": -1.2,
+  "vix": 21.3,
+  "vix_bucket": "20-30",
+  "vix3m": 22.1,
+  "backwardation": false,
+  "prev_range_atr": 1.1
+ },
+ "live": null,
+ "tags": [
+  "trend_flat",
+  "vix_20_30",
+  "prev_normal"
+ ]
+}

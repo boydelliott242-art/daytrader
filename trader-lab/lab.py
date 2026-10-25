@@ -75,7 +75,7 @@ class LabError(Exception):
 
 def is_context(sym):
     s = sym.upper()
-    return s in CONTEXT_SYMBOLS or s.startswith("^") or re.match(r"^XL[A-Z]{1,2}$", s) is not None
+    return s in CONTEXT_SYMBOLS or s.startswith("^")
 
 
 def store_symbols(root):
@@ -440,10 +440,11 @@ def best_days(daily_r, dates, share=BEST_DAYS_SHARE):
     order = sorted(range(n), key=lambda i: -daily_r[i])[:k]
     top = sum(daily_r[i] for i in order)
     total = sum(daily_r)
-    frac = round(top / total, 4) if total > 0 else None
+    frac = round(top / total, 4) if total > 0 and top <= total + 1e-9 else None
     warn = None
     if frac is None:
-        warn = "the rolling total is not positive; there is no profit share to split"
+        warn = ("the rolling total is not positive; there is no profit share to split" if total <= 0 else
+                "the best days made more than the whole total: the other days lost money")
     elif frac > 0.5:
         warn = ("%d of %d test days (the best %d %%) made %d %% of the rolling total: a few days carry the "
                 "record" % (k, n, int(round(share * 100)), int(round(frac * 100))))

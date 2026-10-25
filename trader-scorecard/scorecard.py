@@ -226,7 +226,7 @@ def cmd_log(a):
     if not a.from_desk:
         raise ScorecardError("log wants --from-desk: the desk board is the only source of calls")
     now = clock.parse_now(a.now)
-    desk = read_json(a.desk, "desk board (run desk.py live first)")
+    desk = read_json(a.desk, "desk board")
     cands = desk.get("candidates")
     if not isinstance(cands, list):
         cands = []

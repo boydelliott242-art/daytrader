@@ -80,6 +80,10 @@ class RegimeError(Exception):
 
 # ---------------------------------------------------------------- small helpers
 
+def r4(x):
+    return None if x is None else round(float(x), 4)
+
+
 def r2(x):
     return None if x is None else round(float(x), 2)
 
@@ -192,6 +196,12 @@ def default_date(spy_rows, now_utc):
 
 # ---------------------------------------------------------------- the words
 
+def fmt1(x):
+    """One decimal, rounded half-up from the stored two decimals (770.15 -> 770.2, never 770.1)."""
+    import decimal
+    return str(decimal.Decimal(repr(float(x))).quantize(decimal.Decimal("0.1"), rounding=decimal.ROUND_HALF_UP))
+
+
 def trend_words(d):
     c, s20, s50 = d["spy_close"], d["spy_sma20"], d["spy_sma50"]
     if c is None:
@@ -202,11 +212,11 @@ def trend_words(d):
     def rel(a, b):
         return "above" if a > b else "below" if a < b else "at"
     if d["trend"] == "up":
-        return "SPY %.2f above its 20-day %.1f and 50-day %.1f: trend up." % (c, s20, s50)
+        return "SPY %.2f above its 20-day %s and 50-day %s: trend up." % (c, fmt1(s20), fmt1(s50))
     if d["trend"] == "down":
-        return "SPY %.2f below its 20-day %.1f and 50-day %.1f: trend down." % (c, s20, s50)
-    return "SPY %.2f %s its 20-day %.1f, the 20-day %s the 50-day %.1f: trend flat (mixed)." % (
-        c, rel(c, s20), s20, rel(s20, s50), s50)
+        return "SPY %.2f below its 20-day %s and 50-day %s: trend down." % (c, fmt1(s20), fmt1(s50))
+    return "SPY %.2f %s its 20-day %s, the 20-day %s the 50-day %s: trend flat (mixed)." % (
+        c, rel(c, s20), fmt1(s20), rel(s20, s50), fmt1(s50))
 
 
 def vix_words(d):
@@ -692,7 +702,15 @@ def cmd_live(a):
         warnings.append("no SPY daily store at %s: the daily block is empty; run scripts/fetch_cache.py" % a.cache_root)
     symbols = read_symbols(a, src)
     progress = None if (a.json or a.quiet) else (lambda s: print(s, file=sys.stderr, flush=True))
-    live = live_read(src, day, cutoff, a.cache_root, symbols, atr20, progress)
+    try:
+        live = live_read(src, day, cutoff, a.cache_root, symbols, atr20, progress)
+    except RegimeError:
+        raise
+    except Exception as e:  # the free endpoint is down, rate-limited or unreachable: say so in one line
+        if isinstance(src, YahooSource):
+            raise RegimeError("Yahoo did not answer (%s: %s): replay %s with --from-cache (the bar store) or "
+                              "--offline DIR, or try again in a minute" % (type(e).__name__, e, day.isoformat()))
+        raise
     if note:
         live["note"] = note
     doc = build_doc(now, day.isoformat(), daily, tags, live,

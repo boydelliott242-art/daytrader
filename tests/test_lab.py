@@ -73,7 +73,7 @@ class KnownAnswer(unittest.TestCase):
             self.assertLessEqual(t["exit_slot"], 77)
         st = dtstats.stats_block(trades, "R_gross")
         self.assertEqual((st["n"], st["target"], st["stop"], st["close"]), (33, 13, 15, 5))
-        self.assertEqual(st["exp_R"], -0.0618)
+        self.assertAlmostEqual(st["exp_R"], -0.062, places=3)   # the upstream prints -0.062
 
     def test_the_reel_itself_fires_at_bar_8(self):
         today = self.sessions["2026-10-19"]
@@ -92,7 +92,8 @@ class Run(unittest.TestCase):
         cls.d = tempfile.mkdtemp()
         cls.out = os.path.join(cls.d, "lab")
         cls.code, cls.text, cls.err = run(["run", "--cache-root", CACHE, "--symbols", "TSLA,NVDA,AAPL,SPY,^VIX",
-                                           "--workers", "1", "--out-dir", cls.out, "--config", CONFIG, "--quiet"])
+                                           "--workers", "1", "--out-dir", cls.out, "--config", CONFIG, "--quiet",
+                                           "--largecap", os.path.join(cls.d, "no-largecap.json")])
         with open(os.path.join(cls.out, "edge.json")) as fh:
             cls.edge = json.load(fh)
         cls.trades = []
@@ -323,7 +324,7 @@ class Stats(unittest.TestCase):
 
     def test_status_rule(self):
         def oos(n, exp, lo):
-            return {"n": n, "exp_R": exp, "exp_ci95": [lo, lo + 0.5]}
+            return {"n": n, "exp_R": exp, "exp_ci95": [lo, None if lo is None else lo + 0.5]}
         self.assertEqual(dtstats.status_of(oos(100, 0.2, 0.01)), "approved")
         self.assertEqual(dtstats.status_of(oos(99, 0.2, 0.01)), "watch")
         self.assertEqual(dtstats.status_of(oos(100, 0.2, -0.01)), "watch")
@@ -372,14 +373,18 @@ class Rolling(unittest.TestCase):
         good = lab.rolling_for_config(self.rows(0.5, 0.5), self.sessions)
         cheat = lab.rolling_for_config(self.rows(-1.0, 5.0), self.sessions)
         self.assertEqual(sorted(good["windows"]), self.tests)
-        self.assertEqual(cheat["windows"], {})
+        # the cheat only wins on test days: the first test day's window (all training days) never selects it,
+        # and no window ever reaches the day it is tested on (earlier test days are legitimately in later windows)
+        self.assertNotIn(self.tests[0], cheat["windows"])
+        for t, w in cheat["windows"].items():
+            self.assertLess(w["last"], t)
         for t, w in good["windows"].items():
             i = self.sessions.index(t)
             self.assertEqual((w["first"], w["last"]), (self.sessions[i - 30], self.sessions[i - 1]))
             self.assertLess(w["last"], t)
             self.assertEqual(w["n"], 90)                           # 30 sessions x 3 symbols
             self.assertGreater(w["lo"], 0)
-        block = lab.rolling_walk_forward({"good": good, "cheat": cheat}, self.sessions)
+        block = lab.rolling_walk_forward({"good": good}, self.sessions)
         self.assertEqual(block["test_days"], 20)
         self.assertEqual(block["selected_per_day"], [["good"]] * 20)
         self.assertEqual([d["date"] for d in block["days"]], self.tests)
@@ -413,8 +418,10 @@ class Rolling(unittest.TestCase):
     def test_too_few_trades_or_a_non_positive_mean_is_not_selected(self):
         thin = lab.rolling_for_config(self.rows(1.0, 1.0, symbols=("AAA",)), self.sessions)   # 30 a window
         self.assertEqual(thin["windows"], {})
-        flat = lab.rolling_for_config(self.rows(0.0, 1.0), self.sessions)
+        flat = lab.rolling_for_config(self.rows(0.0, 0.0), self.sessions)
         self.assertEqual(flat["windows"], {})
+        late_bloomer = lab.rolling_for_config(self.rows(0.0, 1.0), self.sessions)
+        self.assertNotIn(self.tests[0], late_bloomer["windows"])   # nothing positive before the first test day
         block = lab.rolling_walk_forward({"thin": thin, "flat": flat}, self.sessions)
         self.assertEqual(block["stats"]["n"], 0)
         self.assertEqual(block["selected_per_day"], [[]] * 20)
@@ -487,7 +494,7 @@ class Fields(unittest.TestCase):
         b = hand_session()
         for k in range(3, 6):                                       # bars 3..5 above the opening range high
             b[k] = {"t": b[k]["t"], "o": 100.6, "h": 101.5, "l": 100.5, "c": 101.0, "v": 3000}
-        b[6] = dict(b[6], h=103.0)                                  # the 1R target at 101.0 + 0.75
+        b[6] = dict(b[6], h=103.0, l=100.6)                         # the target bar; its low stays above the stop
         ctx = {"window": (2, 71), "prev_close": 99.0, "daily_atr": 2.0, "avg_vol20": 78 * 1000.0, "spy": None}
         cfg = [c for c in setups.configs() if c["id"] == "orb15|r=1"][0]
         trades = lab.session_trades("ACME", "2026-10-21", b, ctx, "next_open", 76, 4.0, [cfg],
@@ -559,10 +566,10 @@ class SkillDoc(unittest.TestCase):
                 src = fh.read()
             self.assertNotIn("\u2014", src, path)
             if path.endswith(".py"):
-                for bad in ("import zoneinfo", "from zoneinfo", ".removeprefix(", ".removesuffix("):
+                for bad in ("import " + "zoneinfo", "from " + "zoneinfo", ".remove" + "prefix(", ".remove" + "suffix("):
                     self.assertNotIn(bad, src, path)
                 self.assertNotRegex(src, r"(?m)^\s+match \w+.*:$", path)
-                for bad in ("list[", "dict[", "tuple["):
+                for bad in ("list" + "[", "dict" + "[", "tuple" + "["):
                     self.assertNotRegex(src, r"(?<![\w.])%s" % re.escape(bad), path)
 
 

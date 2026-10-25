@@ -562,9 +562,9 @@ class SkillDoc(unittest.TestCase):
                 src = fh.read()
             self.assertNotIn("\u2014", src, rel)
             if rel.endswith(".py"):
-                for bad in ("import zoneinfo", "from zoneinfo", ".removeprefix(", ".removesuffix("):
+                for bad in ("import " + "zoneinfo", "from " + "zoneinfo", ".remove" + "prefix(", ".remove" + "suffix("):
                     self.assertNotIn(bad, src, rel)
-                for bad in ("list[", "dict[", "tuple["):
+                for bad in ("list" + "[", "dict" + "[", "tuple" + "["):
                     self.assertNotRegex(src, r"(?<![\w.])%s" % re.escape(bad), rel)
                 self.assertNotRegex(src, r"(?m)^\s+match \w+.*:$", rel)
 

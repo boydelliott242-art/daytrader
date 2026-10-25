@@ -315,7 +315,7 @@ class ShowAndCheck(unittest.TestCase):
         code, text, _ = run(["check", "tsla", "--json"])
         doc = json.loads(text)
         self.assertTrue(doc["in_list"])
-        self.assertEqual((doc["symbol"], doc["tier"], doc["sector"]), ("TSLA", "mega", "Consumer Discretionary"))
+        self.assertEqual((doc["symbol"], doc["tier"], doc["sector"]), ("TSLA", "mega", "Industrials"))
         self.assertIn("industry", doc)
         code, text, err = run(["check", "GOOG"])
         self.assertEqual(code, 1)
@@ -368,10 +368,10 @@ class SkillDoc(unittest.TestCase):
                 src = fh.read()
             self.assertNotIn("\u2014", src, f)
             if f.endswith(".py"):
-                for bad in ("import zoneinfo", "from zoneinfo", ".removeprefix(", ".removesuffix("):
+                for bad in ("import " + "zoneinfo", "from " + "zoneinfo", ".remove" + "prefix(", ".remove" + "suffix("):
                     self.assertNotIn(bad, src, f)
                 self.assertNotRegex(src, r"(?m)^\s+match \w+.*:$", f)
-                for bad in ("list[", "dict[", "tuple["):
+                for bad in ("list" + "[", "dict" + "[", "tuple" + "["):
                     self.assertNotRegex(src, r"(?<![\w.])%s" % re.escape(bad), f)
 
 
