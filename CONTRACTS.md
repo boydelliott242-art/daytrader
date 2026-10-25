@@ -1,4 +1,4 @@
-# CONTRACTS — the large-cap day-trading desk built on the Day Trader skill v2
+# CONTRACTS: the large-cap day-trading desk built on the Day Trader skill v2
 
 The eleven upstream skills (`trader-scanner` … `trader-pelosi`) are vendored
 UNCHANGED from github.com/Jakeschincariol/day-trader-skill (MIT, commit 3d0f4ef).
@@ -152,14 +152,15 @@ report says so.
 `15-20`, `20-30`, `>30`), VIX vs VIX3M (backwardation flag), prior-day SPY
 range vs its 20-day ATR. `regime.py live --at HH:MM` adds the intraday read
 at a cutoff, from live Yahoo bars: SPY gap %, SPY vs its 15-minute opening
-range (above/inside/below), SPY vs VWAP, breadth = share of the large-cap
-list above VWAP (from the live spark closes), sector ETF ranking by move since
+range (above/inside/below), SPY vs VWAP, breadth = the share of the large-cap
+list whose last close is above its 9:30 open, and the share up on the day against the
+prior close (spark closes carry no volume, so VWAP breadth is not possible), sector ETF ranking by move since
 the open. Writes `trader/regime.json`:
 
 ```
 {"created_by": "trader-regime", "as_of": "...", "date": "YYYY-MM-DD",
  "daily": {"spy_close", "spy_sma20", "spy_sma50", "trend", "ret5d_pct", "vix", "vix_bucket", "vix3m", "backwardation", "prev_range_atr"},
- "live": {"at", "spy_gap_pct", "spy_or": "above|inside|below", "spy_vs_vwap_pct", "breadth_above_vwap_pct", "sectors": [{"etf", "move_pct"}]} | null,
+ "live": {"at", "spy_gap_pct", "spy_or": "above|inside|below", "spy_vs_vwap_pct", "breadth_above_open_pct", "breadth_up_pct", "sectors": [{"etf", "move_pct"}]} | null,
  "tags": ["trend_up", "vix_15_20", ...]}
 ```
 
@@ -208,7 +209,7 @@ every signal and outcome on one chart. Everything from the cache; no network.
   Nasdaq earnings calendar for today and the next session → `exclusions`
   (a stock reporting today pre-market, after the close, or tomorrow pre-market
   is out: a day trade is not exposed to the report, but the open is a gap and
-  the day is a news day — the user can override with `--allow-earnings`),
+  the day is a news day : the user can override with `--allow-earnings`),
   the upstream `scan.py daily --watchlist trader/largecap.txt`, then `news.py`
   for the daily hits. Writes `trader/desk.json` (`mode: "morning"`).
 - `desk.py live [--at HH:MM] [--top N]` (after the first bar past the range):
