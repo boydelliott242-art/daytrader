@@ -15,6 +15,10 @@ ABOUT = ("11 Claude skills for day trading: scan thousands of charts, track brea
 ORDER_PATH = ["trader-scanner", "trader-entry", "trader-exit", "trader-timemachine", "trader-budget",
               "trader-pelosi", "trader-risk", "trader-broker", "trader-alerts"]
 V1_ONLY = ["trader-copycat", "trader-screener", "trader-tax", "trader-rebalance"]
+# the large-cap desk built on top (CONTRACTS.md): six more skill folders at the root
+NEW_SKILLS = ["trader-largecap", "trader-regime", "trader-lab", "trader-desk", "trader-scorecard", "trader-paper"]
+NEW_ORDER_PATH = ["trader-desk", "trader-paper", "trader-lab", "trader-scorecard"]
+EXTRA_ROOT = [".gitignore", "CONTRACTS.md", "UPSTREAM_README.md", "CLAUDE.md", "dt", "docs", "scripts", "data", "trader"]
 
 
 def frontmatter(path):
@@ -36,11 +40,19 @@ class Repo(unittest.TestCase):
     def test_eleven_skill_folders_at_the_root(self):
         found = sorted(d for d in os.listdir(ROOT)
                        if os.path.isfile(os.path.join(ROOT, d, "SKILL.md")))
-        self.assertEqual(found, sorted(SKILLS))
+        for s in SKILLS:
+            self.assertIn(s, found, s)
+        for d in found:
+            self.assertIn(d, SKILLS + NEW_SKILLS, "unexpected skill folder %s" % d)
 
     def test_root_matches_the_reel(self):
-        root = sorted(d for d in os.listdir(ROOT) if not d.startswith(".git"))
-        self.assertEqual(root, sorted([".claude-plugin", "LICENSE", "README.md", "tests"] + SKILLS))
+        root = sorted(d for d in os.listdir(ROOT) if not d.startswith(".git") and d != ".DS_Store"
+                      and not d.endswith(".pyc") and d != "__pycache__")
+        for d in [".claude-plugin", "LICENSE", "README.md", "tests"] + SKILLS:
+            self.assertIn(d, root, d)
+        for d in root:
+            self.assertIn(d, [".claude-plugin", "LICENSE", "README.md", "tests"] + SKILLS + NEW_SKILLS + EXTRA_ROOT,
+                          "unexpected root entry %s" % d)
 
     def test_frontmatter_name_and_description(self):
         for s in SKILLS:
@@ -51,7 +63,7 @@ class Repo(unittest.TestCase):
             self.assertGreater(len(text.splitlines()), 60, s)
 
     def test_order_path_skills_carry_the_safety_rule(self):
-        for s in ORDER_PATH:
+        for s in ORDER_PATH + [n for n in NEW_ORDER_PATH if os.path.isdir(os.path.join(ROOT, n))]:
             _, text = frontmatter(os.path.join(ROOT, s, "SKILL.md"))
             low = " ".join(text.lower().split())
             self.assertIn("not financial advice", low, s)
@@ -69,7 +81,10 @@ class Repo(unittest.TestCase):
         self.assertEqual(market["plugins"][0]["name"], "day-trader-skill")
 
     def test_readme_carries_the_reel_copy(self):
-        with open(os.path.join(ROOT, "README.md"), encoding="utf-8") as fh:
+        path = os.path.join(ROOT, "UPSTREAM_README.md")  # the vendored upstream README, kept verbatim
+        if not os.path.exists(path):
+            path = os.path.join(ROOT, "README.md")
+        with open(path, encoding="utf-8") as fh:
             readme = " ".join(fh.read().split())
         self.assertTrue(readme.startswith("# The Day Trader skill"))
         for line in (ABOUT,
@@ -93,7 +108,7 @@ class Repo(unittest.TestCase):
     def test_no_v1_only_skill_is_left_behind(self):
         for path in every_text_file():
             rel = os.path.relpath(path, ROOT)
-            if rel.startswith("tests" + os.sep) or rel == "README.md":
+            if rel.startswith("tests" + os.sep) or rel in ("README.md", "UPSTREAM_README.md"):
                 continue  # the README points v1 users to the v1 commit
             with open(path, encoding="utf-8", errors="replace") as fh:
                 text = fh.read()
@@ -102,7 +117,7 @@ class Repo(unittest.TestCase):
 
     def test_every_tool_runs_on_python_3_8(self):
         # no 3.9+ only modules or syntax in the tools (the README promises 3.8)
-        for s in SKILLS:
+        for s in SKILLS + [n for n in NEW_SKILLS if os.path.isdir(os.path.join(ROOT, n))] + ["dt"]:
             folder = os.path.join(ROOT, s)
             for f in os.listdir(folder):
                 if not f.endswith(".py"):
