@@ -174,8 +174,10 @@ These are the first real runs, printed here so nobody has to take the tools' wor
   and the realised volatility separated the trades; on the short side the 5 and 20-day moves, relative strength, RSI,
   the MACD histogram, up-day persistence and beta did (lower beta better). Fourteen pairs of features were redundant
   (Spearman above 0.8): the momentum family is one fact, not nine.
-- **The robustness pass:** `vwap_reclaim|r=2` is FRAGILE (its one neighbour is negative; validation -0.115R, test
-  +0.059R); the two gap fades hold across the three-way split (train +0.071R, validation +0.000R, test +0.052R).
+- **The robustness pass:** every watch config is FRAGILE. `vwap_reclaim|r=2` loses in both regime classes the window
+  held (range -0.084R, strong_bull -0.091R), its one neighbour is negative and its validation third is -0.115R; the gap
+  fades hold the three-way split (train +0.071R, validation +0.000R, test +0.052R) but are positive in one regime class of
+  two (strong_bull +0.092R, range -0.002R). A rule that works in one regime is a rule that works in one regime.
 
 None of this is a prediction. It is what the rules did.
 
