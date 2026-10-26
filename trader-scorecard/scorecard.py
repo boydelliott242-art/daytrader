@@ -146,7 +146,11 @@ def normalize_signal(sig):
     if not isinstance(sig, dict):
         raise ScorecardError("the candidate has no signal block")
     entry, stop, target = (_price(sig, k) for k in ("entry", "stop", "target"))
-    if not stop < entry < target:
+    short = str(sig.get("side") or "long").lower() == "short"
+    if short:
+        if not target < entry < stop:
+            raise ScorecardError("a short needs target < entry < stop (got stop %s, entry %s, target %s)" % (stop, entry, target))
+    elif not stop < entry < target:
         raise ScorecardError("a long needs stop < entry < target (got stop %s, entry %s, target %s)" % (stop, entry, target))
     k = sig.get("k")
     if k is None:
@@ -164,10 +168,13 @@ def normalize_signal(sig):
     if given and k_from_entry_time(given) != k:
         raise ScorecardError("the signal disagrees with itself: k %d closes at %s, not %s" % (k, entry_time, given))
     out = dict(sig)
+    risk = (stop - entry) if short else (entry - stop)
     out.update({"k": k, "entry": round(entry, 4), "stop": round(stop, 4), "target": round(target, 4),
-                "entry_time": entry_time, "risk_per_share": round(entry - stop, 4)})
+                "entry_time": entry_time, "risk_per_share": round(risk, 4)})
+    if short:
+        out["side"] = "short"
     if out.get("target_r") is None:
-        out["target_r"] = round((target - entry) / (entry - stop), 4)
+        out["target_r"] = round(abs(target - entry) / risk, 4)
     return out
 
 
@@ -354,7 +361,7 @@ def grade_call(call, b, until, cost_bps, now_utc, source):
     both = sim.play_both(b, sig, until=until, cost_bps=cost_bps)
     head = both["next_open"]
     if head is None or both["close"] is None:
-        raise ScorecardError("the signal cannot be played (risk %.4f)" % (sig["entry"] - sig["stop"]))
+        raise ScorecardError("the signal cannot be played (risk %.4f)" % abs(sig["entry"] - sig["stop"]))
     late, mins = lateness(call)
     return {"id": call["id"], "graded_at": clock.iso(now_utc), "fill": "next_open", "outcome": head["outcome"],
             "R_net": head["R_net"], "exit_slot": head["exit_slot"], "exit_price": head["exit_price"], "late": late,
@@ -362,7 +369,8 @@ def grade_call(call, b, until, cost_bps, now_utc, source):
             "mfe_R": head["mfe_R"], "bars_held": head["bars_held"], "cost_bps": cost_bps,
             "exit_time": clock.clock12(clock.slot_close_minutes(head["exit_slot"])), "until_slot": until,
             "fills": both, "symbol": call["symbol"], "date": call["date"], "setup": call.get("setup"),
-            "config_id": call.get("config_id"), "source": source, "created_by": "trader-scorecard"}
+            "config_id": call.get("config_id"), "side": "short" if str(sig.get("side") or "").lower() == "short" else "long",
+            "source": source, "created_by": "trader-scorecard"}
 
 
 def describe_outcome(call, o):

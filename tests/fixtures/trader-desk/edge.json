@@ -3,7 +3,7 @@
  "as_of": "2026-10-18T22:00:00Z",
  "fill": "next_open",
  "cost_bps": 4,
- "configs_tested": 31,
+ "configs_tested": 33,
  "split": {
   "is": {
    "first": "2026-07-31",
@@ -209,6 +209,141 @@
     "n_sessions": 20
    },
    "by_regime": {}
+  },
+  {
+   "id": "orb15_down|r=1|short",
+   "setup": "orb15_down",
+   "params": {
+    "or_minutes": 15,
+    "target_r": 1.0,
+    "stop_rule": "or_mid"
+   },
+   "label": "15-minute opening-range breakdown, stop at the range midpoint, target 1R (short)",
+   "status": "approved",
+   "oos": {
+    "n": 240,
+    "target": 130,
+    "stop": 90,
+    "close": 20,
+    "green": 130,
+    "win_rate": 0.5417,
+    "win_ci95": [
+     0.48,
+     0.6
+    ],
+    "exp_R": 0.12,
+    "exp_ci95": [
+     0.03,
+     0.21
+    ],
+    "pf": 1.2,
+    "avg_win_R": 1.0,
+    "avg_loss_R": -0.9,
+    "max_dd_R": 6.0,
+    "median_R": 0.1,
+    "n_symbols": 20,
+    "n_sessions": 20
+   },
+   "by_regime": {
+    "trend_flat": {
+     "n": 120,
+     "target": 70,
+     "stop": 40,
+     "close": 10,
+     "green": 70,
+     "win_rate": 0.5833,
+     "win_ci95": [
+      0.49,
+      0.67
+     ],
+     "exp_R": 0.18,
+     "exp_ci95": [
+      0.05,
+      0.31
+     ],
+     "pf": 1.2,
+     "avg_win_R": 1.0,
+     "avg_loss_R": -0.9,
+     "max_dd_R": 6.0,
+     "median_R": 0.1,
+     "n_symbols": 20,
+     "n_sessions": 20
+    },
+    "vix_20_30": {
+     "n": 60,
+     "target": 20,
+     "stop": 35,
+     "close": 5,
+     "green": 20,
+     "win_rate": 0.3333,
+     "win_ci95": [
+      0.22,
+      0.46
+     ],
+     "exp_R": -0.25,
+     "exp_ci95": [
+      -0.5,
+      0.0
+     ],
+     "pf": 1.2,
+     "avg_win_R": 1.0,
+     "avg_loss_R": -0.9,
+     "max_dd_R": 6.0,
+     "median_R": 0.1,
+     "n_symbols": 20,
+     "n_sessions": 20
+    }
+   },
+   "side": "short"
+  },
+  {
+   "id": "gap_fade|r=1|short",
+   "setup": "gap_fade",
+   "params": {
+    "gap_min": 0.01,
+    "last_k": 11,
+    "target_r": 1.0
+   },
+   "label": "gap fade: gap up 1%+, red first bar, a close below its low by 10:30, target 1R (short)",
+   "status": "rejected",
+   "oos": {
+    "n": 40,
+    "target": 15,
+    "stop": 22,
+    "close": 3,
+    "green": 15,
+    "win_rate": 0.375,
+    "win_ci95": [
+     0.24,
+     0.53
+    ],
+    "exp_R": -0.2,
+    "exp_ci95": [
+     -0.45,
+     0.05
+    ],
+    "pf": 0.7,
+    "avg_win_R": 1.0,
+    "avg_loss_R": -0.9,
+    "max_dd_R": 6.0,
+    "median_R": 0.1,
+    "n_symbols": 20,
+    "n_sessions": 20
+   },
+   "by_regime": {},
+   "side": "short"
   }
- ]
+ ],
+ "sides": {
+  "long": [
+   "orb15|r=1",
+   "orb15|r=2",
+   "vwap_reclaim|r=1",
+   "orb15_rs|r=1"
+  ],
+  "short": [
+   "orb15_down|r=1|short",
+   "gap_fade|r=1|short"
+  ]
+ }
 }

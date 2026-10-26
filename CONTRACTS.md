@@ -353,3 +353,250 @@ not change that, it only shows the odds before the money.
 
 The desk shows the watch list, every candidate flagged `watch_only`, when the lab approved no config at all,
 and says so; an empty lab table is an honest board, not a broken one.
+
+## The research desk: the TradingAgents integration (added 2026-10-25)
+
+Everything below ADDS to the desk. No existing file shape, flag, command or number changes; the long-side
+lab results stay bit-identical (tests pin them). Attribution: `vendor/TradingAgents/` is Tauric Research's
+TradingAgents v0.7.0 (Apache-2.0, arXiv 2412.20138), vendored whole and unchanged with its LICENSE; the roles,
+the debate order, the rating scale and the evidence-first rules below are adapted from it and say so.
+
+### Folders
+
+| folder | job |
+| --- | --- |
+| `vendor/TradingAgents/` | the upstream repository, verbatim, pinned in `vendor/TradingAgents/VENDORED.md`. Runs in its own venv (Python 3.11+, `scripts/install_tradingagents.sh`) with a provider key; `trader-agents/agents.py run --engine vendored` drives it and imports its reports. Never edited; never imported by the stdlib tools. |
+| `trader-agents/` | the research desk: `agents.py` (prepare, validate, decide, card, rank, settle, reflect, run), `roles/*.md` (one prompt file per role, adapted from upstream, with the output contract), `weights.json` (the scoring weights, documented), `SKILL.md`. |
+| `dt/features.py` | the momentum and structure features from daily and 5-minute bars, as of a date (no look-ahead). |
+| `dt/shorts.py` | the bearish setup library (same shape as `dt/setups.py`, `side: "short"`). |
+| `dt/regimes.py` | the seven regime classes on top of the existing tags. |
+| `dt/catalysts.py` | KNOWN / POSSIBLE / NONE from the intel ledger, the earnings calendar and the bars. |
+| `dt/risk.py` | the risk block per candidate and side, and the do-not-trade verdicts. |
+| `dt/evidence.py` | the evidence pack: one JSON of everything known about a symbol as of a date, every item with an id. |
+| `dt/scoring.py` | the scores (0 to 100) and the long/short/confidence formulas from `weights.json`. |
+| `trader/research/<date>/<SYM>/` | one run: `evidence.json`, `prompts/<role>.md`, `outputs/<role>.json`, `card.json`, `card.md`. |
+| `trader/research/memory.jsonl` | the settled cards and their reflections (the upstream memory log, in our shape). |
+| `trader/rankings.json`, `trader/research/latest.json` | what the site shows (`--publish` copies to `trader/publish/`). |
+
+### Sides
+
+Every signal, trade, config and stat carries `side`: `"long"` (the existing library, unchanged, default when
+absent) or `"short"` (`dt/shorts.py`). A short signal has `entry` (the bar's close), `stop` ABOVE the entry
+(rounded UP to the cent), `target` BELOW (rounded down), `risk_per_share = stop - entry`, the same
+`MIN_RISK_FRAC` floor. `dt/sim.play` reads `signal.get("side")`: for a short the stop is hit when `h >= stop`
+(checked first), the target when `l <= target`, R is `(entry_fill - exit) / risk`, `mae_R` from the worst HIGH,
+`mfe_R` from the best LOW; costs are the same bps plus `borrow_bps_day` (default 0, an ASSUMPTION the report
+names) for the bars held. Short config ids end in `|short` so no id collides with a long one. The lab plays
+both libraries and reports them in separate tables (`edge.json` gains `"sides": {"long": [...ids], "short":
+[...ids]}`; the gate is the same; `configs_tested` counts both). The desk runs a long board and a short board,
+never merges them, and ranks each by its own side's OOS record. Nothing places a short order: the upstream
+risk manager blocks short sales unless the user's config allows them, and `paper.py place` refuses a short
+unless `allow_short` is true. A short candidate is research until then.
+
+Bearish setups (first bar in the window whose CLOSE confirms, like the long side): `orb15_down` /
+`orb30_down` (close below the range low; stop at the range midpoint or high), `vwap_reject` (3+ bars under
+VWAP, a bar closes above it, the next closes back below: stop above that bar's high), `failed_breakout`
+(a close above the range high, then a close back below the range high: stop above the day high),
+`gap_fade` (gap up 1%+, a red first bar, a close below the first bar's low by 10:30), `lod_break` (low of
+day broken after a tight consolidation, after 11:00), `pm_breakdown` (2:00 to 3:15, a close below the day
+low). Target multiples 1 / 1.5 / 2 R as on the long side. 19 configs (6 orb15_down, 3 orb30_down, 2 each of the rest).
+
+### Features (`dt/features.py`)
+
+`features_for(sym, date, daily_rows, sessions=None, spy_rows=None, sector_rows=None)` -> dict, every value
+from rows strictly before `date` (a session's own bars only through `features_intraday(bars, k)` for the live
+board). Keys: `roc_5, roc_20, roc_63, roc_126, roc_252` (percent), `rs_spy_20, rs_spy_63, rs_sector_20`
+(relative return, percent), `ma_structure` (`"up"|"down"|"mixed"`: close vs SMA20 vs SMA50 vs SMA200),
+`sma20_slope_pct, sma50_slope_pct` (10-day), `adx_14, rsi_14, macd, macd_signal, macd_hist, atr_14,
+atr_pct, realized_vol_20` (annualised percent), `relvol_20` (yesterday's volume over the 20-day average),
+`vol_accel` (5-day over 20-day average volume), `updown_vol_ratio_20`, `gap_pct` (open vs prior close, for the
+session when bars are given), `dist_52w_high_pct, dist_52w_low_pct`, `breakout_20d` (close above the 20-day
+high), `breakdown_20d`, `up_days_20` (fraction), `trend_r2_63` (R-squared of log price on time),
+`weekly_roc_4, weekly_roc_13, weekly_structure`, `vol_adj_mom_63` (roc_63 over realized vol),
+`adv_usd_20`, `beta_spy_63`, `mtf_agreement` (`"agree_up"|"agree_down"|"short_term_up_long_term_down"|
+"short_term_down_long_term_up"|"mixed"`). Anything that cannot be computed is `None`, never a guess, and
+`features["missing"]` lists the keys.
+
+The lab's feature study (`lab.py features`): for every config with 30+ OOS trades, bucket its OOS trades by
+each feature's terciles (computed over that config's trades) and print expectancy with intervals per
+tercile; `adds_value` when the top and bottom tercile intervals do not overlap and the middle sits between;
+a Spearman correlation matrix over the trade set with every pair above 0.8 named as redundant. Written to
+`trader/lab/features.json`. The study is the only evidence a feature is allowed to carry weight.
+
+### Regime classes (`dt/regimes.py`)
+
+`classify(daily_context, breadth=None, drawdown_pct=None)` -> one of `strong_bull, weak_bull, range,
+high_vol, bear, crisis, transitional` with the rule that fired, from rows strictly before the date:
+`crisis` when VIX >= 30 or the 20-day drawdown from the 52-week high exceeds 15 percent and the trend is down;
+`high_vol` when VIX >= 25 or realised vol is above its 80th percentile; `strong_bull` when the trend is up,
+SMA50 is rising and breadth (share of large caps above their SMA50, when known) is above 60 percent;
+`weak_bull` when the trend is up otherwise; `bear` when the trend is down; `transitional` when the SMA20 crossed
+the SMA50 within the last 10 sessions; `range` otherwise. `regime.py` adds `"class"` and the `regime_<class>`
+tag; the lab slices by it; the desk's confidence adjusts: a short in `strong_bull` and a long in `bear` or
+`crisis` carry the flag `regime_against` and their confidence falls one grade.
+
+### Catalysts (`dt/catalysts.py`)
+
+`catalysts_for(sym, date, ledger, earnings_map, daily_rows)` -> `{"known": [...], "possible": [...],
+"none": bool}`; a KNOWN catalyst has a date and a source url (earnings from the calendar, a dated filing,
+a HIGH-impact macro print, an unusual price or volume event measured on the bars: relvol >= 3 or a gap of
+5 percent or more); a POSSIBLE one is an undated mention in the ledger. Nothing is invented: no ledger, no
+calendar, no bars means `none: true`, and the card says "no identified catalyst".
+
+### Risk (`dt/risk.py`)
+
+`risk_block(sym, side, date, features, signal, catalysts, regime_class, intel)` -> `{"atr_pct",
+"adv_usd", "liquidity": "deep|ok|thin", "gap_risk_pct_95" (the 95th percentile overnight gap over 250
+sessions), "event_risk": {...earnings within 5 sessions, macro HIGH today}, "beta_spy", "sector",
+"regime_risk", "squeeze_risk": "unknown"|"low"|"high", "short_interest": value|None, "days_to_cover":
+value|None, "crowding": "unknown", "borrow": "unknown", "invalidation": the stop and the level,
+"asymmetric_event": bool, "verdict": "ok"|"caution"|"do_not_trade", "reasons": [...]}`. The verdict is
+`do_not_trade` for a short when: the stock is up 20 percent or more in 5 sessions on 3x relative volume
+(parabolic), or earnings fall within the next session, or ADV is under 5 million dollars, or
+`short_interest` is known and above 20 percent of the float, or the regime is `strong_bull` AND the setup's
+OOS record in that regime is not positive; for a long when: earnings fall within the next session, the
+regime is `crisis`, or ADV is under 5 million dollars. `caution` when squeeze risk is unknown for a short,
+the gap risk exceeds twice the stop distance, or the MTF read disagrees. Every "unknown" is printed as
+unknown; the reasons name which data was unavailable.
+
+### The evidence pack (`dt/evidence.py`)
+
+`build(sym, date, root, now, depth)` -> `trader/research/<date>/<SYM>/evidence.json`:
+
+```
+{"format": "evidence/1", "symbol", "date", "as_of", "built", "depth": "fast|standard|deep|maximum",
+ "identity": {"name", "sector", "industry", "tier", "market_cap"},
+ "snapshot": {"last_close", "last_session": {o,h,l,c,v,date}, "sma20", "sma50", "sma200", "rsi_14", "atr_14",
+              "atr_pct", "avg_vol_20", "relvol", "high_52w", "low_52w", "gap_pct", "intraday": {...} | null},
+ "features": {... dt.features ...},
+ "regime": {"date", "class", "rule", "tags", "daily": {...}, "live": {...} | null},
+ "setups": {"long": [{config_id, signal, lab: {status, oos, regime_slice}}], "short": [...]},
+ "lab": {"approved": [...], "watch": [...], "configs_tested": n, "sides": {...}},
+ "scorecard": {"symbol": STATS, "overall": STATS, "recent": [...]},
+ "catalysts": {...}, "risk": {"long": {...}, "short": {...}},
+ "fundamentals": {... trader-analyst's EDGAR summary when cached ...} | null,
+ "news": [... trader-news items for the symbol ...], "intel": [... ledger items ...],
+ "social": [...], "macro": [...], "futures": {...} | null, "montecarlo": {...} | null,
+ "lessons": [{"id", "date", "symbol", "rating", "outcome", "reflection"}],
+ "items": [{"id": "E1", "kind": "DATA|SIGNAL|STAT|NEWS|FILING|EVENT|SOCIAL|MACRO|REGIME|RECORD|LESSON",
+            "source": "...", "as_of": "...", "text": "...", "value": {...}}],
+ "missing": ["short_interest", "borrow_fee", "fundamentals", ...]}
+```
+
+Every section above is also flattened into `items`, each with an id, so a role can cite `E17`. Items dated
+after `date` are never included (point in time, as the upstream clamps every tool to the trade date).
+`missing` names every source that was not available, by name, so a role can say so instead of guessing.
+
+### The roles (`trader-agents/roles/*.md`, `outputs/<role>.json`)
+
+The order, adapted from the upstream graph, with the two roles the pasted brief adds (momentum, regime) and
+the contrarian:
+
+```
+analysts   market, momentum, fundamentals, news, sentiment, regime        (independent; any order)
+research   bull_1, bear_1 [, bull_2, bear_2, bull_3, bear_3], contrarian   (each reads the prior arguments)
+manager    research_manager                                                (the judge: a plan)
+trader     trader                                                          (the proposal, absolute levels)
+risk       risk_aggressive, risk_conservative, risk_neutral [, round 2, 3], risk_analyst (code-fed)
+decision   portfolio_manager                                               (the rating, with the lessons)
+```
+
+Depth: `fast` = market, momentum, regime, bull_1, bear_1, research_manager, risk_analyst, portfolio_manager;
+`standard` = every analyst, 1 debate round, 1 risk round; `deep` = 2 rounds each plus the contrarian;
+`maximum` = 3 rounds each, the contrarian, the time machine and the Monte Carlo on the proposal, and the
+intel ledger refreshed first. Every role's output is JSON:
+
+```
+{"role": "bull", "round": 1, "symbol", "date", "stance": <role enum>, "confidence": "low|medium|high",
+ "claims": [{"text": "...", "kind": "DATA|SIGNAL|INTERPRETATION|ASSUMPTION|UNCERTAINTY",
+             "evidence": ["E3", "E7"]}],
+ "rebuttals": [{"to": "bear_1", "text": "...", "evidence": [...]}],      (research and risk roles)
+ "scores": {... role-specific 0 to 10 ...}, "missing": ["..."], "summary": "..."}
+```
+
+Role enums: analysts `stance in bullish|mildly_bullish|neutral|mixed|mildly_bearish|bearish` (the upstream
+sentiment bands, used by every analyst); researchers the same plus `strength 1..5`; research_manager
+`recommendation in buy|overweight|hold|underweight|sell` (the upstream five tiers) plus `side_preference in
+long|short|none`, `plan`; trader `action in long|short|hold`, `entry`, `stop`, `target` (absolute prices,
+never a percentage, grounded in a cited SIGNAL item or `null`), `size_note`; risk roles `stance in
+take|reduce|avoid` with `adjustments`; portfolio_manager `rating` (five tiers), `side`, `horizon in
+intraday|swing`, `thesis`, `invalidation`, `key_risks`, `no_trade: bool`.
+
+The validator (`agents.py validate`) rejects an output when: a required key is missing or an enum is wrong;
+a claim of kind DATA, SIGNAL or STAT cites no evidence id or cites one not in the pack; a claim quotes a
+number that appears in no cited item's text or value (digits compared after rounding to 2 places);
+confidence is `high` while `missing` (the pack's or the role's) names a core source for that role
+(fundamentals for the fundamentals analyst, news for news, social for sentiment, short_interest for a
+short risk read); the trader gives a level that is not within 2 percent of a cited SIGNAL's level; a
+researcher in round 2+ has no rebuttal to the opponent's last round; the portfolio manager's rating
+disagrees in direction with the trader's action without a claim that says why. A rejected output is
+rewritten by the role, never patched by code. `REVIEW` (the upstream sentinel) is the card's rating when
+the final output never validates: a card nobody can read is not a Hold.
+
+### Scores (`dt/scoring.py`, `trader-agents/weights.json`)
+
+All 0 to 100, computed by code from the pack and the validated outputs, every input named:
+`momentum` (features: roc, rs, structure, slopes, adx, persistence, vol-adjusted, breakout; each term only
+when the feature study says it adds value, else weight 0 and the card says so), `technical` (the setup's
+signal quality: lab OOS lower bound, time of day, volume confirmation, MTF agreement), `fundamental`
+(the analyst's stance and the EDGAR deltas when present, else `null`), `sentiment` (the analyst's score),
+`catalyst` (known 100 / possible 50 / none 0, signed by direction), `regime` (fit of the side to the class),
+`risk` (100 is the safest), `liquidity`, `long_opportunity`, `short_opportunity`, `confidence`.
+`long_opportunity` and `short_opportunity` have SEPARATE weight vectors in `weights.json` (default weights
+documented with their reason; never the negation of the other); `confidence` = evidence completeness (share
+of core sources present) x agreement (the share of roles whose stance points the card's way) x the lab's
+record grade (approved 1.0, watch 0.6, untested 0.3), capped at `medium` when the regime is against or a
+core source is missing. `agents.py weights-test` scores every OOS trade of the lab with the code-only
+terms (the agent terms are not available historically, and the card says so) and prints expectancy by
+score quintile with intervals: the only ground a weight is allowed to stand on.
+
+### Rankings (`agents.py rank`, `trader/rankings.json`)
+
+Over the universe, from the code-only layers (features, setups, lab, risk, catalysts; the agents run on the
+top names only): `top_momentum_longs`, `top_short_candidates`, `top_high_conviction`, `top_risk_adjusted`,
+`top_contrarian` (MTF disagreement with the regime on the candidate's side), `most_dangerous_shorts`
+(high short score with a `do_not_trade` verdict), `watchlist`, each a list of `{symbol, side, score,
+config_id, verdict, reasons}`; `"no_trade": true` with the reason when a list has nothing that clears the
+bar. Rankings carry `configs_tested` and the lab's dates like every table.
+
+### The card (`card.json`, `card.md`)
+
+Sections in this order, each line tagged DATA / SIGNAL / INTERPRETATION / ASSUMPTION / UNCERTAINTY and
+citing its evidence ids: TICKER, PRICE / DATA SNAPSHOT, MARKET REGIME, MOMENTUM, TECHNICAL, FUNDAMENTAL,
+NEWS / SENTIMENT, CATALYSTS, BULL CASE, BEAR CASE, CONTRARIAN CASE, RISK, LONG SCORE, SHORT SCORE,
+CONFIDENCE, BEST SETUP (or NO TRADE), THESIS, INVALIDATION, KEY RISKS, EVIDENCE (the cited items). A card is
+logged to `trader/research/memory.jsonl` the minute it is written (`pending`), like a scorecard call.
+
+### Memory (`agents.py settle`, `agents.py reflect`)
+
+A card with horizon `intraday` is settled by the scorecard's grade of its setup (the real bars); a card with
+horizon `swing` is settled at the first close after its date over 5 sessions (the upstream rule, #1518),
+raw return and alpha against SPY from the daily store, `resolved` at the last bar's date. `reflect` is a
+role: 2 to 4 sentences from the outcome, stored verbatim; `prepare` puts the last 5 same-symbol and 3
+cross-symbol settled cards whose `resolved` date is on or before the run date into the pack as LESSON items
+(point in time, #1251).
+
+### The vendored engine (`agents.py run --engine vendored`)
+
+`scripts/install_tradingagents.sh` makes `vendor/TradingAgents/.venv` with Python 3.11+ when one exists (or
+`uv` can fetch one) and `pip install -e vendor/TradingAgents`; `agents.py doctor` says what is present:
+the Python, the venv, the provider keys by NAME only (never a value), `~/.tradingagents` and its memory log.
+`run --engine vendored` calls `trader-agents/vendored_driver.py` under that venv: `TradingAgentsGraph(
+config).propagate(sym, date)`, then writes the four reports, the debate histories, the plan, the proposal,
+the risk histories and the decision into `outputs/vendored.json` and adds them to the pack as items
+(`source: "tradingagents v0.7.0"`), so the desk's roles can cite them. Without the Python or a key it
+prints the blocker and exits 2; nothing is faked.
+
+### Site
+
+`site/full.html` gains panels: the short board, the rankings, the latest cards (rating, side, confidence,
+verdict, the thesis line) and the feature study; `data/rankings.json` and `data/research.json` join the
+sealed bundle (`dt/lockbox.DATA_FILES`). The one-idea page keeps the long idea and adds one line for the
+day's top short candidate when its verdict is `ok`, with the same words: matched a rule, not a prediction.
+
+### Words
+
+A card "matched rules with a measured record and was read by the desk's roles". A score is a number from
+named inputs, not a probability. "Unknown" is printed as unknown. NO TRADE is a result. Most people who
+day trade lose money; shorting adds the way to lose more than the stake, and the card says so on every
+short.

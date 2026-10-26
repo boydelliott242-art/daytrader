@@ -274,9 +274,16 @@ def config_id(setup, params):
     return cid
 
 
-def configs(names=None):
-    """Every config of every setup (or of the named setups): [{"id", "setup", "params", "label"}]."""
+SIDES = ("long", "short")
+
+
+def configs(names=None, sides=("long",)):
+    """Every config of every setup (or of the named setups): [{"id", "setup", "params", "label"}].
+    sides: ("long",) by default, the library here; add "short" for dt.shorts (ids end in |short, side: "short")."""
     out = []
+    if "short" in sides and "long" not in sides:
+        from . import shorts
+        return shorts.configs(names)
     for name, spec in SETUPS.items():
         if names and name not in names:
             continue
@@ -290,10 +297,25 @@ def configs(names=None):
             if "target_r" in params:
                 label += ", target %gR" % params["target_r"]
             out.append({"id": config_id(name, params), "setup": name, "params": params, "label": label})
+    if "short" in sides:
+        from . import shorts
+        out.extend(shorts.configs(names))
     return out
 
 
+def all_configs(names=None):
+    """Both libraries: the 31 long configs, then the short ones."""
+    return configs(names, SIDES)
+
+
+def side_of(cfg_or_signal):
+    return (cfg_or_signal or {}).get("side") or "long"
+
+
 def run_config(cfg, bars, ctx):
+    if cfg.get("side") == "short":
+        from . import shorts
+        return shorts.run_config(cfg, bars, ctx)
     spec = SETUPS[cfg["setup"]]
     return spec["fn"](bars, ctx, cfg["params"], name=cfg["setup"])
 

@@ -101,6 +101,10 @@ class DeskError(Exception):
 
 # ---------------------------------------------------------------- siblings and subprocesses
 
+SHORT_NOTE = ("research only: nothing places a short order, the upstream broker chain is long only and a short can "
+              "lose more than the stake")
+
+
 def sibling(key):
     """The path of a sibling skill's tool (../<folder>/<script> next to this skill), or None."""
     folder, script = SIBLINGS[key]
@@ -228,31 +232,35 @@ def regime_tags(doc):
     return [str(t) for t in tags] if isinstance(tags, list) else []
 
 
-def select_configs(edge, include_watch):
-    """The configs to run: the lab's approved ones (plus watch), or every config when there is no edge.json.
+def select_configs(edge, include_watch, sides=setups.SIDES):
+    """The configs to run: per side, the lab's approved ones (plus watch), or every config of a side the lab has
+    not studied (no edge.json, or an edge.json without that side: every candidate of it is flagged untested).
     -> (cfgs for dt.setups.run_all, {config_id: edge entry})."""
-    library = {c["id"]: c for c in setups.configs()}
-    if edge is None:
-        return list(library.values()), {}
+    library = {c["id"]: c for c in setups.all_configs()}
     chosen, info = [], {}
-    statuses = [ec.get("status") for ec in edge["configs"] if isinstance(ec, dict)]
-    if "approved" not in statuses and "watch" in statuses:
-        include_watch = True   # nothing cleared the gate: the watch list is shown, every candidate flagged watch_only
-    for ec in edge["configs"]:
-        if not isinstance(ec, dict):
+    for side in sides:
+        side_lib = [c for c in library.values() if setups.side_of(c) == side]
+        entries = [ec for ec in (edge or {}).get("configs") or [] if isinstance(ec, dict) and setups.side_of(ec) == side]
+        if edge is None or not entries:
+            chosen.extend(side_lib)
             continue
-        st = ec.get("status")
-        if st != "approved" and not (include_watch and st == "watch"):
-            continue
-        cid = ec.get("id")
-        lib = library.get(cid)
-        if lib is None:
-            if ec.get("setup") in setups.SETUPS and isinstance(ec.get("params"), dict):
-                lib = {"id": cid, "setup": ec["setup"], "params": ec["params"], "label": ec.get("label") or cid}
-            else:
+        want_watch = include_watch
+        statuses = [ec.get("status") for ec in entries]
+        if "approved" not in statuses and "watch" in statuses:
+            want_watch = True   # nothing cleared the gate: the watch list is shown, every candidate flagged watch_only
+        for ec in entries:
+            st = ec.get("status")
+            if st != "approved" and not (want_watch and st == "watch"):
                 continue
-        chosen.append(lib)
-        info[cid] = ec
+            cid = ec.get("id")
+            lib = library.get(cid)
+            if lib is None:
+                if side == "long" and ec.get("setup") in setups.SETUPS and isinstance(ec.get("params"), dict):
+                    lib = {"id": cid, "setup": ec["setup"], "params": ec["params"], "label": ec.get("label") or cid}
+                else:
+                    continue
+            chosen.append(lib)
+            info[cid] = ec
     return chosen, info
 
 
@@ -717,10 +725,13 @@ def build_board(a, now_utc, day, cutoff, cfg, symbols, sessions, spy, stores, ed
                       "entry_time": sig["entry_time"], "k": sig["k"], "opening_range": sig.get("opening_range"),
                       "stop_rule": sig.get("stop_rule"), "risk_per_share": sig.get("risk_per_share"),
                       "level": sig.get("level"), "bars_since_entry": lk - sig["k"]}
+            side = setups.side_of(sig)
+            if side == "short":
+                signal["side"] = "short"
             for extra in ("vol_x_actual", "gap_pct", "sigma_pct"):
                 if extra in sig:
                     signal[extra] = sig[extra]
-            cands.append({"rank": None, "symbol": sym, "name": info.get("name") or names.get(sym) or "",
+            cands.append({"rank": None, "side": side, "symbol": sym, "name": info.get("name") or names.get(sym) or "",
                           "sector": info.get("sector"), "tier": info.get("tier"), "setup": sig["setup"],
                           "config_id": cid, "label": (cfg_entry or {}).get("label") or cid, "signal": signal,
                           "lab": {k: lab[k] for k in ("status", "oos", "regime_slice", "fill_note")},
@@ -729,9 +740,11 @@ def build_board(a, now_utc, day, cutoff, cfg, symbols, sessions, spy, stores, ed
                           "move_pct": move, "earnings": ex_sym.get(sym) or week.get(sym),
                           "daily_hit": daily_hits.get(sym), "news": nw or None})
     cands = one_per_symbol(cands)
+    shorts = [c for c in cands if c.get("side") == "short"]
+    cands = [c for c in cands if c.get("side") != "short"]
     ledger = intel_flags.load_ledger(getattr(a, "intel", None) or os.path.join("trader", "intel.json"))
     if ledger and ledger.get("items"):
-        for c in cands:
+        for c in cands + shorts:
             try:
                 fx = intel_flags.flags_for(c["symbol"], day_s, ledger, now_utc)
             except Exception as e:  # the ledger is advisory: never let it break the board
@@ -742,16 +755,19 @@ def build_board(a, now_utc, day, cutoff, cfg, symbols, sessions, spy, stores, ed
                                          "time": i.get("time")} for i in v[:3]] for k, v in (fx.get("items") or {}).items()}}
             for f in fx["flags"]:
                 c["flags"].append("intel:" + f)
+    for c in shorts:
+        c["flags"].append("short")
     rank_candidates(cands)
-    return cands, dropped
+    rank_candidates(shorts)
+    return cands, dropped, shorts
 
 
 def one_per_symbol(cands):
-    """One candidate a symbol: the best-scoring config (fresh before late, then the lab's lower bound),
+    """One candidate a symbol and side: the best-scoring config (fresh before late, then the lab's lower bound),
     with every other config that fired on the same chart listed under it as also_fired."""
     by_sym = {}
     for c in cands:
-        by_sym.setdefault(c["symbol"], []).append(c)
+        by_sym.setdefault((c["symbol"], c.get("side") or "long"), []).append(c)
     out = []
     for sym in sorted(by_sym):
         group = by_sym[sym]
@@ -848,14 +864,18 @@ def regime_strip(regime_doc, desk_live=None):
 
 def candidate_lines(c, until12="4:00 PM"):
     sig = c["signal"]
+    short = c.get("side") == "short" or sig.get("side") == "short"
     who = c["symbol"] + (("  %s" % c["name"]) if c.get("name") else "")
     meta = ", ".join(x for x in (c.get("sector"), c.get("tier")) if x)
-    out = ["%d. %s%s" % (c["rank"], who, ("  (%s)" % meta) if meta else "")]
+    out = ["%d. %s%s%s" % (c["rank"], "SHORT  " if short else "", who, ("  (%s)" % meta) if meta else "")]
     out.append("   %s  [%s]" % (c["label"], c["config_id"]))
-    out.append("   entry %.2f at %s (bar %d), stop %.2f, target %.2f (%gR, risk %.2f a share); last close %.2f%s"
-               % (sig["entry"], sig["entry_time"], sig["k"], sig["stop"], sig["target"], sig["target_r"],
-                  sig.get("risk_per_share") or (sig["entry"] - sig["stop"]), c.get("last_close") or 0.0,
-                  (", %+.2f %% vs the prior close" % c["move_pct"]) if c.get("move_pct") is not None else ""))
+    risk = sig.get("risk_per_share") or abs(sig["entry"] - sig["stop"])
+    line = ("   %s %.2f at %s (bar %d), stop %.2f %s, target %.2f %s (%gR, risk %.2f a share); last close %.2f%s"
+            % ("sell short" if short else "entry", sig["entry"], sig["entry_time"], sig["k"], sig["stop"],
+               "above" if short else "", sig["target"], "below" if short else "", sig["target_r"], risk,
+               c.get("last_close") or 0.0,
+               (", %+.2f %% vs the prior close" % c["move_pct"]) if c.get("move_pct") is not None else ""))
+    out.append(line.replace(" ,", ",").replace("  (", " ("))
     lab = c["lab"]
     st = lab.get("status") or "untested"
     out.append("   lab OOS: %s; %s" % (STATUS_WORDS.get(st, st), stats_line(lab.get("oos"))))
@@ -959,6 +979,17 @@ def print_board(doc, a):
     if more.get("fresh") or more.get("late"):
         print("... and %d more fresh, %d more late candidates not shown (--top N for more)."
               % (more.get("fresh", 0), more.get("late", 0)))
+    shorts = doc.get("candidates_short") or []
+    if shorts or doc.get("short_note"):
+        print("The short board (%s):" % (doc.get("short_note") or SHORT_NOTE))
+        if not shorts:
+            print("  no bearish rule with a record matched by %s." % doc["cutoff12"])
+        for c in shorts:
+            for ln in candidate_lines(c):
+                print("  " + ln)
+        ms = doc.get("more_short") or {}
+        if ms.get("fresh") or ms.get("late"):
+            print("  ... and %d more fresh, %d more late short candidates not shown." % (ms.get("fresh", 0), ms.get("late", 0)))
     for n in doc.get("notes") or []:
         print("Note: %s" % n)
     print(NOTE)
@@ -1074,10 +1105,14 @@ def cmd_live(a, offline=False, explicit_date=None):
         spy = {"bars": spy_bars, "prev_close": prev_close_of("SPY", spy_meta)}
         if not spy_bars:
             note("no complete SPY session at %s: the relative-strength rules cannot fire" % cutoff_txt)
-    cands, dropped = build_board(a, now_utc, day, cutoff, cfg, symbols, sessions, spy, stores, edge, cfg_info, cfgs,
-                                 regime_doc, excl, largecap, names, notes, counts)
+    cands, dropped, shorts = build_board(a, now_utc, day, cutoff, cfg, symbols, sessions, spy, stores, edge, cfg_info,
+                                         cfgs, regime_doc, excl, largecap, names, notes, counts)
     counts["candidates"] = len(cands)
+    counts["candidates_short"] = len(shorts)
     shown, more, n_fresh, n_late = shown_slice(cands, max(1, a.top))
+    shown_short, more_short, n_fresh_short, n_late_short = shown_slice(shorts, max(1, a.top))
+    if shown_short and not a.no_timemachine:
+        note("the upstream time machine replays longs only: the short board shows the lab's record, not replays")
     # the time machine on the fresh candidates kept
     tm_path = sibling("timemachine")
     if not a.no_timemachine:
@@ -1126,6 +1161,8 @@ def cmd_live(a, offline=False, explicit_date=None):
                      "watch": sum(1 for e in cfg_info.values() if e.get("status") == "watch")} if edge else None),
            "configs_run": [c["id"] for c in cfgs], "top": a.top, "fresh": n_fresh, "late": n_late, "more": more,
            "candidates": shown, "timemachine": {"seed": a.seed, "until": a.tm_until, "ran": not a.no_timemachine and bool(tm_path)},
+           "candidates_short": shown_short, "fresh_short": n_fresh_short, "late_short": n_late_short, "more_short": more_short,
+           "short_note": SHORT_NOTE,
            "notes": notes, "seconds": round(time.time() - t0, 1), "note": NOTE}
     doc["wrote"] = None
     doc["logged"] = 0
@@ -1133,7 +1170,7 @@ def cmd_live(a, offline=False, explicit_date=None):
     if a.write:
         io.write_json(a.out, doc)
         doc["wrote"] = a.out
-        doc["logged"] = log_calls(doc["calls_path"], shown, day_s, as_of, now_utc)
+        doc["logged"] = log_calls(doc["calls_path"], shown + shown_short, day_s, as_of, now_utc)
         io.write_json(a.out, doc)  # with the call ids
         if a.publish:
             io.write_json(os.path.join(a.docs_data, "desk.json"), doc)
@@ -1143,7 +1180,7 @@ def cmd_live(a, offline=False, explicit_date=None):
         print(json.dumps(doc, indent=2))
     else:
         print_board(doc, a)
-    return 0 if shown else 1
+    return 0 if (shown or shown_short) else 1
 
 
 def cmd_replay(a):
@@ -1471,6 +1508,10 @@ def cmd_pick(a):
     cands = [c for c in doc.get("candidates") or [] if isinstance(c, dict) and c.get("symbol") == sym]
     if a.config:
         cands = [c for c in cands if c.get("config_id") == a.config]
+    if not cands and any(isinstance(c, dict) and c.get("symbol") == sym for c in doc.get("candidates_short") or []):
+        raise DeskError("%s is a SHORT candidate: the upstream entry, exit, budget and broker chain is long only, and a "
+                        "short order is refused unless the config allows short sales. It stays research (see the card)."
+                        % sym)
     if not cands:
         raise DeskError("%s is not on the board in %s%s: the candidates are %s" % (
             sym, a.desk, (" for config %s" % a.config) if a.config else "",
@@ -1478,6 +1519,10 @@ def cmd_pick(a):
     cands.sort(key=lambda c: c.get("rank") or 0)
     c = cands[0]
     sig = c["signal"]
+    if c.get("side") == "short" or sig.get("side") == "short":
+        raise DeskError("%s is a SHORT candidate: the upstream entry, exit, budget and broker chain is long only, and a "
+                        "short order is refused unless the config allows short sales. It stays research (see the card)."
+                        % sym)
     orr = sig.get("opening_range")
     orb_family = isinstance(orr, dict) and orr.get("high") is not None and orr.get("low") is not None
     day = doc["date"]

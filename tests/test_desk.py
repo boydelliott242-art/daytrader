@@ -67,7 +67,7 @@ class Replay(Desk):
         self.assertEqual((doc["created_by"], doc["mode"], doc["date"], doc["as_of"]), ("trader-desk", "live", "2026-10-19", "2026-10-19 10:15 ET"))
         self.assertEqual(doc["source"], "cache")
         self.assertEqual(doc["regime_tags"], ["trend_flat", "vix_20_30", "prev_normal"])
-        self.assertEqual(sorted(doc["configs_run"]), ["orb15_rs|r=1", "orb15|r=1"])   # approved only; watch and rejected out
+        self.assertEqual(sorted(doc["configs_run"]), ["orb15_down|r=1|short", "orb15_rs|r=1", "orb15|r=1"])   # approved only, both sides; watch and rejected out
         tsla = [c for c in doc["candidates"] if c["symbol"] == "TSLA"]
         self.assertEqual(len(tsla), 1)                                   # one candidate a symbol
         t = tsla[0]
@@ -128,6 +128,48 @@ class Replay(Desk):
         tsla = [c for c in doc["candidates"] if c["symbol"] == "TSLA"]
         self.assertEqual(len(tsla), 1)
         self.assertIn("earnings", tsla[0]["flags"])
+
+    def test_the_short_board_runs_apart_from_the_long_one(self):
+        code, text, err = self.replay("--json", top=40)
+        self.assertEqual(code, 0, err)
+        doc = json.loads(text)
+        shorts = doc["candidates_short"]
+        self.assertTrue(shorts)
+        self.assertFalse(any(c.get("side") == "short" for c in doc["candidates"]))
+        for c in shorts:
+            self.assertEqual((c["side"], c["config_id"]), ("short", "orb15_down|r=1|short"))
+            sig = c["signal"]
+            self.assertEqual(sig["side"], "short")
+            self.assertTrue(sig["target"] < sig["entry"] < sig["stop"], sig)
+            self.assertIn("short", c["flags"])
+            self.assertEqual(c["lab"]["status"], "approved")
+        orcl = [c for c in shorts if c["symbol"] == "ORCL"][0]
+        self.assertNotIn("late", orcl["flags"])
+        self.assertEqual((orcl["signal"]["k"], orcl["signal"]["entry"], orcl["signal"]["stop"], orcl["signal"]["target"]),
+                         (7, 129.2, 130.09, 128.31))
+        meta = [c for c in shorts if c["symbol"] == "META"][0]
+        self.assertIn("late", meta["flags"])                             # bar 3 closed long before 10:15
+        self.assertIn("research only", doc["short_note"])
+        self.assertEqual(doc["counts"]["candidates_short"], len(shorts))
+        code, text, err = self.replay(top=40)
+        self.assertIn("The short board", text)
+        self.assertIn("SHORT  ORCL", text)
+        self.assertIn("sell short 129.20 at 10:10 AM (bar 7), stop 130.09 above, target 128.31 below", text)
+        self.assertIn("lose more than the stake", text)
+
+    def test_pick_refuses_a_short_and_the_log_keeps_it(self):
+        code, _, err = self.replay("--write", "--quiet", top=40)
+        self.assertEqual(code, 0, err)
+        code, text, err = run(["pick", "ORCL", "--write"])
+        self.assertNotEqual(code, 0)
+        self.assertIn("SHORT candidate", err)
+        self.assertFalse(os.path.exists(os.path.join("trader", "entry.json")))
+        with open(os.path.join("trader", "scorecard", "calls.jsonl"), encoding="utf-8") as fh:
+            rows = [json.loads(line) for line in fh if line.strip()]
+        shorts = [r for r in rows if r["config_id"].endswith("|short")]
+        self.assertTrue(shorts)
+        self.assertTrue(all(r["signal"]["side"] == "short" for r in shorts))
+        self.assertIn("2026-10-19|ORCL|orb15_down|r=1|short|10:10 AM", [r["id"] for r in shorts])
 
     def test_no_edge_runs_every_config_and_says_so(self):
         code, text, err = run(["replay", "--date", "2026-10-19", "--at", "10:15", "--cache-root", CACHE,

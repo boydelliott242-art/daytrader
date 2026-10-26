@@ -194,7 +194,8 @@ def trade_record(sym, date, cfg, sig, out, bars, ctx, meta=None, tags=None, day_
     """One line of trades.jsonl.gz: the signal and the outcome flattened (so dt.stats reads a
     line as it is) plus the context."""
     k = sig["k"]
-    rec = {"symbol": sym, "date": date, "config_id": cfg["id"], "setup": cfg["setup"], "params": cfg["params"]}
+    rec = {"symbol": sym, "date": date, "config_id": cfg["id"], "setup": cfg["setup"], "params": cfg["params"],
+           "side": setups.side_of(cfg)}
     for key, v in sig.items():
         if key not in ("setup", "params"):
             rec[key] = v
@@ -272,7 +273,7 @@ def _init_worker(pack):
     _PACK.clear()
     _PACK.update(pack)
     _PACK["caches"] = {"tags": {}, "spy": {}, "hind": {}}
-    _PACK["cfgs"] = setups.configs()
+    _PACK["cfgs"] = setups.configs(sides=pack.get("sides") or ("long",))
 
 
 def _worker(sym):
@@ -479,21 +480,27 @@ def _progress(quiet, text):
 
 def run_study(root, out_dir, symbols=None, symbols_file=None, largecap="trader/largecap.json", sessions_n=None,
               fill="next_open", cost_bps=sim.DEFAULT_COST_BPS, workers=1, cfg=None, quiet=False,
-              window=ROLLING_WINDOW, test_days=ROLLING_TEST_DAYS, min_n=ROLLING_MIN_N, config_path=None):
-    """The whole study -> edge.json document (also written, with trades.jsonl.gz, under out_dir)."""
+              window=ROLLING_WINDOW, test_days=ROLLING_TEST_DAYS, min_n=ROLLING_MIN_N, config_path=None,
+              sides=setups.SIDES):
+    """The whole study -> edge.json document (also written, with trades.jsonl.gz, under out_dir).
+    sides: ("long", "short") plays both libraries (separate tables, the same gate); ("long",) is the first build."""
     t0 = time.time()
     cfg = cfg or {}
+    sides = tuple(sides or setups.SIDES)
+    all_cfgs = setups.configs(sides=sides)
+    if not all_cfgs:
+        raise LabError("no config for sides %r" % (sides,))
     syms, missing = pick_symbols(root, symbols, symbols_file)
     if not syms:
         raise LabError("no tradable symbol with a bars5m store under %s" % root)
     ctxd = load_context(root)
     meta = load_largecap(largecap)
     pack = {"root": root, "ctxd": ctxd, "cfg": cfg, "fill": fill, "cost_bps": cost_bps, "sessions_n": sessions_n,
-            "meta": meta}
+            "meta": meta, "sides": sides}
     os.makedirs(out_dir, exist_ok=True)
     trades_path = os.path.join(out_dir, "trades.jsonl.gz")
     tmp_path = trades_path + ".tmp"
-    rows_by_config = {c["id"]: [] for c in setups.configs()}
+    rows_by_config = {c["id"]: [] for c in all_cfgs}
     session_dates, studied, skipped = set(), [], []
     n_trades = 0
     workers = max(1, int(workers or 1))
@@ -551,9 +558,9 @@ def run_study(root, out_dir, symbols=None, symbols_file=None, largecap="trader/l
         if os.path.exists(tmp_path):
             os.remove(tmp_path)
     configs = []
-    for c in setups.configs():
+    for c in all_cfgs:
         p = per_config[c["id"]]
-        configs.append({"id": c["id"], "setup": c["setup"], "params": c["params"], "label": c["label"],
+        configs.append({"id": c["id"], "side": setups.side_of(c), "setup": c["setup"], "params": c["params"], "label": c["label"],
                         "all": p["all"], "is": p["is"], "oos": p["oos"], "status": dtstats.status_of(p["oos"]),
                         "by_regime": p["by_regime"], "by_hour": p["by_hour"], "by_tier": p["by_tier"],
                         "by_sector": p["by_sector"], "by_dow": p["by_dow"],
@@ -563,7 +570,8 @@ def run_study(root, out_dir, symbols=None, symbols_file=None, largecap="trader/l
     elapsed = round(time.time() - t0, 1)
     edge = {"created_by": "trader-lab", "as_of": dtio.now_iso(), "fill": fill, "cost_bps": cost_bps,
             "symbols": studied, "n_symbols": len(studied), "sessions": span(sessions),
-            "configs_tested": len(setups.configs()),
+            "configs_tested": len(all_cfgs),
+            "sides": {side: [c["id"] for c in all_cfgs if setups.side_of(c) == side] for side in sides},
             "split": {"is": span(is_dates), "oos": span(oos_dates)},
             "status_rule": STATUS_RULE, "configs": configs, "rolling": rolling, "n_trades": n_trades,
             "meta": {"cache_root": root, "out_dir": out_dir, "trades_file": trades_path, "workers": workers,
@@ -670,12 +678,24 @@ def head_lines(edge):
             "Status: " + STATUS_RULE]
 
 
-def config_table(edge, block, title, top=None):
-    cs = sorted(edge["configs"], key=sort_key)
+def edge_sides(edge):
+    """The sides a study played: ["long"] for the first build's edge.json, ["long", "short"] since."""
+    sides = edge.get("sides") or {}
+    return [s for s in ("long", "short") if sides.get(s)] or ["long"]
+
+
+def configs_of_side(edge, side):
+    return [c for c in edge["configs"] if setups.side_of(c) == side]
+
+
+def config_table(edge, block, title, top=None, side=None):
+    cs = sorted(configs_of_side(edge, side) if side else edge["configs"], key=sort_key)
     if top:
         cs = cs[:top]
-    lines = ["", tested_line(edge), title, table_header()]
+    lines = ["", tested_line(edge), (("%s side: " % side.upper()) if side else "") + title, table_header()]
     lines += [config_row(c, block) for c in cs]
+    if side == "short":
+        lines.append("  a short can lose more than the stake; these are research until the config allows short sales")
     return lines
 
 
@@ -748,9 +768,12 @@ def report_lines(edge, config_id=None, by=None, top=None):
         for fam in ([by] if by else ["regime", "hour", "tier", "sector", "dow", "day_type"]):
             lines += slice_lines(c, fam)
     else:
-        lines += config_table(edge, "oos", "Out of sample (the gate), sorted by the OOS 95 %% lower bound; "
-                                           "%d test sessions:" % edge["split"]["oos"]["n"], top)
-        lines += config_table(edge, "all", "All sessions, same order:", top)
+        sides = edge_sides(edge)
+        for side in sides:
+            tag = side if len(sides) > 1 else None
+            lines += config_table(edge, "oos", "Out of sample (the gate), sorted by the OOS 95 %% lower bound; "
+                                               "%d test sessions:" % edge["split"]["oos"]["n"], top, tag)
+            lines += config_table(edge, "all", "All sessions, same order:", top, tag)
         if by:
             cs = sorted(edge["configs"], key=sort_key)[:(top or 5)]
             for c in cs:
@@ -790,7 +813,7 @@ def why_session(sym, date, root, fill, cost_bps, cfg, largecap="trader/largecap.
     day_type = dtregime.hindsight(spy_bars)["day_type"]
     meta = load_largecap(largecap).get(sym)
     until = clock.flat_slot(date, cfg)
-    cfgs = setups.configs()
+    cfgs = setups.all_configs()
     trades = session_trades(sym, date, b, ctx, fill, until, cost_bps, cfgs, meta, tags, day_type)
     fired = set(t["config_id"] for t in trades)
     return {"symbol": sym, "date": date, "fill": fill, "cost_bps": cost_bps, "bars": len(b),
@@ -850,8 +873,11 @@ def cmd_run(a):
     if a.sessions is not None and a.sessions <= 0:
         raise LabError("--sessions wants a positive count")
     cfg = _cfg(a.config)
+    sides = tuple(x.strip() for x in a.sides.split(",") if x.strip())
+    if any(x not in setups.SIDES for x in sides):
+        raise LabError("--sides wants long, short or long,short")
     edge = run_study(a.cache_root, a.out_dir, a.symbols, a.symbols_file, a.largecap, a.sessions, a.fill, a.cost_bps,
-                     a.workers, cfg, a.quiet, a.window, a.test_days, a.min_n, a.config)
+                     a.workers, cfg, a.quiet, a.window, a.test_days, a.min_n, a.config, sides)
     published = publish(edge, a.publish_path) if a.publish else None
     if a.json:
         print(json.dumps(trimmed(edge), indent=2))
@@ -930,6 +956,7 @@ def main(argv=None):
     p.add_argument("--test-days", type=int, default=ROLLING_TEST_DAYS, help="rolling walk-forward test days")
     p.add_argument("--min-n", type=int, default=ROLLING_MIN_N, help="trades a config needs in the window")
     p.add_argument("--top", type=int, help="print only the top N configs")
+    p.add_argument("--sides", default="long,short", help="long, short or long,short (default): the libraries to play")
     p.add_argument("--publish", action="store_true", help="also copy the trimmed edge.json to trader/publish/")
     p.add_argument("--publish-path", default=os.path.join("trader", "publish", "edge.json"))
     p.add_argument("--json", action="store_true")

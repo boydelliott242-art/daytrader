@@ -108,7 +108,7 @@ class Run(unittest.TestCase):
     def test_exit_code_and_the_tables(self):
         self.assertEqual(self.code, 0, self.err)
         self.assertNotIn("Traceback", self.err)
-        self.assertGreaterEqual(self.text.count("configs tested: 31"), 3)
+        self.assertGreaterEqual(self.text.count("configs tested: 50"), 3)
         self.assertIn("Out of sample (the gate)", self.text)
         self.assertIn("Rolling walk-forward", self.text)
         self.assertIn("Most people who day trade lose money", self.text)
@@ -120,13 +120,13 @@ class Run(unittest.TestCase):
         e = self.edge
         self.assertEqual(e["created_by"], "trader-lab")
         self.assertEqual(e["symbols"], ["TSLA", "NVDA", "AAPL"])   # SPY and ^VIX are context, never traded
-        self.assertEqual((e["fill"], e["cost_bps"], e["configs_tested"]), ("next_open", 4.0, 31))
+        self.assertEqual((e["fill"], e["cost_bps"], e["configs_tested"]), ("next_open", 4.0, 50))
         self.assertEqual(e["sessions"], {"first": "2026-07-31", "last": "2026-10-23", "n": 60})
         self.assertEqual((e["split"]["is"]["n"], e["split"]["oos"]["n"]), (40, 20))
         self.assertLess(e["split"]["is"]["last"], e["split"]["oos"]["first"])
         self.assertEqual(e["split"]["oos"]["last"], "2026-10-23")
-        self.assertEqual(len(e["configs"]), 31)
-        self.assertEqual([c["id"] for c in e["configs"]], [c["id"] for c in setups.configs()])
+        self.assertEqual(len(e["configs"]), 50)
+        self.assertEqual([c["id"] for c in e["configs"]], [c["id"] for c in setups.all_configs()])
         for c in e["configs"]:
             for k in ("id", "setup", "params", "label", "all", "is", "oos", "by_regime", "by_hour", "by_tier",
                       "by_sector", "by_dow", "status"):
@@ -167,7 +167,7 @@ class Run(unittest.TestCase):
             self.assertIn(t["hindsight"]["day_type"], ("trend_day", "range_day"))
             self.assertIn(t["outcome"], ("target", "stop", "close"))
             self.assertEqual(t["fill"], "next_open")
-            self.assertAlmostEqual(t["R_net"], t["R_gross"] - t["entry_fill"] * 4 / 10000.0 / (t["entry"] - t["stop"]), 3)
+            self.assertAlmostEqual(t["R_net"], t["R_gross"] - t["entry_fill"] * 4 / 10000.0 / abs(t["entry"] - t["stop"]), 3)
             self.assertLess(t["R_net"], t["R_gross"])             # costs on every trade, win or lose
             self.assertGreaterEqual(t["k"], 2)
             self.assertLessEqual(t["k"], 71)
@@ -194,7 +194,7 @@ class Run(unittest.TestCase):
     def test_report_reads_it_back(self):
         code, text, err = run(["report", "--lab-dir", self.out])
         self.assertEqual(code, 0, err)
-        self.assertGreaterEqual(text.count("configs tested: 31"), 3)
+        self.assertGreaterEqual(text.count("configs tested: 50"), 3)
         self.assertIn("orb15|r=1 ", text)
         code, text, _ = run(["report", "--lab-dir", self.out, "--by", "hour", "--top", "2"])
         self.assertEqual(code, 0)
@@ -257,7 +257,7 @@ class RunFlags(unittest.TestCase):
         for k in ("configs", "rolling", "split", "meta", "configs_tested"):
             self.assertIn(k, p)
         self.assertNotIn("trades", p["rolling"])
-        self.assertEqual(len(p["configs"]), 31)
+        self.assertEqual(len(p["configs"]), 50)
         for c in p["configs"]:
             self.assertIn("by_tier", c)
             for tier in c["by_tier"]:
@@ -456,7 +456,7 @@ class Why(unittest.TestCase):
         for cid in (c["id"] for c in setups.configs()):
             if cid not in fired:
                 self.assertIn(cid, text.split("Did not fire:")[1])
-        self.assertIn("%d of 31 configs matched a rule" % len(fired), text)
+        self.assertIn("%d of 50 configs matched a rule" % len(fired), text)
         self.assertIn("TSLA Mon 2026-10-19", text)
         self.assertIn("364.18", text)
         self.assertIn("358.32", text)
@@ -470,8 +470,8 @@ class Why(unittest.TestCase):
                              "--cost-bps", "0"])
         doc = json.loads(text)
         self.assertEqual(len(doc["trades"]), len(fired))
-        self.assertEqual(len(doc["trades"]) + len(doc["did_not_fire"]), 31)
-        self.assertEqual(doc["configs_tested"], 31)
+        self.assertEqual(len(doc["trades"]) + len(doc["did_not_fire"]), 50)
+        self.assertEqual(doc["configs_tested"], 50)
         self.assertEqual(doc["hindsight"]["day_type"], "range_day")
         orb = [t for t in doc["trades"] if t["config_id"] == "orb15|r=1"][0]
         self.assertEqual((orb["k"], orb["entry_fill"], orb["R_net"], orb["R_gross"]), (8, 364.18, orb["R_gross"], orb["R_gross"]))
