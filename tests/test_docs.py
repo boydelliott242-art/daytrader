@@ -22,6 +22,10 @@ KEYS = {
     "largecap.json": ("created_by", "count", "symbols"),
     "montecarlo.json": ("created_by", "kind", "books"),
     "nq.json": ("edge",),
+    "rankings.json": ("created_by", "date", "lists", "no_trade"),
+    "research.json": ("created_by", "cards"),
+    "features.json": ("created_by", "kind", "per_config", "adds_value"),
+    "robustness.json": ("created_by", "kind", "per_config"),
 }
 
 
@@ -45,9 +49,10 @@ class Dashboard(unittest.TestCase):
             self.assertNotIn(chr(0x2014), html)
             self.assertIn("most people who day trade lose money", html.lower())
         low = idea.lower()
-        for must in ("not a prediction", "not a buy", "typed yes", "the idea comes at 10:00 et", "watch only", "too late"):
+        for must in ("not a prediction", "not a buy", "typed yes", "the idea comes at 10:00 et", "watch only", "too late", "short side", "research only"):
             self.assertIn(must, low, must)
-        for must in ("not financial advice", "configs tested"):
+        for must in ("not financial advice", "configs tested", "short board", "rankings", "research cards", "feature study", "robustness",
+                     "lose more than the stake", "no trade"):
             self.assertIn(must, full.lower(), must)
 
     def test_the_data_files_parse_and_carry_the_contract_keys(self):

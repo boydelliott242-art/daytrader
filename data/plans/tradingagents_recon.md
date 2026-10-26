@@ -98,3 +98,19 @@ vendored). Adapt into stdlib + Claude-as-the-agents: the ten roles, the debate o
 the rating scale, the evidence-first rules, the memory/settlement idea (our scorecard already grades on bars;
 we add the reflection), the point-in-time clamp (the evidence pack is built as of a date). Leave: LangGraph,
 pydantic, yfinance (we have our own bar store), the ChatGPT auth, i18n, Docker, the CLI's questionary prompts.
+
+## Status after the build (2026-10-26 00:30 ET)
+
+Done: vendor/TradingAgents (verbatim, venv on ~/.local/bin/python3.13, 100 upstream tests green); the contract
+(CONTRACTS.md "The research desk"); dt/shorts.py + mirrored sim + both sides in the lab, the desk, the scorecard;
+dt/features.py, dt/regimes.py (tags on every lab session), dt/catalysts.py, dt/risk.py, dt/evidence.py, dt/scoring.py,
+dt/featurestudy.py, dt/agents.py; trader-agents (agents.py, roles/, weights.json, vendored_driver.py, SKILL.md);
+lab.py features / robustness; rankings; cards; memory; the site panels; the sealed bundle carries 11 data files;
+run.sh ranks after each live board and runs the study after the lab. 650 tests.
+
+Honest numbers: no short config approved (two gap fades at watch); the momentum score runs the wrong way across
+the three watch configs' OOS trades (weights-test), so the weights are a choice, said on every card.
+
+Open: a real research run by Claude at each depth as it is used (the loop is exercised by scripted outputs in the
+tests and one hand-made AAPL run); the vendored engine needs a provider key to produce anything; short interest,
+borrow and crowding have no source yet (every card says unknown); StockTwits and Reddit are not in the ledger.

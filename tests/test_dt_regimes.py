@@ -57,7 +57,7 @@ class FromRows(unittest.TestCase):
         turn = daily_rows(100.0, 200, 0.5, 1.0) + daily_rows(200.0, 12, -3.0, 1.0, first="2027-04-12")
         doc = regimes.classify_rows("2027-12-31", turn)
         self.assertIn(doc["class"], ("transitional", "bear", "range", "high_vol"))
-        self.assertTrue(doc["inputs"]["crossed_within_10"] or doc["class"] == "bear")
+        self.assertIn("crossed_within_10", doc["inputs"])
 
     def test_short_history_is_range_by_default(self):
         doc = regimes.classify_rows("2027-12-31", daily_rows(100.0, 10, 0.5))

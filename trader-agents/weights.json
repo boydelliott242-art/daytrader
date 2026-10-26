@@ -1,0 +1,31 @@
+{
+  "created_by": "trader-agents",
+  "note": "Every weight here is a choice, not a measurement. agents.py weights-test scores the lab's own OOS trades with the code-only terms and prints expectancy by score quintile with intervals: that table is the only ground a weight stands on. The agent terms (fundamental, sentiment) have no history and carry no weight in the backtestable score. Long and short have separate vectors on purpose: a short is not the negation of a long.",
+  "momentum_terms": {
+    "rs_spy_20":        {"weight": 0.20, "map": "linear", "lo": -10.0, "hi": 10.0, "why": "relative strength over the market, one month"},
+    "rs_spy_63":        {"weight": 0.15, "map": "linear", "lo": -20.0, "hi": 20.0, "why": "relative strength, one quarter"},
+    "roc_20":           {"weight": 0.10, "map": "linear", "lo": -15.0, "hi": 15.0, "why": "price momentum, one month"},
+    "ma_structure":     {"weight": 0.15, "map": "structure", "why": "price over the 20 over the 50 over the 200"},
+    "sma50_slope_pct":  {"weight": 0.10, "map": "linear", "lo": -5.0, "hi": 5.0, "why": "trend persistence"},
+    "adx_14":           {"weight": 0.10, "map": "linear", "lo": 10.0, "hi": 40.0, "why": "trend quality, direction-free"},
+    "vol_adj_mom_63":   {"weight": 0.10, "map": "linear", "lo": -1.0, "hi": 1.0, "why": "momentum per unit of volatility"},
+    "up_days_20":       {"weight": 0.05, "map": "linear", "lo": 0.3, "hi": 0.7, "why": "persistence of up days"},
+    "relvol_20":        {"weight": 0.05, "map": "linear", "lo": 0.7, "hi": 2.0, "why": "participation; capped so a spike is not momentum"}
+  },
+  "technical_terms": {
+    "lab_status":       {"weight": 0.45, "why": "approved 1.0, watch 0.6, untested 0.3, rejected 0.0: the measured record first"},
+    "oos_lower_bound":  {"weight": 0.25, "lo": -0.15, "hi": 0.15, "why": "the conservative expectancy of the config out of sample"},
+    "fresh":            {"weight": 0.15, "why": "1.0 when the entry bar closed at the cutoff or one bar before; a late entry is a different trade"},
+    "mtf_agreement":    {"weight": 0.15, "why": "the daily and weekly read agree with the side"}
+  },
+  "long_opportunity":  {"momentum": 0.30, "technical": 0.35, "regime": 0.15, "catalyst": 0.05, "risk": 0.15,
+                        "why": "the record and the trend first; the catalyst last, since most days have none"},
+  "short_opportunity": {"weakness": 0.30, "technical": 0.35, "regime": 0.15, "catalyst": 0.05, "risk": 0.15,
+                        "why": "weakness is the mirror of the momentum terms, not its negation: a flat name is weak nowhere"},
+  "regime_fit":        {"for": 100, "neutral": 55, "against": 15, "unknown": 50},
+  "catalyst":          {"known_with": 100, "possible_with": 60, "none": 40, "possible_against": 25, "known_against": 0,
+                        "why": "a catalyst with the side is worth something; one against it is a risk, not a score"},
+  "confidence":        {"approved": 1.0, "watch": 0.6, "untested": 0.3, "rejected": 0.1,
+                        "why": "evidence completeness x agreement x the record grade; capped at medium when a core source is missing or the regime is against"},
+  "feature_study":     "trader/lab/features.json"
+}

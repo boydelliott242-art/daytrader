@@ -41,7 +41,8 @@ KEYCHAIN_SERVICE = "daytrader-site-passphrase"
 ENV = "DAYTRADER_SITE_PASSPHRASE"
 PASS_FILE = os.path.join("trader", "site.pass")
 PAGES = ("idea", "full")
-DATA_FILES = ("desk.json", "edge.json", "regime.json", "scorecard.json", "largecap.json", "montecarlo.json", "nq.json")
+DATA_FILES = ("desk.json", "edge.json", "regime.json", "scorecard.json", "largecap.json", "montecarlo.json", "nq.json",
+              "rankings.json", "research.json", "features.json", "robustness.json")
 
 
 class LockError(Exception):

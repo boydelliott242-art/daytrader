@@ -223,6 +223,11 @@ footer .wrap { padding-top: 14px; padding-bottom: 24px; }
     <div id="board-body"></div>
   </section>
 
+  <section id="shortboard">
+    <div class="sec-head"><h2>The short board</h2><span class="small muted" id="shortboard-sub"></span></div>
+    <div id="shortboard-body"></div>
+  </section>
+
   <section id="edge">
     <div class="sec-head">
       <h2>The edge table</h2>
@@ -237,9 +242,29 @@ footer .wrap { padding-top: 14px; padding-bottom: 24px; }
     <div id="rolling-body"></div>
   </section>
 
+  <section id="features">
+    <div class="sec-head"><h2>Feature study</h2><span class="small muted" id="features-sub"></span></div>
+    <div id="features-body"></div>
+  </section>
+
+  <section id="robustness">
+    <div class="sec-head"><h2>Robustness</h2><span class="small muted" id="robustness-sub"></span></div>
+    <div id="robustness-body"></div>
+  </section>
+
   <section id="record">
     <div class="sec-head"><h2>Live track record</h2><span class="small muted" id="record-sub"></span></div>
     <div id="record-body"></div>
+  </section>
+
+  <section id="rankings">
+    <div class="sec-head"><h2>Rankings</h2><span class="small muted" id="rankings-sub"></span></div>
+    <div id="rankings-body"></div>
+  </section>
+
+  <section id="research">
+    <div class="sec-head"><h2>Research cards</h2><span class="small muted" id="research-sub"></span></div>
+    <div id="research-body"></div>
   </section>
 
   <section id="universe">
@@ -289,7 +314,11 @@ footer .wrap { padding-top: 14px; padding-bottom: 24px; }
     scorecard: "data/scorecard.json",
     largecap: "data/largecap.json",
     montecarlo: "data/montecarlo.json",
-    nq: "data/nq.json"
+    nq: "data/nq.json",
+    rankings: "data/rankings.json",
+    research: "data/research.json",
+    features: "data/features.json",
+    robustness: "data/robustness.json"
   };
   var EMPTY = {
     desk: "The desk has not run yet. <code>desk.py live --write --publish</code> writes today's board here (and <code>desk.py morning</code> the plan before the open).",
@@ -298,6 +327,10 @@ footer .wrap { padding-top: 14px; padding-bottom: 24px; }
     scorecard: "No track record yet. The scorecard fills as the desk shows candidates and <code>desk.py grade</code> grades them on the real bars; <code>scorecard.py report --publish</code> writes it here.",
     largecap: "No universe yet. <code>largecap.py build</code> reads Nasdaq's screener and writes the large-cap list here.",
     montecarlo: "No Monte Carlo yet. <code>montecarlo.py book --all-approved --publish</code> resamples the lab's trade book 26,000 times at your sizing rules and writes it here.",
+    rankings: "No rankings yet. <code>agents.py rank --write --publish</code> scores the universe from the code-only layers and writes the lists here.",
+    research: "No research cards yet. <code>agents.py prepare SYM</code>, the roles, then <code>agents.py decide --write --publish</code> writes the latest card per symbol here.",
+    features: "No feature study yet. <code>lab.py features --publish</code> says which features separate the lab's out-of-sample trades.",
+    robustness: "No robustness pass yet. <code>lab.py robustness --publish</code> checks each approved and watch config against its neighbours, a three-way split and the regime classes.",
     nq: "No NQ bench yet. <code>nq.py setups --publish</code> runs the desk's setups through the fifteen-year Nasdaq-100 futures backtester and writes the tables here."
   };
 
@@ -491,7 +524,7 @@ footer .wrap { padding-top: 14px; padding-bottom: 24px; }
         '<div><div class="k">entry</div><div class="v num">' + esc(num(s.entry)) + '</div><div class="s small muted">' + esc(s.entry_time || "") + "</div></div>" +
         '<div><div class="k">stop</div><div class="v num">' + esc(num(s.stop)) + '</div><div class="s small muted">' + esc((s.stop_rule || "").replace(/_/g, " ")) + "</div></div>" +
         '<div><div class="k">target</div><div class="v num">' + esc(num(s.target)) + "</div></div>" +
-        '<div><div class="k">R</div><div class="v num">' + esc(isNum(s.target_r) ? s.target_r.toFixed(2) : "n/a") + '</div><div class="s small muted">risk ' + esc(isNum(s.entry) && isNum(s.stop) ? (s.entry - s.stop).toFixed(2) : "n/a") + "</div></div>" +
+        '<div><div class="k">R</div><div class="v num">' + esc(isNum(s.target_r) ? s.target_r.toFixed(2) : "n/a") + '</div><div class="s small muted">risk ' + esc(isNum(s.entry) && isNum(s.stop) ? Math.abs(s.entry - s.stop).toFixed(2) : "n/a") + (s.side === "short" ? " (short: stop above)" : "") + "</div></div>" +
       "</div>" +
       '<div class="lab">' +
         '<span class="k">lab OOS n</span><span class="num">' + esc(oos.n !== undefined ? oos.n : "n/a") + "</span>" +
@@ -524,6 +557,114 @@ footer .wrap { padding-top: 14px; padding-bottom: 24px; }
     }
     if (doc.note) { html += '<p class="note">' + esc(doc.note) + "</p>"; }
     el("board-body").innerHTML = html;
+  }
+
+  // ------------------------------------------------------------ the short board (research only)
+  function renderShortBoard(res) {
+    var doc = res.doc;
+    if (!doc || doc.mode !== "live") { el("shortboard-body").innerHTML = '<div class="empty">The short board comes with the live board, after the first bar past the opening range.</div>'; sub("shortboard-sub", ""); return; }
+    var cands = doc.candidates_short || [];
+    sub("shortboard-sub", (doc.as_of || "") + ", " + cands.length + " bearish rule" + (cands.length === 1 ? "" : "s") + " matched");
+    var html = '<p class="note">' + esc(doc.short_note || "research only: nothing places a short order; a short can lose more than the stake") + "</p>";
+    if (!cands.length) { html += '<div class="empty">No bearish rule with a record matched' + (doc.as_of ? " by " + esc(doc.as_of) : "") + ". That is a normal day.</div>"; }
+    else { html += '<div class="board">' + cands.map(card).join("") + "</div>"; }
+    el("shortboard-body").innerHTML = html;
+  }
+
+  // ------------------------------------------------------------ the rankings (code only) and the research cards
+  var LIST_WORDS = { top_momentum_longs: "Top momentum longs", top_short_candidates: "Top short candidates", top_high_conviction: "Top high conviction",
+                     top_risk_adjusted: "Top risk-adjusted", top_contrarian: "Top contrarian", most_dangerous_shorts: "Most dangerous shorts", watchlist: "Watchlist" };
+  function n1(x) { return isNum(x) ? x.toFixed(1) : "n/a"; }
+  function renderRankings(res) {
+    var doc = res.doc;
+    if (!doc) { el("rankings-body").innerHTML = empty("rankings"); sub("rankings-sub", ""); return; }
+    sub("rankings-sub", (doc.date || "") + " at " + (doc.cutoff || "") + " ET, " + (doc.universe || 0) + " symbols, " + (doc.configs_tested || "?") + " configs tested in the lab" +
+        (doc.weights_tested ? ", weights gated by the feature study" : ", weights untested"));
+    var html = "";
+    Object.keys(doc.lists || {}).forEach(function (key) {
+      var rows = doc.lists[key] || [];
+      html += '<h3 class="small" style="margin:14px 0 6px">' + esc(LIST_WORDS[key] || key) + (rows.length ? "" : ' <span class="muted">NO TRADE: nothing cleared the bar</span>') + "</h3>";
+      if (!rows.length) { return; }
+      html += '<div class="tbl-wrap"><table class="tbl"><thead><tr><th>symbol</th><th>side</th><th class="num">score</th><th class="num">momentum</th><th class="num">technical</th><th class="num">regime</th><th class="num">risk</th><th>verdict</th><th>confidence</th><th>rule</th></tr></thead><tbody>' +
+        rows.map(function (r) {
+          return "<tr><td><b>" + esc(r.symbol) + "</b></td><td>" + esc(r.side) + '</td><td class="num">' + n1(r.score) + '</td><td class="num">' + n1(r.momentum) +
+            (isNum(r.momentum_raw) ? ' <span class="muted">(raw ' + n1(r.momentum_raw) + ")</span>" : "") + '</td><td class="num">' + n1(r.technical) + '</td><td class="num">' + n1(r.regime) +
+            '</td><td class="num">' + n1(r.risk) + "</td><td>" + esc(r.verdict || "") + "</td><td>" + esc(r.confidence || "") + "</td><td>" + esc(r.config_id || "no rule") +
+            (isNum(r.late_by) && r.late_by > 1 ? ' <span class="muted">late ' + r.late_by + "</span>" : "") + "</td></tr>";
+        }).join("") + "</tbody></table></div>";
+    });
+    if (doc.momentum_note) { html += '<p class="note">' + esc(doc.momentum_note) + ".</p>"; }
+    if (doc.weights_verdict) { html += '<p class="note"><b>' + esc(doc.weights_verdict) + ".</b></p>"; }
+    if (doc.note) { html += '<p class="note">' + esc(doc.note) + "</p>"; }
+    el("rankings-body").innerHTML = html;
+  }
+  function renderResearch(res) {
+    var doc = res.doc;
+    if (!doc || !(doc.cards || []).length) { el("research-body").innerHTML = empty("research"); sub("research-sub", ""); return; }
+    sub("research-sub", doc.n + " card" + (doc.n === 1 ? "" : "s") + ", latest per symbol");
+    var html = '<div class="board">' + doc.cards.map(function (c) {
+      var verdict = c.no_trade ? "NO TRADE" : (String(c.rating || "").toUpperCase() + " " + String(c.side || "").toUpperCase());
+      return '<article class="card">' +
+        '<div class="head"><span class="sym">' + esc(c.symbol) + '</span><span class="name">' + esc(c.date) + " " + esc(c.cutoff || "") + " ET, " + esc(c.depth || "") + "</span>" +
+        '<span class="badge' + (c.no_trade ? " dimmed" : " filled") + '">' + esc(verdict) + "</span></div>" +
+        '<div class="setup">confidence ' + esc(c.confidence || "n/a") + ", horizon " + esc(c.horizon || "n/a") + ", regime " + esc(c.regime || "n/a") + "</div>" +
+        '<div class="kv">' +
+          '<div><div class="k">long score</div><div class="v num">' + n1(c.long_score) + "</div></div>" +
+          '<div><div class="k">short score</div><div class="v num">' + n1(c.short_score) + "</div></div>" +
+          '<div><div class="k">risk long</div><div class="v">' + esc((c.risk || {}).long || "n/a") + "</div></div>" +
+          '<div><div class="k">risk short</div><div class="v">' + esc((c.risk || {}).short || "n/a") + "</div></div>" +
+        "</div>" +
+        (c.thesis ? '<p class="note">' + esc(c.thesis) + "</p>" : "") +
+        (c.invalidation ? '<p class="note"><b>Invalidation:</b> ' + esc(c.invalidation) + "</p>" : "") +
+        ((c.key_risks || []).length ? '<p class="note"><b>Key risks:</b> ' + esc(c.key_risks.join("; ")) + "</p>" : "") +
+        ((c.missing || []).length ? '<p class="note muted">missing: ' + esc(c.missing.join(", ")) + "</p>" : "") +
+        "</article>";
+    }).join("") + "</div>";
+    html += '<p class="note">' + esc(doc.note || "") + "</p>";
+    el("research-body").innerHTML = html;
+  }
+
+  // ------------------------------------------------------------ the feature study and the robustness pass
+  function renderFeatures(res) {
+    var doc = res.doc;
+    if (!doc) { el("features-body").innerHTML = empty("features"); sub("features-sub", ""); return; }
+    sub("features-sub", "OOS trades from " + esc(doc.oos_first || "?") + ", " + (doc.configs || []).length + " configs, " + (doc.configs_tested || "?") + " configs tested in the lab");
+    var html = "";
+    Object.keys(doc.per_config || {}).forEach(function (cid) {
+      var per = doc.per_config[cid];
+      html += '<h3 class="small" style="margin:14px 0 6px">' + esc(cid) + ' <span class="muted">(' + esc(per.side || "long") + " side, " + esc(per.n) + " OOS trades" + (per.note ? ": " + esc(per.note) : "") + ")</span></h3>";
+      var feats = per.features || {};
+      var names = Object.keys(feats).filter(function (k) { return feats[k].terciles; });
+      if (!names.length) { return; }
+      html += '<div class="tbl-wrap"><table class="tbl"><thead><tr><th>feature</th><th class="num">low tercile exp R</th><th class="num">mid</th><th class="num">high tercile exp R</th><th>adds value</th></tr></thead><tbody>' +
+        names.map(function (k) {
+          var f = feats[k], t = f.terciles;
+          return "<tr><td>" + esc(k) + '</td><td class="num">' + esc(R(t.low.exp_R)) + " " + esc(rCi(t.low.exp_ci95)) + '</td><td class="num">' + esc(R((t.mid || {}).exp_R)) +
+            '</td><td class="num">' + esc(R(t.high.exp_R)) + " " + esc(rCi(t.high.exp_ci95)) + "</td><td>" + (f.adds_value ? "<b>yes</b> (" + esc(f.direction) + ")" : "no" + (f.direction ? " (" + esc(f.direction) + ")" : "")) + "</td></tr>";
+        }).join("") + "</tbody></table></div>";
+      if ((per.redundant || []).length) { html += '<p class="note">redundant pairs (Spearman above 0.8): ' + esc(per.redundant.map(function (r) { return r.a + " ~ " + r.b + " (" + r.spearman + ")"; }).join("; ")) + "</p>"; }
+    });
+    var adds = doc.adds_value || {};
+    var pick = function (side) { return Object.keys(adds[side] || {}).filter(function (k) { return adds[side][k]; }); };
+    html += '<p class="note"><b>Adds value on the long side:</b> ' + esc(pick("long").join(", ") || "nothing") + ". <b>On the short side:</b> " + esc(pick("short").join(", ") || "nothing") + ".</p>";
+    html += '<p class="note">' + esc(doc.note || "") + "</p>";
+    el("features-body").innerHTML = html;
+  }
+  function renderRobustness(res) {
+    var doc = res.doc;
+    if (!doc) { el("robustness-body").innerHTML = empty("robustness"); sub("robustness-sub", ""); return; }
+    var per = doc.per_config || {};
+    sub("robustness-sub", Object.keys(per).length + " approved and watch configs, " + (doc.configs_tested || "?") + " configs tested in the lab");
+    var html = '<div class="tbl-wrap"><table class="tbl"><thead><tr><th>config</th><th>status</th><th>side</th><th>verdict</th><th class="num">train</th><th class="num">validation</th><th class="num">test</th><th>neighbours</th><th>regime classes</th></tr></thead><tbody>' +
+      Object.keys(per).map(function (cid) {
+        var r = per[cid], tw = r.three_way || {};
+        var cls = Object.keys(r.regime_classes || {}).map(function (k) { return k.replace("regime_", "") + " " + R(r.regime_classes[k].exp_R); }).join(", ");
+        return "<tr><td>" + esc(cid) + "</td><td>" + statusBadge(r.status) + "</td><td>" + esc(r.side) + "</td><td>" + (r.fragile ? '<b>FRAGILE</b>: ' + esc((r.fragility || []).join("; ")) : "holds") +
+          '</td><td class="num">' + esc(R((tw.train || {}).exp_R)) + '</td><td class="num">' + esc(R((tw.validation || {}).exp_R)) + '</td><td class="num">' + esc(R((tw.test || {}).exp_R)) +
+          "</td><td>" + esc((r.neighbours || []).map(function (n) { return n[0] + " " + R(n[1]); }).join(", ") || "none in the grid") + "</td><td>" + esc(cls || "none with enough trades") + "</td></tr>";
+      }).join("") + "</tbody></table></div>";
+    html += '<p class="note">' + esc(doc.note || "") + "</p>";
+    el("robustness-body").innerHTML = html;
   }
 
   // ------------------------------------------------------------ the edge table
@@ -783,9 +924,14 @@ footer .wrap { padding-top: 14px; padding-bottom: 24px; }
     renderHeader(docs);
     renderRegime(docs.regime, docs.desk.doc);
     renderBoard(docs.desk);
+    renderShortBoard(docs.desk);
     renderEdge(docs.edge);
     renderRolling(docs.edge);
+    renderFeatures(docs.features);
+    renderRobustness(docs.robustness);
     renderRecord(docs.scorecard, docs.edge.doc);
+    renderRankings(docs.rankings);
+    renderResearch(docs.research);
     renderUniverse(docs.largecap);
     renderMonteCarlo(docs.montecarlo);
     renderNq(docs.nq);

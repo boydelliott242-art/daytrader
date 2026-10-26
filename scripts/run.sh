@@ -48,6 +48,7 @@ case "$job" in
     inwin 09:49 15:31 || { echo "outside 09:50-15:30" >> "$log"; exit 0; }
     $py trader-regime/regime.py live --write --publish >> "$log" 2>&1
     $py trader-desk/desk.py live --write --publish >> "$log" 2>&1
+    $py trader-agents/agents.py rank --at "$ny_hhmm" --write --publish --quiet >> "$log" 2>&1
     n=$($py -c "import json; d=json.load(open('trader/desk.json')); print(len([c for c in d.get('candidates',[]) if 'late' not in c.get('flags',[])]))" 2>/dev/null || echo 0)
     /usr/bin/osascript -e "display notification \"$n fresh candidates on the board at $ny_hhmm ET (nothing placed)\" with title \"DAYTRADER desk\"" 2>/dev/null
     publish_docs ;;
@@ -59,6 +60,9 @@ case "$job" in
     publish_docs ;;
   lab)
     $py trader-lab/lab.py run --publish >> "$log" 2>&1
+    $py trader-lab/lab.py features --publish >> "$log" 2>&1
+    $py trader-lab/lab.py robustness --publish >> "$log" 2>&1
+    $py trader-agents/agents.py weights-test --write >> "$log" 2>&1
     $py trader-montecarlo/montecarlo.py book --all-approved --publish >> "$log" 2>&1
     publish_docs ;;
   *) echo "unknown job $job" >> "$log"; exit 2 ;;

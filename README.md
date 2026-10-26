@@ -1,15 +1,16 @@
 # DAYTRADER: the Day Trader skill v2, plus a large-cap desk on top
 
-Twenty Claude skills for day trading large caps, built on Jake Schincariol's
+Twenty-one Claude skills for day trading large caps, built on Jake Schincariol's
 [Day Trader skill v2](https://github.com/Jakeschincariol/day-trader-skill) (MIT). The eleven upstream
-skills are vendored here unchanged, with their 315 tests. Nine more sit on top: a measured universe,
+skills are vendored here unchanged, with their 315 tests. Ten more sit on top: a measured universe,
 the market regime, an edge study of every setup over every large cap, an advisor that runs the chain
 and shows the odds before the money, a graded track record, a local paper broker, an intel ledger fed
-by Claude's connectors, a 26,000-replay Monte Carlo, and the user's own fifteen-year Nasdaq-100 futures
-backtester wired in. Plain Python 3.8+, nothing to pip install, free public data. Nothing trades
+by Claude's connectors, a 26,000-replay Monte Carlo, the user's own fifteen-year Nasdaq-100 futures
+backtester wired in, and a research desk built on Tauric Research's TradingAgents (vendored whole, Apache-2.0):
+the roles run by Claude over an evidence pack, a short side with its own setups and risk, and rankings over the universe. Plain Python 3.8+, nothing to pip install, free public data. Nothing trades
 without your yes. Most people who day trade lose money; this desk shows you the odds first.
 
-## The twenty
+## The twenty-one
 
 | command | job |
 | --- | --- |
@@ -23,6 +24,7 @@ without your yes. Most people who day trade lose money; this desk shows you the 
 | `/trader-intel` | the intel ledger: what Claude found through Firecrawl, FMP, Bigdata.com, Quartr and LunarCrush, as flags on the board |
 | `/trader-montecarlo` | 26,000 replays of a plan, the trade book resampled at your sizing rules, the NQ and ES overnight read |
 | `/trader-nq` | the desk's setups on fifteen years of NQ 1-minute bars with real fees and slippage, through your own backtester |
+| `/trader-agents` | the research desk: the TradingAgents roles (six analysts, bull and bear in rounds, a contrarian, the research manager, the trader, three risk debaters, a code-fed risk analyst, the portfolio manager), run by Claude over one evidence pack per symbol, validated claim by claim, scored, written as a card; the code-only rankings over the universe; the memory of settled cards |
 | `scripts/lock.py` | not a skill: the lock. Seals the pages and the data into `docs/data/bundle.enc`; the live site is a passphrase screen |
 
 **Live:** https://boydelliott242-art.github.io/daytrader/ is a lock screen. Behind the passphrase: the one-idea
@@ -90,6 +92,37 @@ grade     desk.py grade              the scorecard: what the board really did
 Every skill reads and writes the `trader/` folder of the project you run it in, in the upstream's
 shapes. `CONTRACTS.md` is the spec for the new layer.
 
+## The research desk (TradingAgents, integrated)
+
+`vendor/TradingAgents/` is TradingAgents v0.7.0 by Tauric Research (arXiv 2412.20138), every file, verbatim, with its
+license; `scripts/install_tradingagents.sh` builds its own venv (Python 3.11+) and its 100 unit tests pass there; with a
+provider key, `agents.py run SYM --engine vendored` runs the upstream graph itself and adds its reports to the pack.
+The desk's own roles need no key: `trader-agents/roles/*.md` are the upstream prompts adapted (the market, fundamentals,
+news and sentiment analysts, the bull and bear researchers, the research manager, the trader, the aggressive,
+conservative and neutral risk debaters, the portfolio manager) plus a momentum analyst, a regime analyst, a contrarian
+and a code-fed risk analyst. Claude plays each role inside Claude Code:
+
+```
+agents.py prepare NVDA --date D --at 10:15 --depth standard   # the evidence pack (every item with an id) and the first prompts
+  ... read each prompt, write its JSON ...                     # one claim per sentence; DATA, SIGNAL and STAT claims cite ids
+agents.py next NVDA --date D                                  # the validator: wrong numbers, missing ids, high confidence with a
+                                                              #   source missing, levels off a cited signal: rejected, sentence by sentence
+agents.py decide NVDA --date D --write --publish              # the scores, the card (NO TRADE is a result), logged to memory
+agents.py rank --write --publish                              # top momentum longs, short candidates, high conviction, risk-adjusted,
+                                                              #   contrarian, most dangerous shorts, watchlist; empty lists say NO TRADE
+agents.py settle; agents.py reflect ID                        # settled on the real bars, then a lesson the next pack carries
+```
+
+The short side is its own library (`dt/shorts.py`: 19 bearish configs, ids ending in `|short`), played mirrored by the
+simulator, measured by the same lab gate, shown on its own board, scored by its own weight vector and judged by its own
+risk block (squeeze risk unknown unless a source says otherwise, the unbounded loss named on every card). Nothing places
+a short order: the upstream chain is long only and the paper broker refuses one.
+
+Every weight in `trader-agents/weights.json` is a choice with a reason beside it, and `agents.py weights-test` is the
+only ground it stands on. The first run (14,344 OOS trades of the three watch configs) said the momentum score does NOT
+separate them: the bottom quintile made +0.066R [+0.018, +0.111] and the top lost 0.034R [-0.079, +0.007]. That verdict
+rides on every card and ranking until a run says otherwise.
+
 ## What the numbers are, and are not
 
 - **The lab** plays each setup on every stored session with a fill at the NEXT bar's open (you only
@@ -133,12 +166,24 @@ These are the first real runs, printed here so nobody has to take the tools' wor
   that size, and lost 0.21R a trade after a flat night (gap inside a tenth of a percent). The night
   matters more than the rule.
 
+- **The short side, the same lab, the same gate (2026-10-25, 1,005,765 trades over both libraries).** No bearish config
+  cleared the gate. Two sit at `watch`: `gap_fade|r=1|short` (n 794, +0.050R [-0.005, +0.105], win 33 % [29.8, 36.3]) and
+  `gap_fade|r=2|short`; every opening-range breakdown was negative, the plain `orb15_down|r=1|short` at -0.075R
+  [-0.094, -0.057] over 9,398 trades. Configs tested: 50.
+- **The feature study (the OOS trades of the three watch configs):** on the long side only the moving-average structure
+  and the realised volatility separated the trades; on the short side the 5 and 20-day moves, relative strength, RSI,
+  the MACD histogram, up-day persistence and beta did (lower beta better). Fourteen pairs of features were redundant
+  (Spearman above 0.8): the momentum family is one fact, not nine.
+- **The robustness pass:** `vwap_reclaim|r=2` is FRAGILE (its one neighbour is negative; validation -0.115R, test
+  +0.059R); the two gap fades hold across the three-way split (train +0.071R, validation +0.000R, test +0.052R).
+
 None of this is a prediction. It is what the rules did.
 
 ## Tests
 
 ```bash
-python3 -m unittest discover -s tests          # the upstream 315 + the new suites, offline, on fixtures
+python3 -m unittest discover -s tests          # the upstream 315 + the new suites (650 in all), offline, on fixtures
+vendor/TradingAgents/.venv/bin/python -m pytest -q vendor/TradingAgents/tests   # the upstream TradingAgents suite, in its venv
 ```
 
 ## Fine print

@@ -17,8 +17,8 @@ ORDER_PATH = ["trader-scanner", "trader-entry", "trader-exit", "trader-timemachi
 V1_ONLY = ["trader-copycat", "trader-screener", "trader-tax", "trader-rebalance"]
 # the large-cap desk built on top (CONTRACTS.md): six more skill folders at the root
 NEW_SKILLS = ["trader-largecap", "trader-regime", "trader-lab", "trader-desk", "trader-scorecard", "trader-paper",
-              "trader-intel", "trader-montecarlo", "trader-nq"]
-NEW_ORDER_PATH = ["trader-desk", "trader-paper", "trader-lab", "trader-scorecard", "trader-montecarlo", "trader-nq"]
+              "trader-intel", "trader-montecarlo", "trader-nq", "trader-agents"]
+NEW_ORDER_PATH = ["trader-desk", "trader-paper", "trader-lab", "trader-scorecard", "trader-montecarlo", "trader-nq", "trader-agents"]
 EXTRA_ROOT = [".gitignore", "CONTRACTS.md", "UPSTREAM_README.md", "CLAUDE.md", "dt", "docs", "site", "scripts", "data", "trader",
               "vendor"]
 

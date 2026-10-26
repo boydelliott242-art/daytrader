@@ -20,3 +20,12 @@
   to a file, the repo, a log, memory or a reply, and never type it into the live github.io site (localhost:8765 only).
   Publish only through scripts/run.sh publish_docs or lock.py build + commit + push; a build that cannot find the
   passphrase publishes nothing.
+- vendor/TradingAgents is Tauric Research's TradingAgents v0.7.0, verbatim (Apache-2.0, VENDORED.md pins the commit):
+  never edited, never imported by the stdlib tools; its own venv (scripts/install_tradingagents.sh, Python 3.11+) is
+  the one other pip exception, beside the NQ backtester's. The repo tests skip vendor/.
+- The research desk (trader-agents) is Claude playing the roles: agents.py writes a prompt, Claude writes the JSON, the
+  validator checks every claim against the evidence pack. Never fill a gap in the pack from memory; a rejected output
+  is rewritten by the role, never patched with a number. The weights in trader-agents/weights.json are choices;
+  agents.py weights-test is the only ground they stand on, and its verdict rides on every card and ranking.
+- Sides stay separate: dt/shorts.py, |short config ids, a mirrored dt.sim, separate score vectors. Nothing places a
+  short order (the upstream chain is long only; paper.py refuses one); a short is research until the config allows it.

@@ -8,8 +8,8 @@ src="$root/vendor/TradingAgents"
 venv="$src/.venv"
 [ -f "$src/pyproject.toml" ] || { echo "vendor/TradingAgents is missing; run scripts/update_tradingagents.sh first"; exit 2; }
 py=""
-for c in python3.13 python3.12 python3.11; do
-  if command -v "$c" >/dev/null 2>&1; then py="$(command -v "$c")"; break; fi
+for c in python3.13 python3.12 python3.11 "$HOME/.local/bin/python3.13" "$HOME/.local/bin/python3.12" "$HOME/.local/bin/python3.11"; do
+  if command -v "$c" >/dev/null 2>&1; then py="$(command -v "$c")"; break; elif [ -x "$c" ]; then py="$c"; break; fi
 done
 if [ -n "$py" ]; then
   echo "using $py"

@@ -504,7 +504,7 @@ decision   portfolio_manager                                               (the 
 Depth: `fast` = market, momentum, regime, bull_1, bear_1, research_manager, risk_analyst, portfolio_manager;
 `standard` = every analyst, 1 debate round, 1 risk round; `deep` = 2 rounds each plus the contrarian;
 `maximum` = 3 rounds each, the contrarian, the time machine and the Monte Carlo on the proposal, and the
-intel ledger refreshed first. Every role's output is JSON:
+intel ledger refreshed first (8, 15, 21 and 26 outputs). Every role's output is JSON:
 
 ```
 {"role": "bull", "round": 1, "symbol", "date", "stance": <role enum>, "confidence": "low|medium|high",

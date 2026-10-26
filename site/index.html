@@ -204,10 +204,29 @@
           ((c.lab || {}).status === "approved" ? "" : " (watch only)");
       }).join("<br>") + "</div></div>";
     }
+    html += shortSide(d);
     var ex = ((d.excluded || {}).earnings || []);
     html += '<p class="small">' + esc(regimeWords(r)) + (ex.length ? " · " + ex.length + " names left out for earnings" : "") +
       (d.universe ? " · " + d.universe + " large caps scanned" : "") + "</p>";
     return html;
+  }
+
+  function shortSide(d) {
+    var shorts = (d.candidates_short || []).filter(function (c) { return (c.flags || []).indexOf("late") < 0; });
+    if (!shorts.length) { return ""; }
+    var c = shorts[0], g = c.signal || {};
+    var rk = window.__RANKINGS || null;
+    var refused = null;
+    if (rk && rk.lists) {
+      var all = [].concat(rk.lists.most_dangerous_shorts || [], rk.lists.top_short_candidates || []);
+      var hit = all.filter(function (x) { return x.symbol === c.symbol && x.side === "short"; })[0];
+      if (hit) { refused = hit.verdict === "do_not_trade" ? (hit.reasons || []).join("; ") : ""; }
+    }
+    return '<div class="card"><div class="kicker" style="margin-top:0">the short side</div><p class="plain"><b>' + esc(c.symbol) + "</b> matched " + esc(c.setup || "") +
+      ": sell short below " + num(g.entry) + ", stop " + num(g.stop) + " above, target " + num(g.target) +
+      ((c.lab || {}).status === "approved" ? "" : " (watch only)") + ". " +
+      (refused ? '<span class="badge warn">do not short</span> ' + esc(refused) + ". " : "") +
+      "Research only: nothing places a short order, and a short can lose more than the stake.</p></div>";
   }
 
   function renderMorning(d, r) {
@@ -228,8 +247,8 @@
     return html;
   }
 
-  Promise.all([load("data/desk.json"), load("data/regime.json")]).then(function (res) {
-    var d = res[0], r = res[1];
+  Promise.all([load("data/desk.json"), load("data/regime.json"), load("data/rankings.json")]).then(function (res) {
+    var d = res[0], r = res[1], rk = res[2];
     var when = document.getElementById("when");
     var main = document.getElementById("main");
     if (!d) {
@@ -238,6 +257,7 @@
       return;
     }
     when.textContent = (d.mode === "live" ? "board as of " : "plan for ") + (d.as_of || d.date || "");
+    window.__RANKINGS = rk || null;
     main.innerHTML = d.mode === "live" ? renderLive(d, r) : renderMorning(d, r);
   });
 })();

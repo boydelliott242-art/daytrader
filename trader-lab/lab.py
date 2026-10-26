@@ -785,6 +785,139 @@ def report_lines(edge, config_id=None, by=None, top=None):
     return lines
 
 
+# ---------------------------------------------------------------- the feature study and the robustness pass
+
+def cmd_features(a):
+    from dt import featurestudy
+    edge = _edge_at(a.lab_dir)
+    trades = os.path.join(a.lab_dir, "trades.jsonl.gz")
+    if not os.path.exists(trades):
+        raise LabError("no %s: lab.py run first" % trades)
+    doc = featurestudy.run_study(trades, a.cache_root, edge, a.config or None, a.min_trades)
+    dtio.write_json(os.path.join(a.lab_dir, "features.json"), doc)
+    if a.publish:
+        dtio.write_json(os.path.join("trader", "publish", "features.json"), doc)
+    if a.json:
+        print(json.dumps(doc, indent=2))
+        return 0
+    print("Feature study over the OOS trades (from %s) of %s; configs tested in the lab: %s." % (doc["oos_first"], ", ".join(doc["configs"]), doc["configs_tested"]))
+    for cid, per in doc["per_config"].items():
+        print("\n%s (%s side, %d OOS trades)%s" % (cid, per.get("side"), per["n"], (": " + per["note"]) if per.get("note") else ""))
+        for name, f in (per.get("features") or {}).items():
+            if "adds_value" not in f:
+                continue
+            t = f["terciles"]
+            print("  %-22s low %+.3f [%+.3f,%+.3f] mid %+.3f high %+.3f [%+.3f,%+.3f]  %s" % (
+                name, t["low"]["exp_R"], t["low"]["exp_ci95"][0], t["low"]["exp_ci95"][1], (t["mid"] or {}).get("exp_R") or 0, t["high"]["exp_R"],
+                t["high"]["exp_ci95"][0], t["high"]["exp_ci95"][1], ("ADDS VALUE (%s)" % f["direction"]) if f["adds_value"] else ("no" + ((": " + f["direction"]) if f.get("direction") else ""))))
+        for r in per.get("redundant") or []:
+            print("  redundant: %s ~ %s (Spearman %s)" % (r["a"], r["b"], r["spearman"]))
+    print("\nAdds value on the long side: %s" % (", ".join(sorted(k for k, v in doc["adds_value"]["long"].items() if v)) or "nothing"))
+    print("Adds value on the short side: %s" % (", ".join(sorted(k for k, v in doc["adds_value"]["short"].items() if v)) or "nothing"))
+    print("Wrote %s.\n%s" % (os.path.join(a.lab_dir, "features.json"), doc["note"]))
+    return 0
+
+
+def neighbours(cid, edge):
+    """The configs of the same setup and side with one parameter changed (the grid around this one)."""
+    me = next((c for c in edge["configs"] if c["id"] == cid), None)
+    if not me:
+        return []
+    out = []
+    for c in edge["configs"]:
+        if c["id"] == cid or c.get("setup") != me.get("setup") or setups.side_of(c) != setups.side_of(me):
+            continue
+        diff = [k for k in set(me["params"]) | set(c["params"]) if me["params"].get(k) != c["params"].get(k)]
+        if len(diff) == 1:
+            out.append(c)
+    return out
+
+
+def three_way(rows, sessions):
+    """train / validation / test, 50 / 25 / 25 of the sessions in order."""
+    n = len(sessions)
+    a, b = sessions[:n // 2], sessions[n // 2:(3 * n) // 4]
+    sets = {"train": set(a), "validation": set(b), "test": set(sessions[(3 * n) // 4:])}
+    return {k: dtstats.stats_block([r for r in rows if r["date"] in v]) for k, v in sets.items()}
+
+
+def robustness(edge, trades_path, min_n=30):
+    """Per approved and watch config: the neighbours' OOS expectancy spread, the three-way split, the regime classes
+    it works in, and a fragility flag (CONTRACTS.md, Robustness)."""
+    from dt import featurestudy
+    chosen = [c for c in edge["configs"] if c.get("status") in ("approved", "watch")]
+    ids = set(c["id"] for c in chosen)
+    all_ids = set(c["id"] for c in edge["configs"])
+    rows = [r for r in featurestudy.read_trades(trades_path, None, all_ids)]
+    by = {}
+    for r in rows:
+        by.setdefault(r["config_id"], []).append(r)
+    sessions = sorted(set(r["date"] for r in rows))
+    out = {"created_by": "trader-lab", "kind": "robustness", "configs_tested": edge.get("configs_tested"), "per_config": {}, "note": ROBUST_NOTE}
+    oos_first = ((edge.get("split") or {}).get("oos") or {}).get("first")
+    for c in chosen:
+        cid = c["id"]
+        nb = neighbours(cid, edge)
+        nb_exp = [(n["id"], (n.get("oos") or {}).get("exp_R"), n.get("status")) for n in nb]
+        positives = sum(1 for _, e, _ in nb_exp if e is not None and e > 0)
+        tw = three_way(by.get(cid, []), sessions)
+        classes = {}
+        for tag, st in (c.get("by_regime") or {}).items():
+            if tag.startswith("regime_") and st.get("n", 0) >= min_n:
+                classes[tag] = {"n": st["n"], "exp_R": st["exp_R"], "exp_ci95": st["exp_ci95"]}
+        works_in = sum(1 for st in classes.values() if (st.get("exp_R") or 0) > 0)
+        oos_rows = [r for r in by.get(cid, []) if oos_first and r["date"] >= oos_first]
+        fragile = []
+        if nb and positives == 0:
+            fragile.append("every neighbouring config is negative out of sample: only this parameter combination works")
+        if tw["test"]["n"] and tw["validation"]["n"] and ((tw["test"]["exp_R"] or 0) <= 0 or (tw["validation"]["exp_R"] or 0) <= 0):
+            fragile.append("the three-way split does not hold: validation %s, test %s" % (_r(tw["validation"]["exp_R"]), _r(tw["test"]["exp_R"])))
+        if classes and works_in <= len(classes) // 2:
+            fragile.append("positive in %d of %d regime classes with %d+ trades" % (works_in, len(classes), min_n))
+        out["per_config"][cid] = {"status": c.get("status"), "side": setups.side_of(c), "neighbours": nb_exp, "neighbours_positive": positives,
+                                  "three_way": tw, "regime_classes": classes, "works_in_classes": "%d of %d" % (works_in, len(classes)),
+                                  "oos_n": len(oos_rows), "fragile": bool(fragile), "fragility": fragile}
+    return out
+
+
+ROBUST_NOTE = ("A config that works only at one parameter setting, only in one slice of time, or only in one regime class is fragile, "
+               "however good its headline. The three-way split is train / validation / test in session order; nothing was selected on the test third.")
+
+
+def cmd_robustness(a):
+    edge = _edge_at(a.lab_dir)
+    trades = os.path.join(a.lab_dir, "trades.jsonl.gz")
+    if not os.path.exists(trades):
+        raise LabError("no %s: lab.py run first" % trades)
+    doc = robustness(edge, trades, a.min_n)
+    dtio.write_json(os.path.join(a.lab_dir, "robustness.json"), doc)
+    if a.publish:
+        dtio.write_json(os.path.join("trader", "publish", "robustness.json"), doc)
+    if a.json:
+        print(json.dumps(doc, indent=2))
+        return 0
+    print("Robustness of the approved and watch configs (configs tested: %s):" % doc["configs_tested"])
+    for cid, r in doc["per_config"].items():
+        print("\n%s (%s, %s side): %s" % (cid, r["status"], r["side"], "FRAGILE" if r["fragile"] else "holds"))
+        for f in r["fragility"]:
+            print("  - " + f)
+        print("  neighbours: %s" % (", ".join("%s %s" % (i, _r(e)) for i, e, _ in r["neighbours"]) or "none in the grid"))
+        tw = r["three_way"]
+        print("  three-way: train %s (n %d), validation %s (n %d), test %s (n %d)" % (
+            _r(tw["train"]["exp_R"]), tw["train"]["n"], _r(tw["validation"]["exp_R"]), tw["validation"]["n"], _r(tw["test"]["exp_R"]), tw["test"]["n"]))
+        print("  regime classes: %s" % (", ".join("%s %s (n %d)" % (k.replace("regime_", ""), _r(v["exp_R"]), v["n"]) for k, v in r["regime_classes"].items()) or "none with %d+ trades" % a.min_n))
+    print("\nWrote %s.\n%s" % (os.path.join(a.lab_dir, "robustness.json"), doc["note"]))
+    return 0
+
+
+def _edge_at(lab_dir):
+    path = os.path.join(lab_dir, "edge.json")
+    edge = dtio.read_json(path, None)
+    if not edge or "configs" not in edge:
+        raise LabError("no edge.json at %s: lab.py run first" % path)
+    return edge
+
+
 # ---------------------------------------------------------------- why
 
 def why_session(sym, date, root, fill, cost_bps, cfg, largecap="trader/largecap.json"):
@@ -970,6 +1103,20 @@ def main(argv=None):
     p.add_argument("--top", type=int, help="how many configs (default all; 5 for --by)")
     p.add_argument("--json", action="store_true")
 
+    p = sub.add_parser("features", help="the feature study: which features separate the OOS trades of the approved and watch configs")
+    p.add_argument("--lab-dir", default="trader/lab")
+    p.add_argument("--cache-root", default="trader/cache")
+    p.add_argument("--config", action="append", metavar="ID", help="only these configs (default: approved and watch)")
+    p.add_argument("--min-trades", type=int, default=30)
+    p.add_argument("--publish", action="store_true", help="also copy to trader/publish/features.json")
+    p.add_argument("--json", action="store_true")
+
+    p = sub.add_parser("robustness", help="neighbours, the three-way split, the regime classes and the fragility flag per config")
+    p.add_argument("--lab-dir", default="trader/lab")
+    p.add_argument("--min-n", type=int, default=30)
+    p.add_argument("--publish", action="store_true", help="also copy to trader/publish/robustness.json")
+    p.add_argument("--json", action="store_true")
+
     p = sub.add_parser("why", help="every config's signal and outcome on one session")
     p.add_argument("symbol")
     p.add_argument("date", help="YYYY-MM-DD")
@@ -981,7 +1128,7 @@ def main(argv=None):
         ap.print_help()
         return 1
     try:
-        return {"run": cmd_run, "report": cmd_report, "why": cmd_why}[a.cmd](a)
+        return {"run": cmd_run, "report": cmd_report, "why": cmd_why, "features": cmd_features, "robustness": cmd_robustness}[a.cmd](a)
     except LabError as e:
         print("lab.py: %s" % e, file=sys.stderr)
         return 1
