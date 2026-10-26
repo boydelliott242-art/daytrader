@@ -24,7 +24,7 @@ without your yes. Most people who day trade lose money; this desk shows you the 
 | `/trader-montecarlo` | 26,000 replays of a plan, the trade book resampled at your sizing rules, the NQ and ES overnight read |
 | `/trader-nq` | the desk's setups on fifteen years of NQ 1-minute bars with real fees and slippage, through your own backtester |
 
-**Live:** the dashboard at https://boydelliott242-art.github.io/daytrader/ (GitHub Pages from `docs/`; the scheduled jobs push fresh data after each run) and the code at https://github.com/boydelliott242-art/daytrader.
+**Live:** https://boydelliott242-art.github.io/daytrader/ is the one-idea page (big words: today's best candidate with the odds on it, or "Not yet" before 10:00 ET and "Nothing" on a day no rule matched); https://boydelliott242-art.github.io/daytrader/full.html is every table. GitHub Pages from `docs/`; the scheduled jobs push fresh data after each run. The code is at https://github.com/boydelliott242-art/daytrader.
 
 ## Install
 

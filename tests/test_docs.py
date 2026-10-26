@@ -25,19 +25,28 @@ KEYS = {
 
 
 class Dashboard(unittest.TestCase):
-    def test_index_html_reads_the_five_files_and_nothing_external(self):
+    def test_the_front_page_is_one_idea_and_the_full_page_reads_every_file(self):
         with open(os.path.join(DOCS, "index.html"), encoding="utf-8") as fh:
-            html = fh.read()
+            idea = fh.read()
+        with open(os.path.join(DOCS, "full.html"), encoding="utf-8") as fh:
+            full = fh.read()
+        for name in ("desk.json", "regime.json"):
+            self.assertIn("data/" + name, idea, name)
         for name in KEYS:
-            self.assertIn("data/" + name, html, name)
-        self.assertNotRegex(html, r'<script[^>]+src="https?://')
-        self.assertNotRegex(html, r'<link[^>]+href="https?://')
-        self.assertIn("<title>", html)
-        self.assertIn("prefers-color-scheme", html)
-        self.assertNotIn(chr(0x2014), html)
-        low = html.lower()
-        for must in ("not financial advice", "configs tested", "most people who day trade lose money"):
+            self.assertIn("data/" + name, full, name)
+        self.assertIn('href="full.html"', idea)
+        for html in (idea, full):
+            self.assertNotRegex(html, r'<script[^>]+src="https?://')
+            self.assertNotRegex(html, r'<link[^>]+href="https?://')
+            self.assertIn("<title>", html)
+            self.assertIn("prefers-color-scheme", html)
+            self.assertNotIn(chr(0x2014), html)
+            self.assertIn("most people who day trade lose money", html.lower())
+        low = idea.lower()
+        for must in ("not a prediction", "not a buy", "typed yes", "the idea comes at 10:00 et", "watch only", "too late"):
             self.assertIn(must, low, must)
+        for must in ("not financial advice", "configs tested"):
+            self.assertIn(must, full.lower(), must)
 
     def test_the_data_files_parse_and_carry_the_contract_keys(self):
         for name, keys in KEYS.items():

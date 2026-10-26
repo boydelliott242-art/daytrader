@@ -1,13 +1,13 @@
 {
   "created_by": "trader-desk",
   "mode": "morning",
-  "as_of": "2026-10-25 19:30 ET",
-  "created_at": "2026-10-25T23:30:44Z",
+  "as_of": "2026-10-25 20:48 ET",
+  "created_at": "2026-10-26T00:48:27Z",
   "date": "2026-10-26",
   "next_session": "2026-10-27",
   "regime": {
     "created_by": "trader-regime",
-    "as_of": "2026-10-25T23:30:44Z",
+    "as_of": "2026-10-26T00:48:27Z",
     "date": "2026-10-26",
     "daily": {
       "spy_close": 759.97,
@@ -4949,6 +4949,6 @@
   "notes": [
     "2026-10-25 is not a trading day (weekend): planning for 2026-10-26"
   ],
-  "seconds": 61.8,
+  "seconds": 56.6,
   "note": "Candidates matched a rule with a measured record. None is a prediction. Most people who day trade lose money."
 }
