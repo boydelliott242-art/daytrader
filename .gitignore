@@ -25,3 +25,8 @@ trader/scorecard/
 trader/paper/
 trader/regime.json
 trader/desk.json
+trader/intel.json
+trader/intel/
+trader/montecarlo.json
+trader/nq/
+trader/futures.json
