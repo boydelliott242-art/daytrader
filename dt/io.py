@@ -8,7 +8,8 @@ import os
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 TRADER = os.path.join(ROOT, "trader")
 CACHE = os.path.join(TRADER, "cache")
-DOCS_DATA = os.path.join(ROOT, "docs", "data")
+PUBLISH = os.path.join(TRADER, "publish")      # what --publish writes; scripts/lock.py seals it into docs/data/bundle.enc
+DOCS_DATA = PUBLISH
 
 
 class IOError_(Exception):

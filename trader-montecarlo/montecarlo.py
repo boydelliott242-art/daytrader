@@ -555,7 +555,7 @@ def main(argv=None):
     p.add_argument("--config-file", dest="config", default="trader/config.json")
     p.add_argument("--now")
     p.add_argument("--out", default="trader/montecarlo.json")
-    p.add_argument("--docs-data", default=os.path.join("docs", "data"))
+    p.add_argument("--docs-data", default=os.path.join("trader", "publish"))
     p.add_argument("--write", action="store_true")
     p.add_argument("--publish", action="store_true")
     p.add_argument("--json", action="store_true")

@@ -6,7 +6,7 @@ candidate the desk showed, graded on the real bars. Standard library only.
     python3 scorecard.py grade                            # play every ungraded call on the real bars -> outcomes.jsonl
     python3 scorecard.py grade --date 2026-10-19 --now "2026-10-19 16:30"
     python3 scorecard.py report                           # the live record: calls, graded, win rate with CI, expectancy, by setup, by week
-    python3 scorecard.py report --publish                 # also write docs/data/scorecard.json for the dashboard
+    python3 scorecard.py report --publish                 # also write trader/publish/scorecard.json for the dashboard
     python3 scorecard.py show "2026-10-19|TSLA|orb15|r=1|10:15 AM"
 
 Files (CONTRACTS.md, "The scorecard"):
@@ -58,7 +58,7 @@ from dt import io as dtio  # noqa: E402
 DEFAULT_DIR = "trader/scorecard"
 DEFAULT_DESK = "trader/desk.json"
 DEFAULT_CACHE = "trader/cache"
-DEFAULT_PUBLISH = "docs/data/scorecard.json"
+DEFAULT_PUBLISH = "trader/publish/scorecard.json"
 DEFAULT_R_USD = 50.0
 LATE_GRACE_MIN = 5          # one 5-minute bar
 SMALL_SAMPLE = 30

@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 """Example dashboard data, computed from a bar store with the dt library (CONTRACTS.md shapes).
 
-    python3 scripts/example_data.py                                  # tests/fixtures/dt-cache -> docs/data/*.json
-    python3 scripts/example_data.py --cache-root trader/cache --out docs/data
+    python3 scripts/example_data.py                                  # tests/fixtures/dt-cache -> trader/publish/*.json
+    python3 scripts/example_data.py --cache-root trader/cache --out trader/publish
     python3 scripts/example_data.py --no-timemachine                 # skip the upstream replay on the board
 
-Writes docs/data/{edge,desk,regime,scorecard,largecap}.json so the dashboard renders before the
+Writes trader/publish/{edge,desk,regime,scorecard,largecap}.json so the dashboard renders before the
 real tools have run. Every number comes from playing the setup library over the sessions in the
 store (next-open fill, 4 bps round trip, stop before target inside a bar, Wilson and bootstrap
 intervals, seed 19). The files are marked "example": true and the tools overwrite them with
@@ -428,7 +428,7 @@ def scorecard_doc(shown, fill, edge, max_loss):
 def main(argv=None):
     ap = argparse.ArgumentParser(description="Example dashboard data from a bar store (standard library only).")
     ap.add_argument("--cache-root", default=os.path.join("tests", "fixtures", "dt-cache"))
-    ap.add_argument("--out", default=os.path.join("docs", "data"))
+    ap.add_argument("--out", default=os.path.join("trader", "publish"))
     ap.add_argument("--config", default=os.path.join("trader-budget", "config.example.json"))
     ap.add_argument("--fill", default="next_open", choices=["next_open", "close"])
     ap.add_argument("--cost-bps", type=float, default=sim.DEFAULT_COST_BPS)

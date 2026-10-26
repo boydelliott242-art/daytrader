@@ -552,8 +552,8 @@ class Report(Temp):
     def test_publish_writes_the_contract_keys(self):
         code, text, _ = run(["report", "--publish", "--now", "2026-10-20 16:40"])
         self.assertEqual(code, 0)
-        self.assertIn("Wrote docs/data/scorecard.json.", text)
-        with open(os.path.join("docs", "data", "scorecard.json"), encoding="utf-8") as fh:
+        self.assertIn("Wrote trader/publish/scorecard.json.", text)
+        with open(os.path.join("trader", "publish", "scorecard.json"), encoding="utf-8") as fh:
             doc = json.load(fh)
         for k in ("as_of", "calls", "graded", "late", "stats", "by_setup", "by_week", "equity_R", "equity_usd",
                   "lab_expectation_R", "note"):
@@ -612,7 +612,7 @@ class SkillDoc(unittest.TestCase):
         self.assertEqual(text[text.index("## Safety"):], upstream[upstream.index("## Safety"):])
         low = " ".join(text.lower().split())
         for must in ("${claude_skill_dir}", "what it reads and writes", "## steps", "## rules", "what it never does",
-                     "calls.jsonl", "outcomes.jsonl", "docs/data/scorecard.json", "late", "wilson", "bootstrap",
+                     "calls.jsonl", "outcomes.jsonl", "trader/publish/scorecard.json", "late", "wilson", "bootstrap",
                      "next_open", "364.18", "358.32", "370.04", "+0.49r", "most people who day trade lose money",
                      "not a prediction", "not financial advice"):
             self.assertIn(must, low, must)

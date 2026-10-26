@@ -14,3 +14,9 @@
 - trader/config.json holds the SEC user agent (an email): never commit it. trader/ is the working folder and is
   gitignored except the examples.
 - Install the skills with scripts/install_skills.sh (it copies dt/ into each new skill folder).
+- The site is locked. site/ holds the pages; docs/ holds only the lock screen, 404.html, .nojekyll and
+  data/bundle.enc (scripts/lock.py build seals site/ + trader/publish/ into it). Never put a page or a .json under
+  docs/. The passphrase is in the login Keychain (account daytrader, service daytrader-site-passphrase): never write it
+  to a file, the repo, a log, memory or a reply, and never type it into the live github.io site (localhost:8765 only).
+  Publish only through scripts/run.sh publish_docs or lock.py build + commit + push; a build that cannot find the
+  passphrase publishes nothing.

@@ -30,3 +30,7 @@ trader/intel/
 trader/montecarlo.json
 trader/nq/
 trader/futures.json
+trader/publish/
+trader/site.pass
+docs/data/*.json
+docs/data/*.tmp

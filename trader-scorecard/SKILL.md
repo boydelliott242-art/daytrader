@@ -32,7 +32,7 @@ python3 "${CLAUDE_SKILL_DIR}/scorecard.py" log --from-desk                 # the
 python3 "${CLAUDE_SKILL_DIR}/scorecard.py" grade                           # every ungraded call whose session is complete
 python3 "${CLAUDE_SKILL_DIR}/scorecard.py" grade --date 2026-10-19 --cache-root trader/cache
 python3 "${CLAUDE_SKILL_DIR}/scorecard.py" report                          # the live record
-python3 "${CLAUDE_SKILL_DIR}/scorecard.py" report --since 2026-10-01 --publish   # also docs/data/scorecard.json
+python3 "${CLAUDE_SKILL_DIR}/scorecard.py" report --since 2026-10-01 --publish   # also trader/publish/scorecard.json
 python3 "${CLAUDE_SKILL_DIR}/scorecard.py" show "2026-10-19|TSLA|orb15|r=1|10:15 AM"
 ```
 
@@ -48,7 +48,7 @@ DIR` (saved Yahoo charts, for tests), `--cost-bps 4`, `--config trader/config.js
 | `trader/scorecard/calls.jsonl` | append-only: `{id, logged_at, date, as_of, symbol, setup, config_id, rank, signal, lab_oos_exp_R, tm_p_target}`; the id is `date\|symbol\|config_id\|entry_time`, never written twice |
 | `trader/scorecard/outcomes.jsonl` | one line per graded call: outcome, exit, R for the `next_open` fill (the headline) and the plan fill, `late` |
 | `trader/cache/bars5m/<SYM>.json.gz` | the real session; a missing day is fetched from Yahoo (`5d`, `5m`) |
-| `docs/data/scorecard.json` | with `--publish`: calls, graded, late, STATS, by setup, by week, the equity curves, the lab expectation |
+| `trader/publish/scorecard.json` | with `--publish`: calls, graded, late, STATS, by setup, by week, the equity curves, the lab expectation |
 
 ## The rules of the record
 

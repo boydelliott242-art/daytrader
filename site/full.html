@@ -103,6 +103,7 @@ button[aria-pressed="true"] { background: var(--text); color: var(--bg); border-
 .top .wrap { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px 20px; padding-top: 14px; padding-bottom: 14px; }
 .top .sub { margin: 0; color: var(--muted); font-size: 13px; }
 .top .asof { margin-left: auto; color: var(--muted); font-size: 13px; }
+.top nav.asof { margin-left: 0; }
 .badge {
   display: inline-block; font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase;
   padding: 2px 7px; border-radius: 3px; border: 1px solid var(--line-strong); color: var(--muted); vertical-align: middle;
@@ -205,6 +206,7 @@ footer .wrap { padding-top: 14px; padding-bottom: 24px; }
       <p class="sub">a candidate matched a rule with a measured record. It is not a buy, and none of this is a prediction.</p>
     </div>
     <div class="asof" id="asof">loading</div>
+    <nav class="asof"><a href="#idea" target="_top">Today's idea</a> &middot; <a href="#lock" target="_top">Lock the desk</a></nav>
     <button id="theme" type="button" aria-label="switch the colour theme">theme</button>
   </div>
 </header>
@@ -369,6 +371,9 @@ footer .wrap { padding-top: 14px; padding-bottom: 24px; }
 
   function load(name) {
     var url = SOURCES[name];
+    // behind the lock the files arrive decrypted in memory (window.__DT, set by the lock screen); the fetch is for a plain local preview
+    var file = url.replace(/^.*\//, "");
+    if (window.__DT && window.__DT[file]) { return Promise.resolve({ doc: window.__DT[file], error: null }); }
     return window.fetch(url, { cache: "no-store" }).then(function (r) {
       if (!r.ok) { return { doc: null, error: "HTTP " + r.status }; }
       return r.json().then(function (doc) { return { doc: doc, error: null }; }, function () { return { doc: null, error: "not valid JSON" }; });

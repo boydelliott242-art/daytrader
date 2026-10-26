@@ -10,7 +10,8 @@ import unittest
 from _load import ROOT
 
 DOCS = os.path.join(ROOT, "docs")
-DATA = os.path.join(DOCS, "data")
+SITE = os.path.join(ROOT, "site")          # the pages, sealed into docs/data/bundle.enc by scripts/lock.py
+DATA = os.path.join(ROOT, "trader", "publish")   # what --publish writes (private, gitignored)
 SCRIPTS = os.path.join(ROOT, "scripts")
 
 KEYS = {
@@ -26,15 +27,16 @@ KEYS = {
 
 class Dashboard(unittest.TestCase):
     def test_the_front_page_is_one_idea_and_the_full_page_reads_every_file(self):
-        with open(os.path.join(DOCS, "index.html"), encoding="utf-8") as fh:
+        with open(os.path.join(SITE, "index.html"), encoding="utf-8") as fh:
             idea = fh.read()
-        with open(os.path.join(DOCS, "full.html"), encoding="utf-8") as fh:
+        with open(os.path.join(SITE, "full.html"), encoding="utf-8") as fh:
             full = fh.read()
         for name in ("desk.json", "regime.json"):
             self.assertIn("data/" + name, idea, name)
         for name in KEYS:
             self.assertIn("data/" + name, full, name)
-        self.assertIn('href="full.html"', idea)
+        self.assertIn('href="#full" target="_top"', idea)
+        self.assertIn('href="#idea" target="_top"', full)
         for html in (idea, full):
             self.assertNotRegex(html, r'<script[^>]+src="https?://')
             self.assertNotRegex(html, r'<link[^>]+href="https?://')
@@ -49,9 +51,13 @@ class Dashboard(unittest.TestCase):
             self.assertIn(must, full.lower(), must)
 
     def test_the_data_files_parse_and_carry_the_contract_keys(self):
-        for name, keys in KEYS.items():
+        # the published files are private (trader/publish, sealed into the bundle); checked where the tools have run
+        present = [n for n in KEYS if os.path.exists(os.path.join(DATA, n))]
+        if not present:
+            self.skipTest("no published data in trader/publish on this machine (scripts/example_data.py writes an example set)")
+        for name in present:
+            keys = KEYS[name]
             path = os.path.join(DATA, name)
-            self.assertTrue(os.path.exists(path), path)
             with open(path, encoding="utf-8") as fh:
                 doc = json.load(fh)
             for k in keys:

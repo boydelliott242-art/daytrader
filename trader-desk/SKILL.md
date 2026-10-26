@@ -57,7 +57,7 @@ trader/largecap.txt`, `--largecap trader/largecap.json`, `--cache-root trader/ca
 | `trader/desk.json` | the morning plan (`mode: morning`) or the board (`mode: live`): candidates with signal, lab block, time machine block, flags, score, rank |
 | `trader/scorecard/calls.jsonl` | every shown candidate, appended once (id `date\|symbol\|config\|entry time`), the minute it is shown |
 | `trader/entry.json`, `trader/plan.json` | `pick`: the chosen signal in the upstream trader-entry shape, then `exit.py plan --write` (the upstream trader-exit tool) |
-| `docs/data/desk.json` | with `--publish`: the dashboard's copy |
+| `trader/publish/desk.json` | with `--publish`: the dashboard's copy |
 
 ## How the board is built
 

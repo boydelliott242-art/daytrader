@@ -30,7 +30,7 @@ the money.
 python3 "${CLAUDE_SKILL_DIR}/lab.py" run                                   # the whole store -> trader/lab/
 python3 "${CLAUDE_SKILL_DIR}/lab.py" run --symbols TSLA,NVDA,AAPL           # a few names
 python3 "${CLAUDE_SKILL_DIR}/lab.py" run --fill close --cost-bps 0          # the idealised plan fill, no costs
-python3 "${CLAUDE_SKILL_DIR}/lab.py" run --publish                          # also docs/data/edge.json
+python3 "${CLAUDE_SKILL_DIR}/lab.py" run --publish                          # also trader/publish/edge.json
 python3 "${CLAUDE_SKILL_DIR}/lab.py" report                                 # the tables
 python3 "${CLAUDE_SKILL_DIR}/lab.py" report --config "orb15|r=1" --by regime
 python3 "${CLAUDE_SKILL_DIR}/lab.py" why TSLA 2026-10-19                    # every config's signal and outcome on one chart
@@ -53,7 +53,7 @@ network.
 | `trader/config.json` | the entry window (09:45 to 15:30) and flat_by (15:55) |
 | `trader/lab/trades.jsonl.gz` | one line per trade: the signal, the outcome, the context, the regime tags |
 | `trader/lab/edge.json` | per config: all / in-sample / out-of-sample STATS, the slices, the rolling walk-forward, the status |
-| `docs/data/edge.json` | with `--publish`: a trimmed copy for the dashboard |
+| `trader/publish/edge.json` | with `--publish`: a trimmed copy for the dashboard |
 
 ## How it works
 

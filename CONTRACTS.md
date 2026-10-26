@@ -276,15 +276,47 @@ open at `flat_by` is sold at that bar's close. `paper.py status` shows the
 book. It never runs without the user's yes already recorded, and it is
 explicit on every line that fills are simulated from 5-minute bars.
 
-## The dashboard (`docs/`)
+## The dashboard (`site/`) and the lock (`docs/`)
 
-Static, offline-capable, reads `docs/data/{desk,edge,regime,scorecard,largecap}.json`
-written by the skills (`--publish` on desk/lab/regime/scorecard copies there).
-Cool neutral monochrome, one signal colour, dark and light. Panels: today's
-board, the regime strip, the edge table with CIs and `configs_tested`, the
-rolling walk-forward curve, the live track record vs the lab expectation,
-the fine print (verbatim upstream fine print). `scripts/start.command` serves
-`docs/` at http://localhost:8765.
+The pages live in `site/`: `index.html` (one idea in big words) and `full.html`
+(every table). They read `trader/publish/{desk,edge,regime,scorecard,largecap,
+montecarlo,nq}.json`, written by the skills (`--publish`), and behind the lock
+they read the same documents from memory (`window.__DT`, set by the lock
+screen). Cool neutral monochrome, one signal colour, dark and light. Panels:
+today's board, the regime strip, the edge table with CIs and `configs_tested`,
+the rolling walk-forward curve, the live track record vs the lab expectation,
+the fine print (verbatim upstream fine print).
+
+`docs/` is what GitHub Pages serves, and it holds nothing in the clear:
+`index.html` (the lock screen), `404.html`, `.nojekyll` and
+`data/bundle.enc`. `scripts/lock.py build` seals the two pages and the
+published data into the bundle:
+
+    bytes 0..8    magic  "DTLOCK1\0"
+    bytes 8..12   PBKDF2-HMAC-SHA256 iterations, big-endian uint32 (4,000,000; floor 600,000)
+    bytes 12..28  salt, 16 random bytes, new every build
+    bytes 28..40  nonce, 12 random bytes, new every build
+    bytes 40..    AES-256-GCM ciphertext || 16-byte tag; the 40 header bytes are the additional data
+    plaintext     gzip of {"format": "daytrader-site/1", "built", "built_et", "pages": {"idea", "full"}, "data": {...}}
+
+`dt/aesgcm.py` is AES-GCM in the standard library (FIPS 197 and the GCM
+specification's test cases in `tests/test_lock.py`); `dt/lockbox.py` is the
+format and the passphrase lookup. The lock screen derives the key in the
+browser's WebCrypto and opens the bundle there; a wrong passphrase derives a
+wrong key and the tag fails, so there is no check to bypass. Nothing is kept
+in the browser: the bundle is held in memory only, and the screen locks on
+reload, on `#lock`, when the tab is hidden, when the page comes back from the
+back-forward cache, and after ten idle minutes. The passphrase is read from
+`DAYTRADER_SITE_PASSPHRASE`, the login Keychain (account `daytrader`, service
+`daytrader-site-passphrase`) or `trader/site.pass`, and is never written,
+printed or logged; a build that cannot find it, or whose bundle does not
+reopen, publishes nothing. `scripts/run.sh publish_docs` builds the bundle and
+pushes only `docs/data/bundle.enc`. `scripts/lock.py check-url` proves the
+live site serves the same bundle and nothing in the clear. The bundle is
+public, so guesses run offline at full speed: the passphrase is the whole
+defence, and four or five random words is the honest floor.
+`scripts/start.command` serves `docs/` at http://localhost:8765 (the lock
+screen; the only place the passphrase is ever typed by a script or a test).
 
 ## Schedule (`scripts/install_launchd.sh`)
 

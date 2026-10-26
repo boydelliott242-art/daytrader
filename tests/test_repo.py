@@ -19,7 +19,7 @@ V1_ONLY = ["trader-copycat", "trader-screener", "trader-tax", "trader-rebalance"
 NEW_SKILLS = ["trader-largecap", "trader-regime", "trader-lab", "trader-desk", "trader-scorecard", "trader-paper",
               "trader-intel", "trader-montecarlo", "trader-nq"]
 NEW_ORDER_PATH = ["trader-desk", "trader-paper", "trader-lab", "trader-scorecard", "trader-montecarlo", "trader-nq"]
-EXTRA_ROOT = [".gitignore", "CONTRACTS.md", "UPSTREAM_README.md", "CLAUDE.md", "dt", "docs", "scripts", "data", "trader"]
+EXTRA_ROOT = [".gitignore", "CONTRACTS.md", "UPSTREAM_README.md", "CLAUDE.md", "dt", "docs", "site", "scripts", "data", "trader"]
 
 
 def frontmatter(path):

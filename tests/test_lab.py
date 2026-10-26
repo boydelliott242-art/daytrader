@@ -250,7 +250,7 @@ class RunFlags(unittest.TestCase):
                 self.assertEqual(t["R_net"], t["R_gross"])
                 self.assertEqual(t["entry_fill"], t["entry"])
         self.assertEqual(tiers, {("TSLA", "mega", "Consumer Discretionary"), ("JPM", "large", "Finance")})
-        pub = os.path.join("docs", "data", "edge.json")
+        pub = os.path.join("trader", "publish", "edge.json")
         self.assertTrue(os.path.exists(pub))
         with open(pub) as fh:
             p = json.load(fh)

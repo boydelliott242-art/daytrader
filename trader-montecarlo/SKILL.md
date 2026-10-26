@@ -53,7 +53,7 @@ trader/lab/edge.json`, `--trades trader/lab/trades.jsonl.gz`, `--config-file tra
 | Yahoo chart API | `futures`: NQ=F and ES=F, 5 days of 5-minute bars and 60 daily bars, free and unofficial |
 | `trader/montecarlo.json` | with `--write`: the plan run (`kind: plan`) or the book run (`kind: book`) |
 | `trader/futures.json` | with `--write`: `{date, cutoff, nq: {last, prev_settle, gap_pct, overnight_high, overnight_low, range_vs_20d, tags}, es: {...}, tags}`; trader-regime reads it when it is for the same day |
-| `docs/data/montecarlo.json` | with `--publish`: the book run, for the dashboard |
+| `trader/publish/montecarlo.json` | with `--publish`: the book run, for the dashboard |
 
 ## How it works
 

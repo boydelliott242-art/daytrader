@@ -59,7 +59,7 @@ The commands, in plain words: nq.py check, nq.py setups, nq.py overnight, nq.py 
 | `trader/nq/edge.json` | the lab's table shape: per config all / in-sample / out-of-sample STATS, status by the same gate, by year, hour, weekday and overnight tag, a rolling walk-forward by year, the engine's stats and yearly table; `two_engines` (how often the minute engine and dt.sim agree); `configs_tested` |
 | `trader/nq/overnight.json` | gap percentiles over 15 years, the ORB's record by gap bucket and by overnight-range bucket |
 | `trader/nq/session_tags.json` | `nq_gap_up|down|flat` and `nq_wide|quiet|normal_overnight` per session; the lab merges them into its regime tags when present |
-| `docs/data/nq.json` | with `--publish`: the tables for the dashboard |
+| `trader/publish/nq.json` | with `--publish`: the tables for the dashboard |
 
 ## How the translation works
 

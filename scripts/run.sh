@@ -18,11 +18,14 @@ $($py -c "import sys; sys.path.insert(0,'$root'); from dt import clock; et=clock
 P
 echo "$(date) $job: New York $ny_day $ny_hhmm trading=$ny_trading" >> "$log"
 inwin() { [ "$ny_hhmm" \> "$1" ] && [ "$ny_hhmm" \< "$2" ]; }
-# after a job that published to docs/data, push the dashboard so the GitHub Pages copy is current (never fatal)
+# after a job that published to trader/publish, seal the pages and the data into docs/data/bundle.enc (scripts/lock.py,
+# the passphrase from the Keychain) and push it, so the GitHub Pages copy is current. Nothing goes up in the clear: a build
+# that cannot find the passphrase or does not reopen fails closed and publishes nothing (never fatal to the job).
 publish_docs() {
-  git add docs/data >/dev/null 2>&1 || return 0
+  $py scripts/lock.py build >> "$log" 2>&1 || { echo "$(date) $job: lock build failed; nothing published" >> "$log"; return 0; }
+  git add docs/data/bundle.enc >/dev/null 2>&1 || return 0
   git diff --cached --quiet && return 0
-  git -c user.name="daytrader" -c user.email="daytrader@localhost" commit -q -m "dashboard data: $job $ny_day $ny_hhmm ET" >> "$log" 2>&1 || return 0
+  git -c user.name="daytrader" -c user.email="daytrader@localhost" commit -q -m "sealed dashboard: $job $ny_day $ny_hhmm ET" >> "$log" 2>&1 || return 0
   git push -q origin main >> "$log" 2>&1 || echo "$(date) $job: docs push failed (the local dashboard is still current)" >> "$log"
 }
 case "$job" in

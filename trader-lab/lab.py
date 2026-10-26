@@ -578,7 +578,7 @@ def run_study(root, out_dir, symbols=None, symbols_file=None, largecap="trader/l
 
 
 def trimmed(edge):
-    """edge.json without the per-trade lists: what --publish copies to docs/data/edge.json."""
+    """edge.json without the per-trade lists: what --publish copies to trader/publish/edge.json."""
     out = dict(edge)
     out["rolling"] = {k: v for k, v in edge["rolling"].items() if k != "trades"}
     return out
@@ -930,8 +930,8 @@ def main(argv=None):
     p.add_argument("--test-days", type=int, default=ROLLING_TEST_DAYS, help="rolling walk-forward test days")
     p.add_argument("--min-n", type=int, default=ROLLING_MIN_N, help="trades a config needs in the window")
     p.add_argument("--top", type=int, help="print only the top N configs")
-    p.add_argument("--publish", action="store_true", help="also copy the trimmed edge.json to docs/data/")
-    p.add_argument("--publish-path", default=os.path.join("docs", "data", "edge.json"))
+    p.add_argument("--publish", action="store_true", help="also copy the trimmed edge.json to trader/publish/")
+    p.add_argument("--publish-path", default=os.path.join("trader", "publish", "edge.json"))
     p.add_argument("--json", action="store_true")
     p.add_argument("--quiet", action="store_true", help="no progress on stderr")
 

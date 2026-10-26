@@ -35,7 +35,7 @@ not change that, it only tells you which slice of the record applies.
 
 ```bash
 python3 "${CLAUDE_SKILL_DIR}/regime.py" daily                        # the next session, from the stores
-python3 "${CLAUDE_SKILL_DIR}/regime.py" daily --write --publish      # save trader/regime.json and docs/data/regime.json
+python3 "${CLAUDE_SKILL_DIR}/regime.py" daily --write --publish      # save trader/regime.json and trader/publish/regime.json
 python3 "${CLAUDE_SKILL_DIR}/regime.py" daily --date 2026-10-23      # a past session, rows before it only
 python3 "${CLAUDE_SKILL_DIR}/regime.py" live --at 10:30 --write      # the intraday read at a cutoff (Yahoo)
 python3 "${CLAUDE_SKILL_DIR}/regime.py" live --at 10:30 --from-cache --now "2026-10-20 10:30"   # replay from the bar store
@@ -58,7 +58,7 @@ Other flags: `--cache-root DIR` (the bar store, default `trader/cache`),
 | Yahoo chart API | `live`: one v8 chart (`range=1d&interval=5m`, or `5d` for a day this week) each for SPY, QQQ and XLK XLF XLE XLV XLY XLP XLI XLU XLB XLRE XLC, 0.5 s apart; free, unofficial, can lag |
 | Yahoo spark API | `live`: ONE pass over the large-cap list, 20 symbols a request, 5-minute closes only (no opens, no volume) |
 | `trader/regime.json` | with `--write`: `{created_by, as_of, date, daily, live, tags}` (CONTRACTS.md). `live` merges into the daily block already there for the same date; `daily` keeps a live read already there for the same date |
-| `docs/data/regime.json` | with `--publish`: the same document, for the dashboard's regime strip |
+| `trader/publish/regime.json` | with `--publish`: the same document, for the dashboard's regime strip |
 
 ## How it works
 

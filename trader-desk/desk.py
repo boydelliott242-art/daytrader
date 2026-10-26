@@ -42,7 +42,7 @@ grade     trader-scorecard/scorecard.py grade --date D, then scorecard.py report
           sibling (or with --local) it grades the day's logged calls on the bar store itself.
 
 Every file path defaults to the upstream layout under the current directory (trader/...,
-docs/data/...). --cache-root (trader/cache) is the bar store. Times are New York; --now
+trader/publish/...). --cache-root (trader/cache) is the bar store. Times are New York; --now
 "2026-10-19 10:15" pins the clock. Exit code 0 = ran, 1 = refused or an error (one plain line).
 
 Candidates matched a rule with a measured record. None is a prediction. Most people who day
@@ -1644,10 +1644,10 @@ def main(argv=None):
         p.add_argument("--largecap", default="trader/largecap.json", help="names, sectors and tiers")
         p.add_argument("--regime", default="trader/regime.json")
         p.add_argument("--out", default="trader/desk.json")
-        p.add_argument("--docs-data", default=os.path.join("docs", "data"))
+        p.add_argument("--docs-data", default=os.path.join("trader", "publish"))
         p.add_argument("--now", help='pretend it is this New York time, e.g. "2026-10-19 10:15"')
         p.add_argument("--write", action="store_true", help="write trader/desk.json (and the scorecard log)")
-        p.add_argument("--publish", action="store_true", help="also copy desk.json to docs/data/")
+        p.add_argument("--publish", action="store_true", help="also copy desk.json to trader/publish/")
         p.add_argument("--json", action="store_true")
         p.add_argument("--quiet", action="store_true")
 

@@ -548,7 +548,7 @@ class SkillDoc(unittest.TestCase):
         self.assertEqual(text[text.index("## Safety"):], exit_md[exit_md.index("## Safety"):])
         low = " ".join(text.lower().split())
         for must in ("## what it reads and writes", "## steps", "## rules", "## what it never does", "matched a rule",
-                     "most people who day trade lose money", "no look-ahead", "trader/regime.json", "docs/data/regime.json",
+                     "most people who day trade lose money", "no look-ahead", "trader/regime.json", "trader/publish/regime.json",
                      "9:50", "closes only", "${claude_skill_dir}", "759.65", "52.5 %", "trend_flat vix_15_20 prev_normal",
                      "not a forecast", "never a buy"):
             self.assertIn(must, low, must)

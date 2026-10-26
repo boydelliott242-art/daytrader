@@ -23,8 +23,34 @@ without your yes. Most people who day trade lose money; this desk shows you the 
 | `/trader-intel` | the intel ledger: what Claude found through Firecrawl, FMP, Bigdata.com, Quartr and LunarCrush, as flags on the board |
 | `/trader-montecarlo` | 26,000 replays of a plan, the trade book resampled at your sizing rules, the NQ and ES overnight read |
 | `/trader-nq` | the desk's setups on fifteen years of NQ 1-minute bars with real fees and slippage, through your own backtester |
+| `scripts/lock.py` | not a skill: the lock. Seals the pages and the data into `docs/data/bundle.enc`; the live site is a passphrase screen |
 
-**Live:** https://boydelliott242-art.github.io/daytrader/ is the one-idea page (big words: today's best candidate with the odds on it, or "Not yet" before 10:00 ET and "Nothing" on a day no rule matched); https://boydelliott242-art.github.io/daytrader/full.html is every table. GitHub Pages from `docs/`; the scheduled jobs push fresh data after each run. The code is at https://github.com/boydelliott242-art/daytrader.
+**Live:** https://boydelliott242-art.github.io/daytrader/ is a lock screen. Behind the passphrase: the one-idea
+page (big words: today's best candidate with the odds on it, or "Not yet" before 10:00 ET and "Nothing" on a day no rule
+matched) and, one link away, every table. GitHub Pages from `docs/`; the scheduled jobs seal fresh data into
+`docs/data/bundle.enc` after each run. The code is at https://github.com/boydelliott242-art/daytrader.
+
+## The lock
+
+The site is public hosting, so it is encrypted rather than "protected": `scripts/lock.py build` seals both pages and
+every published data file into one bundle with AES-256-GCM under a key derived from the passphrase (PBKDF2-HMAC-SHA256,
+four million rounds, fresh salt and nonce every build). The lock screen holds nothing: it fetches the bundle, derives
+the key in the browser's own WebCrypto and opens it in memory. A wrong passphrase derives a wrong key and the
+authentication tag fails; there is no stored password and no check to bypass. Nothing is kept: it locks on every
+reload, on the Lock link, when the tab is hidden, when it comes back from the back-forward cache, and after ten idle
+minutes. The page's Content-Security-Policy stops it talking to anywhere but its own origin.
+
+- The passphrase lives in the macOS login Keychain (`scripts/lock.py set-passphrase`), or `DAYTRADER_SITE_PASSPHRASE`,
+  or `trader/site.pass` (gitignored). It is never written to the repo, printed or logged. Change it, rebuild, push:
+  `scripts/lock.py set-passphrase && scripts/lock.py build && git commit -am "resealed" && git push`.
+- `scripts/lock.py verify` opens the local bundle; `scripts/lock.py check-url https://boydelliott242-art.github.io/daytrader/`
+  proves the live site serves the same bytes, that they open, and that no page or data file is served in the clear.
+- Honest limits. The bundle is public, so anyone can download it and guess offline at full speed, forever; nothing on a
+  static site can rate-limit that. Each guess costs four million SHA-256 rounds (about a second on a laptop, far less on a
+  cracking rig), so the passphrase is the whole defence: a word with digits after it falls to a pattern attack in hours to
+  days; four or five random words do not fall. The cipher is not the weak point. Anyone you give the passphrase to can read
+  everything. A compromised Mac (where the Keychain is) is a compromised site. The lock is JavaScript served by GitHub over
+  HTTPS and is exactly as trustworthy as that. Data published before the lock (2026-10-25) stays in the git history.
 
 ## Install
 
@@ -35,6 +61,8 @@ cd ~/daytrader && cp trader-budget/config.example.json trader/config.json   # th
 python3 trader-scanner/scan.py universe && python3 trader-largecap/largecap.py build --write
 python3 scripts/fetch_cache.py                  # ~900 large caps x 60 sessions of 5-minute bars (about 30 minutes, resumable)
 python3 trader-lab/lab.py run --publish         # the edge study (a few minutes)
+python3 scripts/lock.py set-passphrase           # once: the site passphrase into the Keychain
+python3 scripts/lock.py build                   # seal site/ + trader/publish/ into docs/data/bundle.enc
 ```
 
 The project lives at `~/daytrader` with a symlink on the Desktop: launchd jobs cannot read the Desktop

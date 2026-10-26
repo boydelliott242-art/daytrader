@@ -23,7 +23,7 @@ the distance from VWAP, the move since the open; the 11 sector ETFs ranked by th
 compares the last completed close with the 9:30 bar's close, and "up on the day" uses Yahoo's
 chartPreviousClose).
 
-Writes trader/regime.json (the CONTRACTS.md shape); --publish copies it to docs/data/regime.json.
+Writes trader/regime.json (the CONTRACTS.md shape); --publish copies it to trader/publish/regime.json.
 Refused, in one plain line: no SPY store, a date with no prior rows, a weekend or holiday, a live
 cutoff before 9:50 (the opening range is still forming). Times are New York; --now "2026-10-23
 10:30" pins the clock. Exit code 0 = a read, 1 = refused or an error.
@@ -60,7 +60,7 @@ BREADTH_BROAD_PCT = 70.0                  # 70 % up (or down) reads as broad
 MAX_BACK_DAYS = 6                         # Yahoo's free 5-minute "5d" window, the scanner's rule
 DEFAULT_CACHE = os.path.join("trader", "cache")
 DEFAULT_OUT = os.path.join("trader", "regime.json")
-DEFAULT_DOCS = os.path.join("docs", "data", "regime.json")
+DEFAULT_DOCS = os.path.join("trader", "publish", "regime.json")
 DEFAULT_SYMBOLS = os.path.join("trader", "largecap.txt")
 VIX_WORDS = {"vix_lt15": "<15", "vix_15_20": "15-20", "vix_20_30": "20-30", "vix_gt30": ">30"}
 TREND_WORDS = {"trend_up": "up", "trend_down": "down", "trend_flat": "flat"}
@@ -784,7 +784,7 @@ def main(argv=None):
             p.add_argument("--out", default=DEFAULT_OUT, help="where --write puts the regime (default trader/regime.json)")
             p.add_argument("--write", action="store_true", help="save trader/regime.json")
             p.add_argument("--publish", nargs="?", const=DEFAULT_DOCS, metavar="PATH",
-                           help="also copy it to docs/data/regime.json for the dashboard (implies --write)")
+                           help="also copy it to trader/publish/regime.json for the dashboard (implies --write)")
         p.add_argument("--json", action="store_true")
 
     p = sub.add_parser("daily", help="the daily block + tags for a session date, from the stores")
