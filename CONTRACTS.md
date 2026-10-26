@@ -600,3 +600,10 @@ A card "matched rules with a measured record and was read by the desk's roles". 
 named inputs, not a probability. "Unknown" is printed as unknown. NO TRADE is a result. Most people who
 day trade lose money; shorting adds the way to lose more than the stake, and the card says so on every
 short.
+
+## Export for the unified research layer (2026-10-25)
+
+`python3 scripts/export_unified.py --to <path>` copies every JSON under `trader/publish/` into one bundle
+(`{"source": "daytrader", "exported_at", "publish_dir", "files": {name: contents}, "skipped": [...]}`), written
+atomically to the path given. Read-only, standard library, no network. The unified layer at
+`~/Desktop/trading-unified` reads it on its own schedule; nothing in this repo depends on it.
