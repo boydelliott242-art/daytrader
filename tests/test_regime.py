@@ -82,7 +82,7 @@ class Daily(Offline):
         self.assertEqual(d["prev_range_atr"], 0.913)
         self.assertEqual(d["prev_range"], 6.54)            # 767.71 - 761.17
         self.assertEqual(d["spy_atr20"], 7.16)
-        self.assertEqual(tags, ["trend_flat", "vix_15_20", "prev_normal"])
+        self.assertEqual(tags, ["trend_flat", "vix_15_20", "prev_normal", "regime_range"])
         self.assertEqual(tags, dtregime.session_tags(DAY, stores))
         for k in regime.DAILY_KEYS:
             self.assertIn(k, d)
@@ -137,7 +137,7 @@ class Daily(Offline):
         self.assertEqual(doc["as_of"], "2026-10-25T17:00:00Z")
         self.assertIsNone(doc["live"])
         self.assertEqual(doc["daily"]["spy_close"], 763.96)
-        self.assertEqual(doc["tags"], ["trend_flat", "vix_15_20", "prev_normal"])
+        self.assertEqual(doc["tags"], ["trend_flat", "vix_15_20", "prev_normal", "regime_range"])
         self.assertNotIn("warnings", doc)
         code, text, _ = run(["daily", "--cache-root", DT, "--date", "2026-11-10", "--now", "2026-10-25 13:00", "--json"])
         self.assertEqual(code, 0)
@@ -164,7 +164,7 @@ class Tags(Offline):
     def test_tags_for_a_date(self):
         code, text, err = run(["tags", DAY, "--cache-root", DT])
         self.assertEqual(code, 0, err)
-        self.assertEqual(text.strip(), "2026-10-23: trend_flat vix_15_20 prev_normal")
+        self.assertEqual(text.strip(), "2026-10-23: trend_flat vix_15_20 prev_normal regime_range")
         code, text, _ = run(["tags", "2026-09-15", "--cache-root", DT, "--json"])
         doc = json.loads(text)
         self.assertEqual(doc["tags"], dtregime.session_tags("2026-09-15", regime.load_stores(DT)))
@@ -249,7 +249,7 @@ class Live(Offline):
         self.assertEqual(live["labels"], ["spy_gap_down", "spy_or_inside", "spy_below_vwap", "breadth_mixed"])
         # the daily block for the same date rides along, from rows before it
         self.assertEqual(doc["daily"]["through"], "2026-10-22")
-        self.assertEqual(doc["tags"], ["trend_flat", "vix_15_20", "prev_normal"])
+        self.assertEqual(doc["tags"], ["trend_flat", "vix_15_20", "prev_normal", "regime_range"])
         self.assertAlmostEqual(live["spy"]["range_used_atr"],
                                round((max(b["h"] for b in sess) - min(b["l"] for b in sess)) / 7.1620025634765625, 3), 3)
 
@@ -386,7 +386,7 @@ class Live(Offline):
                                "--symbols-file", SYMS, "--out", self.out, "--json"])
         doc = json.loads(text)
         self.assertEqual(doc["daily"]["spy_close"], 763.96)
-        self.assertEqual(doc["tags"], ["trend_flat", "vix_15_20", "prev_normal"])
+        self.assertEqual(doc["tags"], ["trend_flat", "vix_15_20", "prev_normal", "regime_range"])
         self.assertIn("kept the daily block", doc["warnings"][0])
 
     def test_publish_copies_to_docs_data(self):

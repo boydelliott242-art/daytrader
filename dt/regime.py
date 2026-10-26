@@ -1,6 +1,7 @@
 """Market context from the daily stores, computed only from closes BEFORE the session (no look-ahead)."""
 
 from .bars import daily_before, sma, daily_atr, session_day_type
+from . import regimes
 
 
 def vix_bucket(v):
@@ -15,8 +16,10 @@ def vix_bucket(v):
     return "vix_gt30"
 
 
-def daily_context(date_str, spy_rows, vix_rows=None, vix3m_rows=None):
-    """The 'daily' block + tags for a session date, from rows strictly before that date."""
+def daily_context(date_str, spy_rows, vix_rows=None, vix3m_rows=None, breadth_pct=None):
+    """The 'daily' block + tags for a session date, from rows strictly before that date. The seven-class regime
+    (dt.regimes) rides along as "class", "class_rule" and the tag regime_<class>; breadth_pct (the share of large
+    caps above their 50-day) sharpens strong_bull when the caller has it."""
     spy = daily_before(spy_rows, date_str, 60)
     closes = [r[4] for r in spy]
     out = {"spy_close": closes[-1] if closes else None, "spy_sma20": sma(closes, 20), "spy_sma50": sma(closes, 50),
@@ -46,6 +49,8 @@ def daily_context(date_str, spy_rows, vix_rows=None, vix3m_rows=None):
     a = daily_atr(spy_rows, date_str, 20)
     if a and spy:
         out["prev_range_atr"] = round((spy[-1][2] - spy[-1][3]) / a, 3) if spy[-1][2] and spy[-1][3] else None
+    cls = regimes.classify_rows(date_str, spy_rows, out["vix"], breadth_pct)
+    out["class"], out["class_rule"], out["class_inputs"] = cls["class"], cls["rule"], cls["inputs"]
     tags = []
     if out["trend"]:
         tags.append(out["trend"])
@@ -56,6 +61,7 @@ def daily_context(date_str, spy_rows, vix_rows=None, vix3m_rows=None):
     if out["prev_range_atr"] is not None:
         tags.append("prev_quiet" if out["prev_range_atr"] < 0.7 else "prev_wide" if out["prev_range_atr"] > 1.3
                     else "prev_normal")
+    tags.append(regimes.tag(out["class"]))
     out["tags"] = tags
     return out
 

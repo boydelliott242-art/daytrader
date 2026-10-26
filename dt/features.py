@@ -169,8 +169,20 @@ def r_squared(values):
     return (sxy * sxy) / (sxx * syy)
 
 
+def aligned_closes(rows_a, rows_b):
+    """Closes of both on the dates they share, oldest first (a beta over misaligned days is noise)."""
+    b_by_date = {r[0]: float(r[4]) for r in rows_b if r[4] is not None}
+    a_out, b_out = [], []
+    for r in rows_a:
+        if r[0] in b_by_date and r[4] is not None:
+            a_out.append(float(r[4]))
+            b_out.append(b_by_date[r[0]])
+    return a_out, b_out
+
+
 def beta(sym_closes, spy_closes, n=63):
-    if len(sym_closes) < n + 1 or len(spy_closes) < n + 1:
+    """Over the last n daily returns; the two series must already be date-aligned (aligned_closes)."""
+    if len(sym_closes) < n + 1 or len(spy_closes) < n + 1 or len(sym_closes) != len(spy_closes):
         return None
     a = [sym_closes[i] / sym_closes[i - 1] - 1 for i in range(len(sym_closes) - n, len(sym_closes))]
     b = [spy_closes[i] / spy_closes[i - 1] - 1 for i in range(len(spy_closes) - n, len(spy_closes))]
@@ -234,12 +246,14 @@ def features_for(sym, date, daily_rows, sessions=None, spy_rows=None, sector_row
     c = closes[-1]
     for n in WINDOWS:
         out["roc_%d" % n] = _r(roc(closes, n))
-    spy = _closes(daily_before(spy_rows or [], date, 400)) if spy_rows else []
+    spy_rows_b = daily_before(spy_rows or [], date, 400) if spy_rows else []
+    own_a, spy = aligned_closes(rows, spy_rows_b) if spy_rows_b else ([], [])
     for n in (20, 63):
-        a, b = roc(closes, n), roc(spy, n) if spy else None
+        a, b = roc(own_a, n) if own_a else None, roc(spy, n) if spy else None
         out["rs_spy_%d" % n] = _r(a - b) if (a is not None and b is not None) else None
-    sec = _closes(daily_before(sector_rows or [], date, 400)) if sector_rows else []
-    a, b = roc(closes, 20), roc(sec, 20) if sec else None
+    sec_rows_b = daily_before(sector_rows or [], date, 400) if sector_rows else []
+    own_s, sec = aligned_closes(rows, sec_rows_b) if sec_rows_b else ([], [])
+    a, b = roc(own_s, 20) if own_s else None, roc(sec, 20) if sec else None
     out["rs_sector_20"] = _r(a - b) if (a is not None and b is not None) else None
     s20, s50, s200 = sma_series(closes, 20), sma_series(closes, 50), sma_series(closes, 200)
     out["ma_structure"] = structure(c, s20[-1] if s20 else None, s50[-1] if s50 else None, s200[-1] if s200 else None)
@@ -283,7 +297,7 @@ def features_for(sym, date, daily_rows, sessions=None, spy_rows=None, sector_row
     out["vol_adj_mom_63"] = _r(out["roc_63"] / rv) if (out["roc_63"] is not None and rv) else None
     if len(rows) >= 20:
         out["adv_usd_20"] = _r(sum(float(r[4]) * float(r[5] or 0) for r in rows[-20:]) / 20.0, 0)
-    out["beta_spy_63"] = _r(beta(closes, spy, 63), 3) if spy else None
+    out["beta_spy_63"] = _r(beta(own_a, spy, 63), 3) if spy else None
     out["mtf_agreement"] = mtf(out["roc_20"], out["weekly_roc_13"] if out["weekly_roc_13"] is not None else out["roc_126"])
     out["missing"] = [n for n in NAMES if out[n] is None]
     return out
