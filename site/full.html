@@ -636,7 +636,8 @@ footer .wrap { padding-top: 14px; padding-bottom: 24px; }
     if (px && !px.error) {
       html += '<p class="note"><b>' + (px.closed ? "Today" : "So far today, as of " + esc(px.as_of) + " ET") + ":</b> " + esc(pk.pick.symbol) + " " +
         ocv(px.from_open_pct) + " from its open (high " + ocv(px.high_pct) + ", low " + ocv(px.low_pct) + ")" +
-        (px.first_touch ? "; " + (px.first_touch === "up" ? "+" : "-") + "2 % came first, at " + esc(px.first_touch_time) : "") + ". " + esc(it.note || "") + "</p>";
+        (px.first_touch ? "; " + (px.first_touch === "up" ? "+" : "-") + "2 % came first, at " + esc(px.first_touch_time) : "") + ". " + esc(it.note || "") + "</p>" +
+        (it.first_hour_words ? '<p class="note"><b>The first hour:</b> ' + esc(it.first_hour_words) + ".</p>" : "");
     }
     var shs = pk.shadows || {};
     if (Object.keys(shs).length) {
@@ -655,6 +656,10 @@ footer .wrap { padding-top: 14px; padding-bottom: 24px; }
     }
     var live = pk.live || {};
     html += '<p class="note"><b>Live record:</b> ' + esc(live.words || "no graded pick yet") + (live.small_sample ? " (a small sample)" : "") + ".</p>";
+    if (live.breakout) {
+      html += '<p class="note"><b>Watched, not acted on:</b> ' + esc(live.breakout.words || "") + " (buy after an hour closes above the first hour's high, " +
+        "stop at the first hour's low, sell at the close; the research found no first-hour rule that held in both halves).</p>";
+    }
     var last = (live.last || []).slice().reverse();
     if (last.length) {
       html += '<div class="tbl-wrap"><table class="tbl"><thead><tr><th>date</th><th>pick</th><th class="num">open to close</th><th class="num">high</th><th class="num">low</th><th>result</th></tr></thead><tbody>' +

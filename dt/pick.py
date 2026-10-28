@@ -689,7 +689,9 @@ def seg_stats(recs):
 
 
 def walk_forward(rows, dates, spec=None, min_train=MIN_TRAIN_SESSIONS, refit_every=REFIT_EVERY, min_adv=MIN_ADV_USD, floor_x=PICK_FLOOR_X,
-                 top=5, rules=RULES):
+                 top=5, rules=RULES, keep=()):
+    """The walk-forward record (see the module docstring); the rules named in keep also carry every pick ("picks"), for the
+    tables built on top of the record (dt.firsthour)."""
     spec = spec or base_spec()
     by_date = {}
     for r in rows:
@@ -739,6 +741,8 @@ def walk_forward(rows, dates, spec=None, min_train=MIN_TRAIN_SESSIONS, refit_eve
         p = per[rule]
         out["rules"][rule] = {"pick": split(p["pick"]), "top%d" % top: split(p["top"]), "no_pick_days": len(p["no_pick"]),
                               "no_pick_h2": len([d for d in p["no_pick"] if half and d >= half]), "recent": p["pick"][-40:]}
+        if rule in keep:
+            out["rules"][rule]["picks"] = p["pick"]
     out["note"] = ("Every pick was ranked by a model fit only on the sessions before it (refit every %d). UP is a close at least %g %% above the "
                    "open, DN at least %g %% below; base is every liquid large cap in the window, with the rows' own exclusions (earnings sessions, special situations). h1 and h2 are the two "
                    "halves of the out-of-sample window: anything chosen on h1 is honest only if h2 agrees." % (refit_every, TARGET_PCT, TARGET_PCT))

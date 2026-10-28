@@ -699,6 +699,8 @@ class CliMore(unittest.TestCase):
             self.assertEqual(s_["live"]["graded"], 1, rn)
         pick_rec = records(os.path.join("trader", "pick", "record.jsonl"))[0]
         self.assertIn(pick_rec["first_touch"]["first"], ("up", "down", "neither"))   # the fixture holds 5-minute bars for the day
+        self.assertIn("entered", pick_rec["fh_breakout"])
+        self.assertEqual(doc["live"]["breakout"]["graded"], 1)
 
     def test_intraday_follows_the_pick_through_the_session(self):
         from dt import clock
@@ -726,6 +728,8 @@ class CliMore(unittest.TestCase):
             cli.net.yahoo_get, cli.net.SLEEP = orig_get, orig_sleep
         self.assertEqual((code, code2), (0, 0), err + err2)
         self.assertEqual((mid["as_of"], mid["closed"], mid["first_touch"], mid["first_touch_time"]), ("10:30", False, "down", "09:30"))
+        self.assertAlmostEqual(mid["first_hour_pct"], closes[11] - 100.0, 2)                 # the first hour is complete at 10:30
+        json.dumps(dtio.read_json(os.path.join("trader", "pick.json")))                     # and the card stays plain JSON
         self.assertTrue(end["closed"])
         self.assertAlmostEqual(end["from_open_pct"], closes[-1] - 100.0, 2)
         self.assertIn("count of one", dtio.read_json(os.path.join("trader", "pick.json"))["intraday"]["note"])
@@ -826,6 +830,107 @@ class Wrapper(unittest.TestCase):
         self.assertNotIn("Most likely", html)
         for must in ("So far today", "Today:</b>", "count of one"):
             self.assertIn(must, html, must)
+
+
+class LongHistory(unittest.TestCase):
+    def test_the_research_fetcher_never_writes_the_live_store_and_keeps_full_sessions(self):
+        sys.path.insert(0, os.path.join(ROOT, "scripts"))
+        import fetch_daily_history as fdh
+        from dt import clock
+        import datetime as _dt
+        code = fdh.main(["--root", os.path.join(ROOT, "trader", "cache"), "--symbols", "SPY", "--quiet"])
+        self.assertEqual(code, 2)                                         # the live store is refused
+        d = tempfile.mkdtemp()
+        lc = os.path.join(d, "largecap.json")
+        write(lc, json.dumps({"symbols": [{"symbol": "AAA"}]}))
+        os.makedirs(os.path.join(d, "largecap_history"))
+        write(os.path.join(d, "largecap_history", "2026-10-25.json"), json.dumps({"symbols": [{"symbol": "GONE"}, {"symbol": "AAA"}]}))
+        syms = fdh.symbols_of(lc)
+        self.assertEqual(syms[:2], ["AAA", "GONE"])                       # a name that left keeps its history
+        self.assertIn("SPY", syms)
+
+        def ts(day, hhmm):
+            h, m = map(int, hhmm.split(":"))
+            return clock.ts_of(clock.eastern_to_utc(_dt.datetime.combine(_dt.date.fromisoformat(day), _dt.time(h, m))))
+        series = {"t": [ts("2026-10-22", "09:30"), ts("2026-10-22", "15:30"), ts("2026-10-23", "09:30"), ts("2026-10-23", "04:00")],
+                  "o": [1.0, 2.0, 3.0, 9.0], "h": [1.5, 2.5, 3.5, 9.5], "l": [0.5, 1.5, 2.5, 8.5], "c": [1.2, 2.2, 3.2, 9.2], "v": [10, 20, 30, 40]}
+        now = clock.eastern_to_utc(_dt.datetime(2026, 10, 23, 12, 0))
+        sess = fdh.intraday_sessions(series, now)
+        self.assertEqual(list(sess), ["2026-10-22"])                       # today's session is partial until the close; pre-market is not kept
+        self.assertEqual([b[0] for b in sess["2026-10-22"]], ["09:30", "15:30"])
+        shutil.rmtree(d, ignore_errors=True)
+
+
+class FirstHour(unittest.TestCase):
+    def bars5(self, path_pct, open_=100.0, day="2026-10-23"):
+        """Five-minute bars from 09:30 whose closes follow path_pct (percent of the open), one a bar."""
+        from dt import clock
+        import datetime as _dt
+        out, prev = [], open_
+        for k, pct in enumerate(path_pct):
+            h, m = divmod(570 + 5 * k, 60)
+            t = clock.ts_of(clock.eastern_to_utc(_dt.datetime.combine(_dt.date.fromisoformat(day), _dt.time(h, m))))
+            c = open_ * (1 + pct / 100.0)
+            out.append({"t": t, "o": prev, "h": max(prev, c) + 0.01, "l": min(prev, c) - 0.01, "c": c, "v": 1})
+            prev = c
+        return out
+
+    def test_buckets_and_the_first_hour(self):
+        from dt import firsthour as fh
+        self.assertEqual([fh.bucket_of(x) for x in (-1.5, -1.0, 0.0, 1.0, 1.01, None)], ["down", "flat", "flat", "flat", "up", None])
+        hourly = [["09:30", 100.0, 101, 98, 98.5, 1], ["10:30", 98.5, 103, 98, 102.5, 1], ["15:30", 102.5, 103, 102, 102.7, 1]]
+        pct, c = fh.first_hour_of(hourly)
+        self.assertAlmostEqual(pct, -1.5)
+        self.assertEqual(c, 98.5)
+        five = [{"hm": "%02d:%02d" % divmod(570 + 5 * k, 60), "o": 100.0, "c": 100.0 + k / 10.0} for k in range(12)]
+        self.assertAlmostEqual(fh.first_hour_of(five)[0], 1.1)
+        self.assertIsNone(fh.first_hour_of(five[:11]))                     # 10:25 not in yet: the first hour is not over
+
+    def test_the_table_counts_past_picks_by_their_first_hour(self):
+        from dt import firsthour as fh
+        sessions = {("A", "2025-08-01"): [["09:30", 100, 101, 97, 98, 1], ["10:30", 98, 99, 96, 97, 1]],      # down, closed -3
+                    ("A", "2026-05-01"): [["09:30", 100, 103, 99, 102, 1], ["10:30", 102, 104, 101, 103, 1]],   # up, closed +3
+                    ("B", "2026-05-02"): [["09:30", 100, 101, 99, 100.5, 1], ["10:30", 100.5, 101, 99, 100, 1]]}  # flat
+        picks = [{"date": "2025-08-01", "symbol": "A", "oc": -3.0}, {"date": "2026-05-01", "symbol": "A", "oc": 3.0},
+                 {"date": "2026-05-02", "symbol": "B", "oc": 0.0}, {"date": "2026-05-03", "symbol": "C", "oc": 1.0}]
+        t = fh.table(picks, lambda s_, d: sessions.get((s_, d)), "2026-03-05")
+        self.assertEqual((t["n"], t["missing"]), (3, 1))
+        self.assertEqual(t["buckets"]["down"]["all"]["dn"], 1)
+        self.assertEqual(t["buckets"]["up"]["h2"]["up"], 1)
+        self.assertEqual(t["buckets"]["up"]["h1"]["n"], 0)
+        self.assertIn("coin flip", fh.words(None, 2.0, t))
+        self.assertEqual(fh.words(None, 2.0, {}), "")
+
+    def test_the_close_confirmed_breakout(self):
+        from dt import firsthour as fh
+        # first hour 0 to +1 %; the second hour closes above it; the third hour's open is the entry; the day ends +3 %
+        path = [0.5] * 12 + [1.5] * 12 + [2.0] * 12 + [3.0] * 42
+        r = fh.close_confirmed_breakout(self.bars5(path))
+        self.assertTrue(r["entered"])
+        self.assertEqual(r["entry_time"], "11:30")
+        self.assertGreater(r["ret_pct"], 0)
+        self.assertFalse(r["stopped"])
+        stop = [0.5] * 12 + [1.5] * 12 + [-2.0] * 54                       # breaks down through the first hour's low: stopped
+        self.assertTrue(fh.close_confirmed_breakout(self.bars5(stop))["stopped"])
+        self.assertEqual(fh.close_confirmed_breakout(self.bars5([0.2] * 78)), {"entered": False})
+        self.assertIsNone(fh.close_confirmed_breakout(self.bars5([0.2] * 20)))
+
+    def test_a_short_refresh_of_the_hourly_store_keeps_its_history(self):
+        sys.path.insert(0, os.path.join(ROOT, "scripts"))
+        import fetch_daily_history as fdh
+        d = tempfile.mkdtemp()
+        path = fdh.intraday_path(d, "AAA", "60m")
+        dtio.write_json(path, {"sessions": {"2025-01-02": [["09:30", 1, 1, 1, 1, 1]]}})
+        orig_chart = fdh.net.chart
+        fdh.net.chart = lambda sym, rng, interval: {"t": [], "o": [], "h": [], "l": [], "c": [], "v": []}
+        orig_sessions = fdh.intraday_sessions
+        fdh.intraday_sessions = lambda series, now: {"2026-10-27": [["09:30", 2, 2, 2, 2, 2]]}
+        try:
+            fdh.fetch_one("AAA", d, "1mo", None, "60m")
+        finally:
+            fdh.net.chart, fdh.intraday_sessions = orig_chart, orig_sessions
+        self.assertEqual(sorted(dtio.read_json(path)["sessions"]), ["2025-01-02", "2026-10-27"])
+        shutil.rmtree(d, ignore_errors=True)
 
 
 if __name__ == "__main__":

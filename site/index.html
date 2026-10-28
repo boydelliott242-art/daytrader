@@ -298,7 +298,8 @@
       return '<p class="plain"><b>Today:</b> ' + esc(pk.pick.symbol) + " closed " + sgn(x.from_open_pct) + " % from its open (" + path + ")" +
         (x.in_band ? ", inside the 2 to 5 % band" : "") + ". One morning is a count of one; the record below is what the odds rest on.</p>";
     }
-    return '<p class="plain"><b>So far today</b> (as of ' + esc(x.as_of) + " ET): " + sgn(x.from_open_pct) + " % from its open (" + path + ").</p>";
+    return '<p class="plain"><b>So far today</b> (as of ' + esc(x.as_of) + " ET): " + sgn(x.from_open_pct) + " % from its open (" + path + ").</p>" +
+      (it.first_hour_words ? '<p class="small"><b>The first hour:</b> ' + esc(it.first_hour_words) + ".</p>" : "");
   }
 
   function notes(pk) {

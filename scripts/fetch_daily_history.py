@@ -86,8 +86,15 @@ def fetch_one(sym, root, rng, now, interval="1d"):
     if interval == "1d":
         bars.save_store(sym, {"symbol": sym, "interval": "1d", "source": "yahoo", "range": rng, "updated_at": dtio.now_iso(), "rows": rows}, "daily", root)
     else:
-        dtio.write_json(intraday_path(root, sym, interval), {"symbol": sym, "interval": interval, "source": "yahoo", "range": rng,
-                                                              "updated_at": dtio.now_iso(), "sessions": rows})
+        path = intraday_path(root, sym, interval)
+        try:
+            old = (dtio.read_json(path, None) or {}).get("sessions") or {} if os.path.exists(path) else {}
+        except dtio.IOError_:
+            old = {}
+        merged = dict(old)
+        merged.update(rows)                    # a short refresh adds sessions; it never drops the history on disk
+        dtio.write_json(path, {"symbol": sym, "interval": interval, "source": "yahoo", "range": rng,
+                               "updated_at": dtio.now_iso(), "sessions": dict(sorted(merged.items()))})
     return sym, len(rows), None
 
 

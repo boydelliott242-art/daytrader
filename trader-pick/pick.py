@@ -29,7 +29,7 @@ for p in (ROOT, HERE):
     if p not in sys.path:
         sys.path.insert(0, p)
 
-from dt import pick as dtpick, bars as dtbars, clock, io as dtio, net, intel_flags, stats as dtstats  # noqa: E402
+from dt import pick as dtpick, bars as dtbars, clock, io as dtio, net, intel_flags, stats as dtstats, firsthour  # noqa: E402
 
 MODEL = os.path.join("trader", "pick", "model.json")
 RECORD = os.path.join("trader", "pick", "record.jsonl")
@@ -40,6 +40,7 @@ SHADOW_RULES = (("atr", "the most volatile eligible liquid name (the highest ATR
                 ("ret", "the pick of the ret rule (the summed move score)"))
 OUT = os.path.join("trader", "pick.json")
 NQ_TAGS = (os.path.join("trader", "nq", "session_tags_0805.json"), os.path.join("trader", "nq", "session_tags.json"))
+HOURLY = os.path.join("trader", "cache_long", "bars60m")    # two years of hourly bars (scripts/fetch_daily_history.py) for the first-hour table
 LATE = datetime.time(9, 25)          # a card written after this on its own date is posted marked late and never counted
 STALE_SHARE = 0.05                   # more than this share of names a session behind: the store is stale
 WORDS = ("A pick is a count over past mornings, not a prediction: its odds are the record of past picks, printed beside the "
@@ -212,8 +213,9 @@ def cmd_train(a):
                                                   caps or None, min_cap)
     if len(dates) < a.min_train + 20:
         raise Error("only %d sessions: the walk-forward needs %d training sessions and more to score" % (len(dates), a.min_train))
-    wf = dtpick.walk_forward(rows, dates, spec, a.min_train, a.refit_every, a.min_adv, a.floor_x)
+    wf = dtpick.walk_forward(rows, dates, spec, a.min_train, a.refit_every, a.min_adv, a.floor_x, keep=(a.rule,))
     model = dtpick.train(rows, None, spec)
+    fh_table = first_hour_table(a.hourly_root, (wf["rules"].get(a.rule) or {}).get("picks") or [], wf["h2_first"])
     live = set(universe(a))
     uni = {"rule": ("a session counts only while the name's estimated cap at the prior close was at least $%.0fB (its cap at the newest "
                     "list holding it x the close then / the price at that list); names that left the list keep their history" % (min_cap / 1e9))
@@ -223,7 +225,7 @@ def cmd_train(a):
     model.update({"created_by": "trader-pick", "trained_at": clock.iso(clock.utc_now()), "cache_root": a.cache_root, "symbols": len(syms),
                   "rows": len(rows), "sessions_first": dates[0], "sessions_last": dates[-1], "target_pct": dtpick.TARGET_PCT,
                   "rule": a.rule, "min_adv_usd": a.min_adv, "floor_x": a.floor_x, "nq_tags": tags_path, "earnings": info, "universe": uni,
-                  "exclude_earnings": not a.keep_earnings, "special_move_pct": info.get("special_move_pct"),
+                  "exclude_earnings": not a.keep_earnings, "special_move_pct": info.get("special_move_pct"), "first_hour": fh_table,
                   "claim": claim_of(wf, a.rule), "walk_forward": wf, "note": WORDS})
     dtio.write_json(a.model, model)
     say("Wrote %s: %s rows, %d sessions %s to %s; base rates %s up, %s down." % (
@@ -236,10 +238,31 @@ def cmd_train(a):
     if uni["departed"]:
         say("Names that have left the list but count while they were large caps: %s." % ", ".join(uni["departed"]))
     print_record(wf, model)
+    if fh_table:
+        say("The first hour over %d past picks (%d without hourly bars): %s." % (fh_table["n"], fh_table["missing"], "; ".join(
+            "%s %s closed 2 %% up %s" % (k, (fh_table["buckets"][k]["all"] or {}).get("n"), _pct((fh_table["buckets"][k]["all"] or {}).get("up_rate"), 0))
+            for k in firsthour.NAMES)))
     say("The card's claim for rule %s: %s." % (a.rule, "more likely to close 2 % ABOVE its open than below it" if model["claim"] == "up" else "likely to MOVE 2 % (direction not proven)"))
     if a.publish:
         publish(a, None)
     return 0
+
+
+def first_hour_table(root, picks, h2_first):
+    """dt.firsthour.table over the live rule's past picks, from the hourly store; None without it."""
+    if not picks or not root or not os.path.isdir(root):
+        return None
+    cache = {}
+
+    def hourly(sym, date):
+        if sym not in cache:
+            path = os.path.join(root, sym.upper().replace("^", "_") + ".json.gz")
+            try:
+                cache[sym] = (dtio.read_json(path, None) or {}).get("sessions") or {}
+            except dtio.IOError_:
+                cache[sym] = {}
+        return cache[sym].get(date)
+    return firsthour.table(picks, hourly, h2_first)
 
 
 def print_record(wf, model=None):
@@ -694,6 +717,14 @@ def first_touch(cache_root, sym, date, pct=None):
     return {"first": "neither", "time": None}
 
 
+def breakout_of(cache_root, sym, date):
+    """The close-confirmed first-hour breakout (dt.firsthour), graded forward on every pick and shadow: the one entry rule
+    the first-hour research left to watch, not a rule the card acts on."""
+    st = dtbars.load_store(sym, "bars5m", cache_root)
+    rows = ((st or {}).get("sessions") or {}).get(date)
+    return firsthour.close_confirmed_breakout(dtbars.bars_of(rows)) if rows else None
+
+
 def grade_pending(a, quiet=False):
     graded = grade_file(a, a.record)
     grade_file(a, a.shadow_record)
@@ -720,7 +751,8 @@ def grade_file(a, path):
                   "hi_pct": round((h / o - 1) * 100.0, 3), "lo_pct": round((l / o - 1) * 100.0, 3),
                   "up": 1 if oc >= dtpick.TARGET_PCT else 0, "dn": 1 if oc <= -dtpick.TARGET_PCT else 0,
                   "in_band": bool(dtpick.TARGET_PCT <= oc <= dtpick.BAND_HI_PCT), "graded_at": clock.iso(clock.utc_now()),
-                  "first_touch": first_touch(a.cache_root, r["symbol"], r["date"])})
+                  "first_touch": first_touch(a.cache_root, r["symbol"], r["date"]),
+                  "fh_breakout": breakout_of(a.cache_root, r["symbol"], r["date"])})
         graded.append(r["date"])
         changed = True
     if changed:
@@ -739,7 +771,16 @@ def live_record(a, path=None, rule=None):
     ocs = [r["oc_pct"] for r in g if r.get("oc_pct") is not None]
     words = ("%d graded: closed 2 %% up on %d (%s [%s, %s]), 2 %% down on %d (%s [%s, %s]), average %+.2f %%" % (
         n, up, _pct(up / float(n), 0), _pct(ulo, 0), _pct(uhi, 0), dn, _pct(dn / float(n), 0), _pct(dlo, 0), _pct(dhi, 0), sum(ocs) / len(ocs))) if n else "no graded pick yet"
+    tr = [r["fh_breakout"] for r in g if isinstance(r.get("fh_breakout"), dict) and r["fh_breakout"].get("entered") and r["fh_breakout"].get("r") is not None]
+    rs = [t_["r"] for t_ in tr]
+    rlo, rhi = dtstats.bootstrap_mean_ci(rs) if len(rs) >= 2 else (None, None)
+    breakout = {"graded": len([r for r in g if isinstance(r.get("fh_breakout"), dict)]), "entered": len(tr),
+                "mean_r": round(sum(rs) / len(rs), 3) if rs else None, "mean_r_ci": [rlo, rhi],
+                "words": ("the close-confirmed first-hour breakout entered on %d of %d graded days, averaging %+.2f R%s" % (
+                    len(tr), len([r for r in g if isinstance(r.get("fh_breakout"), dict)]), sum(rs) / len(rs),
+                    (" [%+.2f, %+.2f]" % (rlo, rhi)) if rlo is not None else "")) if rs else "no breakout trade graded yet"}
     return {"picks": len(rows), "graded": n, "pending": len([r for r in rows if r.get("status") == "pending"]), "up": up, "dn": dn,
+            "breakout": breakout,
             "up_rate": round(up / float(n), 4) if n else None, "up_ci": [ulo, uhi], "dn_rate": round(dn / float(n), 4) if n else None, "dn_ci": [dlo, dhi],
             "mean_oc_pct": round(sum(ocs) / len(ocs), 3) if ocs else None, "in_band": sum(1 for r in g if r.get("in_band")),
             "small_sample": n < 30, "last": [{k: r.get(k) for k in ("date", "symbol", "oc_pct", "hi_pct", "lo_pct", "up", "dn", "status")} for r in rows[-10:]],
@@ -826,13 +867,16 @@ def intraday_of(sym, date, now_et):
             first, first_time = "up", et.strftime("%H:%M")
             break
     sess = clock.session(datetime.date.fromisoformat(date))
+    fh_bars = [b for b in bars_ if b[0].strftime("%H:%M") < "10:30"]
+    fh_pct = (fh_bars[-1][4] / o - 1) * 100.0 if fh_bars and fh_bars[-1][0].strftime("%H:%M") >= "10:25" else None
     last_end = bars_[-1][0] + datetime.timedelta(minutes=5)
     closed = bool(sess) and last_end.time() >= sess[1]
     move = (bars_[-1][4] / o - 1) * 100.0
     return {"symbol": sym, "open": round(o, 4), "last": round(bars_[-1][4], 4), "as_of": last_end.strftime("%H:%M"),
             "from_open_pct": round(move, 2), "high_pct": round((max(b[2] for b in bars_) / o - 1) * 100.0, 2),
             "low_pct": round((min(b[3] for b in bars_) / o - 1) * 100.0, 2), "first_touch": first, "first_touch_time": first_time,
-            "closed": closed, "in_band": bool(closed and dtpick.TARGET_PCT <= move <= dtpick.BAND_HI_PCT)}
+            "closed": closed, "in_band": bool(closed and dtpick.TARGET_PCT <= move <= dtpick.BAND_HI_PCT),
+            "first_hour_pct": round(fh_pct, 2) if fh_pct is not None else None}
 
 
 def cmd_intraday(a):
@@ -864,6 +908,9 @@ def cmd_intraday(a):
                        "note": "the session so far, from Yahoo's 5-minute bars (delayed); one morning is a count of one, and the record is "
                                "settled by the evening grade"}
     p = names.get(doc["pick"]["symbol"]) or {}
+    model = dtio.read_json(a.model, None) or {}
+    if p.get("first_hour_pct") is not None and model.get("first_hour"):
+        doc["intraday"]["first_hour_words"] = firsthour.words(None, p["first_hour_pct"], model["first_hour"])
     if not a.quiet:
         if p.get("error"):
             say("Intraday %s: %s" % (doc["pick"]["symbol"], p["error"]))
@@ -960,6 +1007,7 @@ def main(argv=None):
     p.add_argument("--floor-x", type=float, default=dtpick.PICK_FLOOR_X)
     p.add_argument("--min-cap", type=float, default=dtpick.LARGE_CAP_USD, help="the point-in-time large-cap floor in dollars")
     p.add_argument("--no-pit", action="store_true", help="apply tonight's list to every session (no point-in-time rule)")
+    p.add_argument("--hourly-root", default=HOURLY, help="the hourly store for the first-hour table")
     p.add_argument("--keep-earnings", action="store_true")
     p.add_argument("--keep-special", action="store_true", help="keep the special situations (a 20 %% move the session before) in")
     p = sub.add_parser("morning"); common(p)

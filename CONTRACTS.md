@@ -689,6 +689,17 @@ bars (the move from the open, the high and the low, which of +2 and -2 percent c
 nothing in the record. The grade records the first touch from the 5-minute store (a bar that reaches both counts as -2
 percent first).
 
+**The first hour (`dt/firsthour.py`).** A path, not a forecast. The first-hour research of 2026-10-28 (two years of hourly
+bars, 54 tests on the second half, none confirmed) found no first-hour bucket that tells the rest of the day's direction:
+from 10:30 to the close the pick rose on about half of mornings in every bucket. The first hour holds about three quarters
+of the day's range, so the training run builds the table of how past picks' days ended by their first hour (down more
+than 1 percent, within 1 percent, up more than 1 percent, edges fixed before the research looked; `model.first_hour`, from
+`trader/cache_long/bars60m`, refreshed weekly by the lab job), and after 10:30 the card may print today's row beside the
+words "the rest of the day ... a coin flip", never as a call. The one entry rule the research left to watch, the
+close-confirmed first-hour breakout (buy after an hourly bar closes above the first hour's high, stop at its low, sell at
+the close), is graded forward on every pick and shadow (`fh_breakout`) and tallied on the full dashboard as watched, not
+acted on.
+
 **Research.** `scripts/pick_research.py` evaluates an extra feature module (`CUTS`, `compute(sym, rows, ctx)`) against the
 cached base rows and runs `dt.pick.leak_check` (recompute sampled dates with the rows cut there; any difference is a LEAK).
 `pick.py train --extra MODULE` makes a confirmed module part of the live model.

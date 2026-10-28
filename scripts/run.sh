@@ -141,6 +141,8 @@ case "$job" in
     publish_docs ;;
   lab)
     $py trader-lab/lab.py run --publish >> "$log" 2>&1
+    # the hourly store behind the pick's first-hour table gets the last month added (it keeps its history), then the retrain
+    $py scripts/fetch_daily_history.py --interval 60m --range 1mo --root trader/cache_long --max-age-hours 0 --threads 2 --quiet >> "$log" 2>&1
     $py trader-pick/pick.py train --publish --quiet >> "$log" 2>&1
     $py trader-lab/lab.py features --publish >> "$log" 2>&1
     $py trader-lab/lab.py robustness --publish >> "$log" 2>&1
