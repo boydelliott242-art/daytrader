@@ -71,21 +71,23 @@ def _stats(recs):
     return out
 
 
-def table(picks, hourly_session, h2_first):
+def table(picks, hourly_session, h2_first, open_of=None):
     """The first-hour table over past picks: for each bucket, by half and in all, how the day ended from the open (2 % up,
-    2 % down, 2 to 5 % up) and the rest of the day from 10:30."""
+    2 % down, 2 to 5 % up) and the rest of the day from 10:30. open_of(sym, date) gives the official open (the daily bar's,
+    the record's reference); without it the first hourly bar's open stands in."""
     rows, missing = [], 0
     for p in picks:
         bars = hourly_session(p["symbol"], p["date"])
         if not bars or len(bars) < 2:
             missing += 1
             continue
-        fh = first_hour_of(bars)
+        o = open_of(p["symbol"], p["date"]) if open_of else None
+        fh = first_hour_of(bars, o)
         if fh is None:
             missing += 1
             continue
         pct, c1030 = fh
-        close = float(bars[-1][4])
+        close = o * (1 + float(p["oc"]) / 100.0) if o else float(bars[-1][4])     # the official close, from the record's own move
         rows.append({"date": p["date"], "bucket": bucket_of(pct), "oc": float(p["oc"]), "rest": (close / c1030 - 1) * 100.0})
     out = {"buckets": {}, "n": len(rows), "missing": missing, "edges": list(EDGES), "h2_first": h2_first, "note": NOTE}
     for name in NAMES:

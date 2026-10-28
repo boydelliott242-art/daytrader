@@ -215,7 +215,7 @@ def cmd_train(a):
         raise Error("only %d sessions: the walk-forward needs %d training sessions and more to score" % (len(dates), a.min_train))
     wf = dtpick.walk_forward(rows, dates, spec, a.min_train, a.refit_every, a.min_adv, a.floor_x, keep=(a.rule,))
     model = dtpick.train(rows, None, spec)
-    fh_table = first_hour_table(a.hourly_root, (wf["rules"].get(a.rule) or {}).get("picks") or [], wf["h2_first"])
+    fh_table = first_hour_table(a.hourly_root, (wf["rules"].get(a.rule) or {}).get("picks") or [], wf["h2_first"], a.cache_root)
     live = set(universe(a))
     uni = {"rule": ("a session counts only while the name's estimated cap at the prior close was at least $%.0fB (its cap at the newest "
                     "list holding it x the close then / the price at that list); names that left the list keep their history" % (min_cap / 1e9))
@@ -248,11 +248,17 @@ def cmd_train(a):
     return 0
 
 
-def first_hour_table(root, picks, h2_first):
-    """dt.firsthour.table over the live rule's past picks, from the hourly store; None without it."""
+def first_hour_table(root, picks, h2_first, cache_root=None):
+    """dt.firsthour.table over the live rule's past picks, from the hourly store, against each day's official open from
+    the daily store; None without the hourly store."""
     if not picks or not root or not os.path.isdir(root):
         return None
-    cache = {}
+    cache, opens = {}, {}
+
+    def open_of(sym, date):
+        if sym not in opens:
+            opens[sym] = {r[0]: float(r[1]) for r in dtbars.daily_rows(sym, cache_root) if r[1]} if cache_root else {}
+        return opens[sym].get(date)
 
     def hourly(sym, date):
         if sym not in cache:
@@ -262,7 +268,7 @@ def first_hour_table(root, picks, h2_first):
             except dtio.IOError_:
                 cache[sym] = {}
         return cache[sym].get(date)
-    return firsthour.table(picks, hourly, h2_first)
+    return firsthour.table(picks, hourly, h2_first, open_of if cache_root else None)
 
 
 def print_record(wf, model=None):
@@ -698,16 +704,17 @@ def _rewrite(path, rows):
     os.replace(tmp, path)
 
 
-def first_touch(cache_root, sym, date, pct=None):
-    """From the open, which came first in the 5-minute bars: +2 % ("up"), -2 % ("down") or "neither"; a bar that reaches
-    both counts as "down" (the conservative reading). None when the store has no bars for the session."""
+def first_touch(cache_root, sym, date, pct=None, open_=None):
+    """From the open (open_: the official open from the daily bar, the record's reference; else the first five-minute
+    bar's), which came first in the 5-minute bars: +2 % ("up"), -2 % ("down") or "neither"; a bar that reaches both counts
+    as "down" (the conservative reading). None when the store has no bars for the session."""
     pct = dtpick.TARGET_PCT if pct is None else pct
     st = dtbars.load_store(sym, "bars5m", cache_root)
     rows = ((st or {}).get("sessions") or {}).get(date)
     if not rows:
         return None
     b = dtbars.bars_of(rows)
-    o = float(b[0]["o"])
+    o = float(open_) if open_ else float(b[0]["o"])
     for x in b:
         when = clock.to_eastern(clock.utc_of(x["t"])).strftime("%H:%M") if isinstance(x.get("t"), (int, float)) else None
         if x["l"] is not None and float(x["l"]) <= o * (1 - pct / 100.0):
@@ -751,7 +758,7 @@ def grade_file(a, path):
                   "hi_pct": round((h / o - 1) * 100.0, 3), "lo_pct": round((l / o - 1) * 100.0, 3),
                   "up": 1 if oc >= dtpick.TARGET_PCT else 0, "dn": 1 if oc <= -dtpick.TARGET_PCT else 0,
                   "in_band": bool(dtpick.TARGET_PCT <= oc <= dtpick.BAND_HI_PCT), "graded_at": clock.iso(clock.utc_now()),
-                  "first_touch": first_touch(a.cache_root, r["symbol"], r["date"]),
+                  "first_touch": first_touch(a.cache_root, r["symbol"], r["date"], open_=o),
                   "fh_breakout": breakout_of(a.cache_root, r["symbol"], r["date"])})
         graded.append(r["date"])
         changed = True
@@ -841,9 +848,29 @@ def print_pick(doc):
 
 
 # ---------------------------------------------------------------- the day so far
+def official_bar(sym, date):
+    """(open, high, low, close) of the date's daily bar from Yahoo's daily chart: the opening and closing auctions, the
+    prices the record is graded on (the first five-minute trade can sit percents away on a gap). None when not served."""
+    raw = net.yahoo_get(net.chart_path(sym, "5d", "1d"))
+    doc = json.loads(raw) if isinstance(raw, str) else raw
+    res = doc["chart"]["result"][0]
+    if ((res.get("meta") or {}).get("dataGranularity") or "") != "1d":
+        return None
+    ser = net.series_from_result(res)
+    for t, o, h, l, c in zip(ser["t"], ser["o"], ser["h"], ser["l"], ser["c"]):
+        if o is not None and clock.to_eastern(clock.utc_of(t)).date().isoformat() == date:
+            return float(o), float(h) if h is not None else None, float(l) if l is not None else None, float(c) if c is not None else None
+    return None
+
+
 def intraday_of(sym, date, now_et):
-    """The session so far for one name from Yahoo's 5-minute bars: the move from the open, the high and the low against it,
-    which of +2 % and -2 % came first (a bar that reaches both counts as -2 %), and whether the session has closed."""
+    """The session so far for one name: the move from the official open (the daily bar's, the record's own reference),
+    the high and the low against it, which of +2 % and -2 % came first in the 5-minute bars (a bar that reaches both counts
+    as -2 %), and whether the session has closed (then the move is to the official close)."""
+    try:
+        off = official_bar(sym, date)
+    except Exception:  # the five-minute bars still tell the day so far
+        off = None
     raw = net.yahoo_get(net.chart_path(sym, "1d", "5m"))
     doc = json.loads(raw) if isinstance(raw, str) else raw
     ser = net.series_from_result(doc["chart"]["result"][0])
@@ -857,7 +884,8 @@ def intraday_of(sym, date, now_et):
             bars_.append((et, float(o), float(h), float(l), float(c)))
     if not bars_:
         return {"symbol": sym, "error": "no regular-session bars yet"}
-    o = bars_[0][1]
+    o = off[0] if off and off[0] else bars_[0][1]
+    open_source = "the opening auction (the daily bar)" if off and off[0] else "the first five-minute trade (no daily bar yet)"
     first, first_time = None, None
     for et, bo, bh, bl, bc in bars_:
         if bl <= o * (1 - dtpick.TARGET_PCT / 100.0):
@@ -871,10 +899,13 @@ def intraday_of(sym, date, now_et):
     fh_pct = (fh_bars[-1][4] / o - 1) * 100.0 if fh_bars and fh_bars[-1][0].strftime("%H:%M") >= "10:25" else None
     last_end = bars_[-1][0] + datetime.timedelta(minutes=5)
     closed = bool(sess) and last_end.time() >= sess[1]
-    move = (bars_[-1][4] / o - 1) * 100.0
-    return {"symbol": sym, "open": round(o, 4), "last": round(bars_[-1][4], 4), "as_of": last_end.strftime("%H:%M"),
-            "from_open_pct": round(move, 2), "high_pct": round((max(b[2] for b in bars_) / o - 1) * 100.0, 2),
-            "low_pct": round((min(b[3] for b in bars_) / o - 1) * 100.0, 2), "first_touch": first, "first_touch_time": first_time,
+    last = off[3] if (closed and off and off[3]) else bars_[-1][4]
+    hi_ = max([b[2] for b in bars_] + ([off[1]] if off and off[1] else []))
+    lo_ = min([b[3] for b in bars_] + ([off[2]] if off and off[2] else []))
+    move = (last / o - 1) * 100.0
+    return {"symbol": sym, "open": round(o, 4), "open_source": open_source, "last": round(last, 4), "as_of": last_end.strftime("%H:%M"),
+            "from_open_pct": round(move, 2), "high_pct": round((hi_ / o - 1) * 100.0, 2),
+            "low_pct": round((lo_ / o - 1) * 100.0, 2), "first_touch": first, "first_touch_time": first_time,
             "closed": closed, "in_band": bool(closed and dtpick.TARGET_PCT <= move <= dtpick.BAND_HI_PCT),
             "first_hour_pct": round(fh_pct, 2) if fh_pct is not None else None}
 

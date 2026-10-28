@@ -733,6 +733,21 @@ class CliMore(unittest.TestCase):
         self.assertTrue(end["closed"])
         self.assertAlmostEqual(end["from_open_pct"], closes[-1] - 100.0, 2)
         self.assertIn("count of one", dtio.read_json(os.path.join("trader", "pick.json"))["intraday"]["note"])
+        # with the daily bar served, the day is measured from the opening auction and ends at the closing auction
+        daily = {"chart": {"result": [{"meta": {"dataGranularity": "1d"}, "timestamp": [ts("09:30")],
+                                       "indicators": {"quote": [{"open": [98.0], "high": [104.0], "low": [97.0], "close": [103.9]}]}}]}}
+        cli.net.yahoo_get = lambda path: daily if "interval=1d" in path else chart
+        cli.net.SLEEP = lambda s_: None
+        try:
+            code3, out3, err3 = run(["intraday", "--date", "2026-10-23", "--now", "2026-10-23 16:30", "--write"])
+            off = dtio.read_json(os.path.join("trader", "pick.json"))["intraday"]["names"][sym]
+        finally:
+            cli.net.yahoo_get, cli.net.SLEEP = orig_get, orig_sleep
+        self.assertEqual(code3, 0, err3)
+        self.assertEqual(off["open"], 98.0)
+        self.assertIn("opening auction", off["open_source"])
+        self.assertAlmostEqual(off["from_open_pct"], (103.9 / 98.0 - 1) * 100, 2)
+        self.assertEqual(off["first_touch"], "up")                                             # +2 % from 98 came first
         code, out, err = run(["intraday", "--date", "2026-10-26", "--now", "2026-10-26 10:31"])   # no card for that day
         self.assertIn("nothing to follow", out)
 
