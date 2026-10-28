@@ -257,9 +257,11 @@ def print_record(wf, model=None):
 
 
 # ---------------------------------------------------------------- morning: inputs
-def premarket_quotes(symbols, date, cutoff_et, pause=0.25, say_=None):
-    """{SYM: {"last", "time", "vs_prev_close_pct", "prev_close"}} from Yahoo's chart with pre-market bars: the close of the
-    last 5-minute bar of the date that ENDED by the cutoff (a bar is stamped with its start), and its end time."""
+def premarket_quotes(symbols, date, cutoff_et, pause=0.25, say_=None, prev_closes=None):
+    """{SYM: {"last", "time", "vs_prev_close_pct", "prev_close", "prev_close_source"}} from Yahoo's chart with pre-market
+    bars: the close of the last 5-minute bar of the date that ENDED by the cutoff (a bar is stamped with its start), and its
+    end time, against the prior close from the price store (prev_closes). Before the open Yahoo's own "previous close" is
+    a session stale (on 2026-10-28 it gave 2026-10-26's close for every name), so it is used only when the store has none."""
     out = {}
     for i, sym in enumerate(symbols):
         try:
@@ -270,7 +272,9 @@ def premarket_quotes(symbols, date, cutoff_et, pause=0.25, say_=None):
             out[sym] = {"error": str(e)[:80]}
             continue
         meta = ser.get("meta") or {}
-        pc = meta.get("chartPreviousClose") or meta.get("previousClose")
+        pc, src = (prev_closes or {}).get(sym), "the price store"
+        if not pc:
+            pc, src = meta.get("chartPreviousClose") or meta.get("previousClose"), "Yahoo (may be a session stale before the open)"
         last, when = None, None
         for t, c in zip(ser["t"], ser["c"]):
             if c is None:
@@ -279,7 +283,8 @@ def premarket_quotes(symbols, date, cutoff_et, pause=0.25, say_=None):
             end = et + datetime.timedelta(minutes=5)
             if et.date().isoformat() == date and end.time() <= cutoff_et and end.date() == et.date():
                 last, when = float(c), end.strftime("%H:%M")
-        out[sym] = {"last": last, "time": when, "prev_close": pc, "vs_prev_close_pct": round((last / pc - 1) * 100.0, 2) if (last and pc) else None}
+        out[sym] = {"last": last, "time": when, "prev_close": pc, "prev_close_source": src,
+                    "vs_prev_close_pct": round((last / pc - 1) * 100.0, 2) if (last and pc) else None}
         if pause and i + 1 < len(symbols):
             net.SLEEP(pause)
         if say_ and (i + 1) % 10 == 0:
@@ -455,7 +460,7 @@ def morning(a):
     special_pct = model.get("special_move_pct")
     extra = dtpick.load_extra(spec["extra"]).compute if spec.get("extra") else None
     earnings_all = dtpick.load_earnings(a.cache_root) if extra else {}
-    cands, raws, behind, with_rows = [], {}, [], 0
+    cands, raws, behind, with_rows, prev_close_of = [], {}, [], 0, {}
     for sym in syms:
         rows = dtbars.daily_rows(sym, a.cache_root)
         if not rows:
@@ -469,6 +474,7 @@ def morning(a):
         if raw is None:
             continue
         raws[sym] = raw
+        prev_close_of[sym] = float(before[-1][4])
         cands.append((sym, dtpick.encode(spec, raw, market), adv, None))
     store_stale = last_row != prev or len(behind) > STALE_SHARE * max(1, with_rows)
     half_day = date in dtpick.HALF_DAYS
@@ -527,7 +533,7 @@ def morning(a):
     quote_syms = ([pick["symbol"]] if pick else []) + [r["symbol"] for r in top if not pick or r["symbol"] != pick["symbol"]]
     quotes = {}
     if not a.no_premarket and quote_syms:
-        quotes = premarket_quotes(quote_syms, date, cutoff, a.pause, None if a.quiet else (lambda m: print(m, file=sys.stderr)))
+        quotes = premarket_quotes(quote_syms, date, cutoff, a.pause, None if a.quiet else (lambda m: print(m, file=sys.stderr)), prev_close_of)
     late = (real_day > date or (real_day == date and real_et.time() > LATE)) and not logged
     wf = model.get("walk_forward") or {}
     t_rec = (wf.get("baseline_highest_atr") or {})

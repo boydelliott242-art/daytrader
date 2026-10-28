@@ -718,7 +718,16 @@ class Premarket(unittest.TestCase):
         finally:
             cli.net.yahoo_get, cli.net.SLEEP = orig_get, orig_sleep
         self.assertEqual((q["X"]["last"], q["X"]["time"]), (102.0, "08:05"))   # the 08:05 bar was still forming at 08:08
-        self.assertAlmostEqual(q["X"]["vs_prev_close_pct"], 2.0)
+        self.assertAlmostEqual(q["X"]["vs_prev_close_pct"], 2.0)                 # no store close given: Yahoo's, and it says so
+        self.assertIn("Yahoo", q["X"]["prev_close_source"])
+        cli.net.yahoo_get = lambda path: doc
+        cli.net.SLEEP = lambda s: None
+        try:
+            q3 = cli.premarket_quotes(["X"], "2026-10-23", _dt.time(8, 8), prev_closes={"X": 85.0})
+        finally:
+            cli.net.yahoo_get, cli.net.SLEEP = orig_get, orig_sleep
+        self.assertAlmostEqual(q3["X"]["vs_prev_close_pct"], 20.0)               # Yahoo's stale close loses to the store's
+        self.assertEqual(q3["X"]["prev_close_source"], "the price store")
         self.assertIsNone(q2["X"]["last"])                                   # another day's bars never stand in
 
 
