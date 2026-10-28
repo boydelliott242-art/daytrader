@@ -679,10 +679,15 @@ logged, late or not (the card and the record always name the same stock, and the
 `--replace` posts another, or NO PICK, and marks the first superseded, never graded. A morning that fails posts a dated
 NO PICK card with the reason, so the site never says "Not yet" all day, unless that day's pick is already logged, whose
 card then stays up. A line of the record that does not parse is skipped with a warning, and a broken calendar file counts
-as no file. The shadow: the most volatile eligible liquid name, logged to
-`trader/pick/shadow.jsonl` and graded each evening, the one lead the rule research left (it touched +2 percent more often
-than the pick in both halves, inside the noise in the second); never the pick, and it joins nothing except through
-`scripts/pick_research.py`.
+as no file. The shadows: every candidate rule's name, logged to `trader/pick/shadow.jsonl` (one row a rule a
+morning) and graded each evening: `atr` (the most volatile eligible liquid name, the lead the rule research left: it
+touched +2 percent more often than the pick in both halves, inside the noise in the second), `hit60` (the most +2 percent
+days in its last 60 sessions), and the other two scoring rules' picks (`net`, `ret`). A re-run keeps the day's shadows.
+They are never the pick, and a rule joins the model only through `scripts/pick_research.py`. The day so far: `pick.py
+intraday` (the live jobs and the 16:20 job) writes the pick's and the shadows' session onto the card from the 5-minute
+bars (the move from the open, the high and the low, which of +2 and -2 percent came first, closed or not); it changes
+nothing in the record. The grade records the first touch from the 5-minute store (a bar that reaches both counts as -2
+percent first).
 
 **Research.** `scripts/pick_research.py` evaluates an extra feature module (`CUTS`, `compute(sym, rows, ctx)`) against the
 cached base rows and runs `dt.pick.leak_check` (recompute sampled dates with the rows cut there; any difference is a LEAK).
@@ -695,7 +700,9 @@ what was left out this morning: who reports today, who reacts to a report since 
 situation with its reason, the names a session behind), `trader/pick/record.jsonl` (every pick logged pending the morning
 it was made, graded on the real open, high, low and close by the evening cache job), `trader/pick/shadow.jsonl`,
 `trader/publish/pick.json` (sealed into the site's bundle; before the first morning it carries the record),
-`trader/largecap_history/D.json` (each evening's list).
+`trader/largecap_history/D.json` (each evening's list), `trader/cache_long/` (research only: ten years of daily bars and
+two of hourly bars from `scripts/fetch_daily_history.py`, and the calendar for the same days; the live store is never
+touched).
 
 **Calendar files.** A refresh never makes a file worse: an empty answer does not replace a file that has rows, and a
 report time on disk survives a newer answer without one. On the morning, a calendar with no rows for a trading day is an

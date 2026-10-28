@@ -153,7 +153,10 @@ literal target (a close 2 to 5 % up; a touch of +2 %): the live rule, the highes
 scorers trained on the band and on the touch, and one more each. Chosen on the first half, judged on the second, none beat
 the live rule by more than the noise. The most volatile liquid name touched +2 % more often in both halves, but the second
 half's margin was +8.5 points [-1.2, +18.8], so it is tracked forward as a shadow (`trader/pick/shadow.jsonl`, graded every
-evening, never posted as the pick) until fresh mornings say otherwise. An adversarial audit (six lenses, every finding put to
+evening, never posted as the pick) until fresh mornings say otherwise. Every candidate rule now runs forward as a shadow beside the pick (the most volatile name, the most
+habitual 2 % mover, the net and ret rules' picks), graded each evening on the full dashboard, so fresh mornings decide
+which rule does best; the card follows the pick through the day ("so far today", then "today: closed X % from its open")
+and the record notes which of +2 % and -2 % came first. An adversarial audit (six lenses, every finding put to
 independent skeptics) found 39 defects. The ones that mattered are fixed:
 - the card's "expected" move (an uncalibrated sum that averaged +1.8 % while the picks averaged -0.2 %) and the model's
   in-sample bin odds (shared by a dozen or more names a morning) are gone from the card;
