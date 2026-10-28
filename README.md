@@ -1,8 +1,8 @@
 # DAYTRADER: the Day Trader skill v2, plus a large-cap desk on top
 
-Twenty-one Claude skills for day trading large caps, built on Jake Schincariol's
+Twenty-two Claude skills for day trading large caps, built on Jake Schincariol's
 [Day Trader skill v2](https://github.com/Jakeschincariol/day-trader-skill) (MIT). The eleven upstream
-skills are vendored here unchanged, with their 315 tests. Ten more sit on top: a measured universe,
+skills are vendored here unchanged, with their 315 tests. Eleven more sit on top: a measured universe,
 the market regime, an edge study of every setup over every large cap, an advisor that runs the chain
 and shows the odds before the money, a graded track record, a local paper broker, an intel ledger fed
 by Claude's connectors, a 26,000-replay Monte Carlo, the user's own fifteen-year Nasdaq-100 futures
@@ -10,7 +10,7 @@ backtester wired in, and a research desk built on Tauric Research's TradingAgent
 the roles run by Claude over an evidence pack, a short side with its own setups and risk, and rankings over the universe. Plain Python 3.8+, nothing to pip install, free public data. Nothing trades
 without your yes. Most people who day trade lose money; this desk shows you the odds first.
 
-## The twenty-one
+## The twenty-two
 
 | command | job |
 | --- | --- |
@@ -25,6 +25,7 @@ without your yes. Most people who day trade lose money; this desk shows you the 
 | `/trader-montecarlo` | 26,000 replays of a plan, the trade book resampled at your sizing rules, the NQ and ES overnight read |
 | `/trader-nq` | the desk's setups on fifteen years of NQ 1-minute bars with real fees and slippage, through your own backtester |
 | `/trader-agents` | the research desk: the TradingAgents roles (six analysts, bull and bear in rounds, a contrarian, the research manager, the trader, three risk debaters, a code-fed risk analyst, the portfolio manager), run by Claude over one evidence pack per symbol, validated claim by claim, scored, written as a card; the code-only rankings over the universe; the memory of settled cards |
+| `/trader-pick` | the 8:25 pick: one large cap a morning from what is known by 8:05 ET, the name with the best measured odds of closing 2 % above its open, posted by 8:25 with its odds up AND down beside the base rates and its own graded record |
 | `scripts/lock.py` | not a skill: the lock. Seals the pages and the data into `docs/data/bundle.enc`; the live site is a passphrase screen |
 
 **Live:** https://boydelliott242-art.github.io/daytrader/ is a lock screen. Behind the passphrase: the one-idea
@@ -91,6 +92,64 @@ grade     desk.py grade              the scorecard: what the board really did
 
 Every skill reads and writes the `trader/` folder of the project you run it in, in the upstream's
 shapes. `CONTRACTS.md` is the spec for the new layer.
+
+## The 8:25 pick
+
+Every trading morning at 8:08 ET (a retry at 8:18) the desk scores all ~880 liquid large caps from what is known by
+8:05: two years of daily rows (yesterday's move, volume, range position, momentum, ATR, RSI, realised volatility, each
+stock's own habit of 2 % days), the market's trend and VIX, the Nasdaq futures gap at 8:05 from the user's NQ minute bars,
+and Nasdaq's earnings calendars. Left out, in the backtest and live alike: names reporting today, names reacting to a
+report made after yesterday's close (or with no time given), and special situations (a name that moved 20 % or more the
+day before: a crash, a deal, a split the store missed), each listed on the card with its reason. The pick is the name
+with the best measured odds of closing 2 % or more above its open. It is sealed into the site and on the front page in big words by about 8:15, with:
+
+- its odds of closing 2 % above its open AND its odds of closing 2 % below, beside the base rates of any large cap;
+- the plain reasons, the pre-market print at 8:05 (shown, never scored), the next five names;
+- its out-of-sample record half by half, and its live record, graded every evening on the real open, high, low and close.
+
+**What two years say (walk-forward, refit every 20 sessions, 329 out-of-sample mornings, 3 rules tested, earnings
+sessions and special situations left out; the model of 2026-10-27):**
+
+| | first half (Jul 2025 to Mar 2026) | second half (Mar to Oct 2026) |
+| --- | --- | --- |
+| the pick closed 2 % or more above its open | 30.5 % [24, 38] | 27.9 % [22, 35] |
+| the pick closed 2 % or more below its open | 33.5 % [27, 41] | 36.4 % [29, 44] |
+| the pick closed between 2 % and 5 % above its open | 22.0 % | 17.0 % |
+| the pick traded 2 % above its open at some point | 54.3 % | 57.6 % |
+| the pick traded 2 % below its open at some point | 67.7 % | 61.8 % |
+| any large cap: closed 2 % up / 2 % down / 2 to 5 % up | 9.9 % / 9.3 % / 8.9 % | 11.8 % / 11.8 % / 10.2 % |
+| any large cap: traded 2 % above its open | 19.9 % | 25.1 % |
+| the most volatile liquid name (highest ATR): closed 2 % up / down | 34.2 % / 37.2 % | 35.1 % / 28.5 % |
+| the most volatile liquid name: traded 2 % above its open | 71.3 % | 66.1 % |
+
+On the last 40 picks with 5-minute bars, +2 % came first 18 times and -2 % first 21 times (once neither). So the pick
+finds a stock likely to **move** 2 % (about three times the base rate), the direction is not predictable from what is
+known at 8:05, and simply taking the most volatile liquid name does about as well (it touches +2 % more often).
+The card says exactly that: "most likely to MOVE 2 %", with both odds, until a rule's pick closes up more often than down
+with separated intervals in both halves. Then, and only then, it would say "most likely to close 2 % ABOVE its open".
+
+**The hunt for direction (2026-10-27).** Ten agents in parallel each tested one family of directional evidence through
+the same harness (`scripts/pick_research.py`: every variant chosen on the first half, judged on the second, an automatic
+look-ahead check on every module, independent verifiers re-running anything that claimed to hold): intraday persistence,
+short-term reversal, post-earnings drift, relative strength to the sector, volume flow, calendar effects, the futures gap
+times beta, price levels, each stock's own asymmetry, volatility regimes. The desk also tested the morning's own gap:
+over two years, news-free gap-downs of 3 % or more bounced +0.40 % and +0.33 % from the open in the two halves (intervals
+clear of zero), yet in the most recent 60 mornings, measured with real 8:05 pre-market prints (which track the opening gap
+with a correlation of 0.81), the same names closed -0.12 % with 23 % up and 26 % down. An edge that holds for a year and
+then fades is not one to post as a promise. The pre-market history now grows every morning, so the question can be asked
+again with more of it.
+
+None of the ten held. Four families claimed both halves; independent verifiers refuted all four (moving the cut points by
+20 % broke three, and the fourth sat at the median of its own within-date shuffles). Post-earnings drift passed the
+harness's rule, but its own 20 shuffles showed the gain was noise. Nothing joined the model. The two leave-out rules added
+the same day (the session after a report, and the 20 % special situation) were set before they were measured, and moved
+the record by less than its intervals.
+
+```bash
+python3 trader-pick/pick.py train --workers 12 --rule up --publish     # the walk-forward and the live model
+python3 trader-pick/pick.py morning --at 08:05 --write --publish        # what the 08:08 ET job runs
+python3 trader-pick/pick.py report                                       # every rule's record by half, the lifts, the live record
+```
 
 ## The research desk (TradingAgents, integrated)
 

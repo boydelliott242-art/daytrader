@@ -75,9 +75,11 @@ def daily_rows(sessions):
     return rows
 
 
-def overnight_table(bars, sessions):
+def overnight_table(bars, sessions, cutoff_tod=None):
     """Per session: the prior RTH close, the Globex overnight high/low/range to the 08:30 CT open, the gap, and the
-    range against the average RTH daily range of the prior 20 sessions."""
+    range against the average RTH daily range of the prior 20 sessions. With cutoff_tod (Chicago minutes after
+    midnight, e.g. 7:05 CT = 8:05 ET), the overnight stops at that minute and the gap is the last overnight close by
+    then against the prior settle: what a morning job could know at that clock."""
     dates = sorted(sessions)
     drows = daily_rows(sessions)
     rng20 = {}
@@ -94,14 +96,20 @@ def overnight_table(bars, sessions):
         first_rth = sessions[d]["idx"][0] - 4  # the 08:30 minute is 4 bars before the first bucket's last minute
         # overnight = eth bars of this trading session (17:00 CT the evening before .. 08:29 CT), in this sess id
         mask = (bars.sess == s) & eth & (np.arange(len(bars)) < sessions[d]["idx"][0])
+        if cutoff_tod is not None:
+            mask = mask & ((bars.tod >= 17 * 60) | (bars.tod <= cutoff_tod))
         on_idx = np.nonzero(mask)[0]
         rec = {"date": d, "prev_close": prev_close, "prev_date": prev_date, "open": sessions[d]["bars"][0]["o"]}
+        if cutoff_tod is not None and len(on_idx):
+            rec["at_cutoff"] = float(bars.close[on_idx[-1]])
+            rec["cutoff_tod"] = int(cutoff_tod)
         if len(on_idx) and prev_close:
             hi = float(bars.high[on_idx].max())
             lo = float(bars.low[on_idx].min())
+            level = rec["at_cutoff"] if cutoff_tod is not None else rec["open"]
             rec.update({"overnight_high": round(hi, 2), "overnight_low": round(lo, 2),
                         "overnight_range_pct": round(100 * (hi - lo) / prev_close, 4),
-                        "gap_pct": round(100 * (rec["open"] / prev_close - 1), 4),
+                        "gap_pct": round(100 * (level / prev_close - 1), 4),
                         "range_vs_20d": round((hi - lo) / rng20[d], 4) if rng20.get(d) else None, "overnight_bars": int(len(on_idx))})
             g = rec["gap_pct"]
             rec["tags"] = ["nq_gap_up" if g >= 0.5 else "nq_gap_down" if g <= -0.5 else "nq_gap_flat"]
@@ -399,12 +407,18 @@ def cmd_session_tags(a):
     from nqbt import Bars  # noqa: E402
     bars = Bars.load(None, None, data_dir=os.path.join(a.backtester, "data"))
     sessions, counts = sessions_5m(bars)
-    over = overnight_table(bars, sessions)
+    cutoff = None
+    if getattr(a, "at", None):
+        hh, mm = str(a.at).split(":")
+        cutoff = int(hh) * 60 + int(mm)
+    over = overnight_table(bars, sessions, cutoff)
     dates = sorted(over)[-a.days:]
     doc = {"created_by": "trader-nq", "as_of": pd.Timestamp.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ"), "days": a.days,
+           "cutoff_ct": a.at if cutoff is not None else None,
            "sessions": {d: {"nq_gap_pct": over[d].get("gap_pct"), "nq_overnight_range_vs_20d": over[d].get("range_vs_20d"),
                             "tags": over[d].get("tags") or []} for d in dates},
-           "note": "the same tag names trader-montecarlo futures writes live; the lab merges them into its regime tags when present"}
+           "note": ("the gap is the last Globex close by %s Chicago time against the prior settle: what a morning job knows at that clock" % a.at)
+                   if cutoff is not None else "the same tag names trader-montecarlo futures writes live; the lab merges them into its regime tags when present"}
     os.makedirs(os.path.dirname(a.out) or ".", exist_ok=True)
     with open(a.out, "w", encoding="utf-8") as fh:
         json.dump(doc, fh, indent=1)
@@ -421,6 +435,7 @@ def main(argv=None):
         p.add_argument("--repo", required=True)
         p.add_argument("--quiet", action="store_true")
         if name == "session-tags":
+            p.add_argument("--at", help="Chicago HH:MM: measure the gap at this minute of the overnight (7:05 = 8:05 ET)")
             p.add_argument("--out", required=True)
             p.add_argument("--days", type=int, default=60)
         else:

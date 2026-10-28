@@ -11,7 +11,7 @@ mkdir -p "$dir" "$root/trader/logs"
 shift_h=$(/usr/bin/python3 -c "
 import sys, time; sys.path.insert(0, '$root'); from dt import clock
 ny = clock.eastern_offset(clock.utc_now()); local = time.localtime().tm_gmtoff // 3600; print(local - ny)")
-jobs="cache:17:30 futures:08:05 morning:08:30 live:10:00 live2:10:15 live3:10:30 live4:11:00 grade:16:20"
+jobs="cache:17:30 futures:08:05 pick:08:08 pick2:08:18 morning:08:30 live:10:00 live2:10:15 live3:10:30 live4:11:00 grade:16:20"
 for spec in $jobs; do
   name="${spec%%:*}"; hm="${spec#*:}"; h="${hm%%:*}"; m="${hm#*:}"
   job="$(echo "$name" | sed 's/[0-9]*$//')"

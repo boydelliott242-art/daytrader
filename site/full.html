@@ -218,6 +218,11 @@ footer .wrap { padding-top: 14px; padding-bottom: 24px; }
     <div id="regime-body"></div>
   </section>
 
+  <section id="pick">
+    <div class="sec-head"><h2>The 8:25 pick</h2><span class="small muted" id="pick-sub"></span></div>
+    <div id="pick-body"></div>
+  </section>
+
   <section id="board">
     <div class="sec-head"><h2>Today's board</h2><span class="small muted" id="board-sub"></span></div>
     <div id="board-body"></div>
@@ -318,7 +323,8 @@ footer .wrap { padding-top: 14px; padding-bottom: 24px; }
     rankings: "data/rankings.json",
     research: "data/research.json",
     features: "data/features.json",
-    robustness: "data/robustness.json"
+    robustness: "data/robustness.json",
+    pick: "data/pick.json"
   };
   var EMPTY = {
     desk: "The desk has not run yet. <code>desk.py live --write --publish</code> writes today's board here (and <code>desk.py morning</code> the plan before the open).",
@@ -330,6 +336,7 @@ footer .wrap { padding-top: 14px; padding-bottom: 24px; }
     rankings: "No rankings yet. <code>agents.py rank --write --publish</code> scores the universe from the code-only layers and writes the lists here.",
     research: "No research cards yet. <code>agents.py prepare SYM</code>, the roles, then <code>agents.py decide --write --publish</code> writes the latest card per symbol here.",
     features: "No feature study yet. <code>lab.py features --publish</code> says which features separate the lab's out-of-sample trades.",
+    pick: "No 8:25 pick yet. <code>pick.py train</code>, then the 08:08 ET job (<code>pick.py morning --write --publish</code>) writes the morning's pick here.",
     robustness: "No robustness pass yet. <code>lab.py robustness --publish</code> checks each approved and watch config against its neighbours, a three-way split and the regime classes.",
     nq: "No NQ bench yet. <code>nq.py setups --publish</code> runs the desk's setups through the fifteen-year Nasdaq-100 futures backtester and writes the tables here."
   };
@@ -557,6 +564,65 @@ footer .wrap { padding-top: 14px; padding-bottom: 24px; }
     }
     if (doc.note) { html += '<p class="note">' + esc(doc.note) + "</p>"; }
     el("board-body").innerHTML = html;
+  }
+
+  // ------------------------------------------------------------ the 8:25 pick: today's name, every rule's record by half, the baselines, the live record
+  function pctv(x) { return isNum(x) ? (100 * x).toFixed(1) + " %" : "n/a"; }
+  function pctCiv(c) { return c && isNum(c[0]) && isNum(c[1]) ? "[" + (100 * c[0]).toFixed(0) + ", " + (100 * c[1]).toFixed(0) + "]" : ""; }
+  function ocv(x) { return isNum(x) ? (x >= 0 ? "+" : "") + x.toFixed(2) + " %" : "n/a"; }
+  function ocCiv(c) { return c && isNum(c[0]) && isNum(c[1]) ? "[" + ocv(c[0]) + ", " + ocv(c[1]) + "]" : ""; }
+  function renderPickPanel(res) {
+    var pk = res.doc;
+    if (!pk) { el("pick-body").innerHTML = empty("pick"); sub("pick-sub", ""); return; }
+    sub("pick-sub", (pk.date ? pk.date + ", data as of " + (pk.cutoff || "") + " ET, " : "") + "rule " + (pk.rule || "up") + ", claim: " +
+        (pk.claim === "up" ? "close 2 % above the open" : "move 2 % (direction not proven)"));
+    var html = "";
+    if (pk.pick) {
+      var p = pk.pick, pm = p.premarket || {};
+      html += '<div class="panel"><div class="head"><span class="sym">' + esc(p.symbol) + '</span> <span class="muted">odds up ' + pctv(p.p_up) + ", down " + pctv(p.p_dn) +
+        ", expected " + ocv(p.e_oc) + "; base rate " + pctv(pk.base_up) + " up, " + pctv(pk.base_dn) + " down" +
+        (isNum(pm.vs_prev_close_pct) ? "; pre-market " + ocv(pm.vs_prev_close_pct) + " at " + esc(pm.time || "") : "") + "</span></div>" +
+        '<p class="note">' + esc((p.reasons || []).join("; ")) + ".</p></div>";
+    } else if (pk.date) {
+      html += '<div class="empty">' + esc(pk.no_pick_words || "No pick this morning.") + "</div>";
+    }
+    html += '<p class="note"><b>Direction:</b> ' + esc(pk.direction || "") + ".</p>";
+    if (pk.date) {
+      var sp = pk.special_today || [];
+      html += '<p class="note"><b>Left out this morning:</b> ' + (pk.reporting_today || 0) + " report earnings today (" + esc(pk.reporting_source || "") + "); " +
+        (pk.reacting_today || 0) + " react to a report after the prior close (" + esc(pk.reacting_source || "") + "); special situations: " +
+        (sp.length ? sp.map(function (x) { return "<b>" + esc(x.symbol) + "</b> " + esc(x.reason); }).join(", ") : "none") + ".</p>";
+    }
+    var rules = pk.oos_rules || {};
+    var oos = pk.oos || {};
+    var segs = [["h1", "first half"], ["h2", "second half (from " + (oos.h2_first || "?") + ")"]];
+    html += '<div class="tbl-wrap"><table class="tbl"><thead><tr><th>out of sample</th><th>half</th><th class="num">n</th><th class="num">closed 2 % up</th><th class="num">closed 2 % down</th>' +
+      '<th class="num">closed 2 to 5 % up</th><th class="num">average open to close</th><th class="num">touched +2 %</th><th class="num">touched -2 %</th></tr></thead><tbody>';
+    function row(name, seg, st) {
+      if (!st || !st.n) { return "<tr><td>" + esc(name) + "</td><td>" + esc(seg) + '</td><td class="num">0</td><td colspan="6" class="muted">no picks</td></tr>'; }
+      return "<tr><td>" + esc(name) + "</td><td>" + esc(seg) + '</td><td class="num">' + st.n + '</td><td class="num">' + pctv(st.up_rate) + " " + pctCiv(st.up_ci) +
+        '</td><td class="num">' + pctv(st.dn_rate) + " " + pctCiv(st.dn_ci) + '</td><td class="num">' + (isNum(st.band) ? pctv(st.band / st.n) : "n/a") +
+        '</td><td class="num">' + ocv(st.mean_oc) + " " + ocCiv(st.mean_oc_ci) +
+        '</td><td class="num">' + pctv(st.touch_up_rate) + '</td><td class="num">' + pctv(st.touch_dn_rate) + "</td></tr>";
+    }
+    Object.keys(rules).forEach(function (k) {
+      segs.forEach(function (sg) { html += row("rule " + k + (k === pk.rule ? " (live)" : ""), sg[1], ((rules[k] || {}).pick || {})[sg[0]]); });
+    });
+    segs.forEach(function (sg) { html += row("any large cap (the base rate)", sg[1], ((oos.base || {})[sg[0]])); });
+    segs.forEach(function (sg) { html += row("the highest-ATR name", sg[1], ((oos.highest_atr || {})[sg[0]])); });
+    html += "</tbody></table></div>";
+    var live = pk.live || {};
+    html += '<p class="note"><b>Live record:</b> ' + esc(live.words || "no graded pick yet") + (live.small_sample ? " (a small sample)" : "") + ".</p>";
+    var last = (live.last || []).slice().reverse();
+    if (last.length) {
+      html += '<div class="tbl-wrap"><table class="tbl"><thead><tr><th>date</th><th>pick</th><th class="num">open to close</th><th class="num">high</th><th class="num">low</th><th>result</th></tr></thead><tbody>' +
+        last.map(function (r) {
+          return "<tr><td>" + esc(r.date) + "</td><td><b>" + esc(r.symbol) + '</b></td><td class="num">' + ocv(r.oc_pct) + '</td><td class="num">' + ocv(r.hi_pct) +
+            '</td><td class="num">' + ocv(r.lo_pct) + "</td><td>" + (r.status !== "graded" ? "pending" : r.up ? "closed 2 % up" : r.dn ? "closed 2 % down" : "inside 2 %") + "</td></tr>";
+        }).join("") + "</tbody></table></div>";
+    }
+    html += '<p class="note">' + esc(pk.note || "") + " " + esc(pk.premarket_note || "") + "</p>";
+    el("pick-body").innerHTML = html;
   }
 
   // ------------------------------------------------------------ the short board (research only)
@@ -923,6 +989,7 @@ footer .wrap { padding-top: 14px; padding-bottom: 24px; }
     names.forEach(function (n, i) { docs[n] = results[i]; });
     renderHeader(docs);
     renderRegime(docs.regime, docs.desk.doc);
+    renderPickPanel(docs.pick);
     renderBoard(docs.desk);
     renderShortBoard(docs.desk);
     renderEdge(docs.edge);

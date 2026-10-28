@@ -40,3 +40,5 @@ vendor/TradingAgents/.env
 vendor/TradingAgents/.env.enterprise
 trader/research/
 trader/rankings.json
+trader/pick/
+trader/pick.json

@@ -175,8 +175,8 @@ def cmd_overnight(a):
 
 def cmd_session_tags(a):
     path, py = backtester(a)
-    venv_run(py, [ADAPTER, "session-tags", "--backtester", path, "--repo", REPO, "--out", os.path.abspath(a.out), "--days", str(a.days)] + (["--quiet"] if a.quiet else []),
-             cwd=path, quiet=a.quiet)
+    venv_run(py, [ADAPTER, "session-tags", "--backtester", path, "--repo", REPO, "--out", os.path.abspath(a.out), "--days", str(a.days)]
+             + (["--at", a.at] if getattr(a, "at", None) else []) + (["--quiet"] if a.quiet else []), cwd=path, quiet=a.quiet)
     doc = io.read_json(a.out, None)
     if a.json:
         print(json.dumps(doc, indent=2))
@@ -332,6 +332,7 @@ def main(argv=None):
     common(p)
     p = sub.add_parser("session-tags", help="nq tags for the lab's recent sessions")
     p.add_argument("--days", type=int, default=60)
+    p.add_argument("--at", help="Chicago HH:MM: the gap as of that minute of the overnight (07:05 = 8:05 ET, for the morning pick)")
     p.add_argument("--out", default=os.path.join("trader", "nq", "session_tags.json"))
     common(p)
     p = sub.add_parser("report", help="the edge tables from trader/nq/edge.json")

@@ -607,3 +607,65 @@ short.
 (`{"source": "daytrader", "exported_at", "publish_dir", "files": {name: contents}, "skipped": [...]}`), written
 atomically to the path given. Read-only, standard library, no network. The unified layer at
 `~/Desktop/trading-unified` reads it on its own schedule; nothing in this repo depends on it.
+
+## The morning pick (`trader-pick/`, `dt/pick.py`; added 2026-10-27)
+
+One large cap a trading morning, posted to the site by 8:25 ET, ranked from what is known by 8:05 ET, with its measured
+record printed beside the base rates. A pick is a count, not a prediction, and never a buy.
+
+**Target.** The session's own open-to-close move (what a buyer at the open gets): UP = the close at least 2 percent
+above the open, DN = at least 2 percent below; the 2 to 5 percent band, the touch of +2 and -2 percent (high and low
+against the open) and close-to-close are reported beside it.
+
+**Rows.** For every name in `trader/largecap.json` and every session in the daily store with 25 sessions before it:
+features from rows strictly before the session (`symbol_table`: ATR as a share of price, yesterday's move, relative
+volume, close location and gap, the 5 and 20-day moves, the distance to the 20-day high and low, RSI 14, 20-day realised
+volatility, the stock's own share of UP and DN sessions over 60), the market's context from rows strictly before the
+session (`market_table`: SPY's 1 and 5-day moves and trend, the VIX, the weekday) and the NQ futures gap at 8:05 ET
+(`nq.py session-tags --at 07:05`, minute bars from the user's backtester; live from `trader/futures.json`). Left out of
+training, scoring and the live pick alike (`earnings_session`, `special_of`):
+
+- an earnings session: the name reports on the session (Nasdaq's calendar, `scripts/fetch_earnings_history.py` ->
+  `trader/cache/earnings/D.json`), or it reported on the session before and the report was not marked before the open
+  (after the close, or no time given, which is most of the calendar: the move lands on the next session);
+- a special situation: the name moved 20 percent or more close to close on the session before (news, a deal, a crash,
+  or a split the store has not adjusted for), a day its history does not describe.
+
+Both rules were set before they were measured and are not tuned; the training output counts what each left out.
+
+**Scorers.** Every feature is bucketed at fixed cut points (`CUTS`, `CATEGORICAL`; `na` is its own bucket). From the bucket
+counts: the up lift log(rate_up(bucket) / base_up), the down lift likewise, and the expected-move deviation, all smoothed
+toward the base with 20 pseudo-rows. A name's score is the sum over its buckets; the calibrated odds are the observed rate
+of the training score's bin (20 equal bins on a 1-in-10 sample of the training rows). No weights to tune.
+
+**Rules.** `up` ranks by the up odds (floor: 1.5 x the base rate); `net` by up odds minus down odds (floor: 2 points);
+`ret` by the expected open-to-close (floor: +0.10 percent). The liquid universe is 20-day average dollar volume of 20
+million or more. A morning whose top name misses the floor is NO PICK.
+
+**Walk-forward.** After 120 training sessions the model is refit every 20 on everything before and scores the next 20; a
+session's rows join the counts only after it is scored. The record per rule: the pick and the top five, UP and DN rates
+with Wilson intervals, the mean open-to-close with a bootstrap interval (a normal interval above 3,000 samples), the
+touch rates, split into the two halves of the out-of-sample window (`h1`, `h2`), beside the base rates of every liquid name
+and the highest-ATR name each morning. Anything chosen on `h1` (a rule, a feature) is believed only if `h2` agrees.
+
+**The claim.** The card says "most likely to close 2 percent ABOVE its open" only when the live rule's pick closed UP more
+often than DN with separated Wilson intervals in both halves; otherwise "most likely to MOVE 2 percent from its open", with
+the up and down odds side by side and the direction verdict in words.
+
+**Research.** `scripts/pick_research.py` evaluates an extra feature module (`CUTS`, `compute(sym, rows, ctx)`) against the
+cached base rows and runs `dt.pick.leak_check` (recompute sampled dates with the rows cut there; any difference is a LEAK).
+`pick.py train --extra MODULE` makes a confirmed module part of the live model.
+
+**Files.** `trader/pick/model.json` (spec, lifts, calibration, rule, claim, the walk-forward record), `trader/pick.json`
+(today's card: the pick, both odds, the expected move, the reasons, the pre-market print at the cutoff, shown and never
+scored, the next nine, the direction verdict, every rule's record, the live record, and what was left out this morning:
+how many report today, how many react to a report after the prior close, each special situation with its reason), `trader/pick/record.jsonl` (every pick
+logged pending the morning it was made, graded on the real open, high, low and close by the evening cache job),
+`trader/publish/pick.json` (sealed into the site's bundle).
+
+**Schedule.** `pick` at 08:08 ET (fetch today's calendar, refresh the futures read if it is not today's, `pick.py morning
+--write --publish`, seal and push), `pick2` at 08:18 ET (does nothing when today's pick is already pushed); the 17:30 cache
+job grades and refreshes the calendar; the Saturday lab job retrains.
+
+**Words.** Most people who day trade lose money. A stock that moves 2 percent one morning in three does not move two
+mornings in three, and the ones that move up are matched by the ones that move down until a record says otherwise.

@@ -53,6 +53,8 @@
   footer { margin-top: 36px; border-top: 1px solid var(--line); padding-top: 16px; color: var(--ink-3); font-size: 14px; line-height: 1.6; }
   footer a, .small a { color: var(--signal); text-decoration: none; }
   .hidden { display: none; }
+  h2.sym2 { margin: 0; font-size: clamp(32px, 8vw, 56px); line-height: 1; letter-spacing: -.02em; font-weight: 800; }
+  .divider { margin: 34px 0 0; border-top: 1px solid var(--line); }
 </style>
 </head>
 <body>
@@ -174,7 +176,7 @@
     var sig = top.signal || {};
     var approved = (top.lab || {}).status === "approved";
     var isLate = (top.flags || []).indexOf("late") >= 0;
-    html += '<div class="kicker">today’s idea, ' + esc(d.as_of || "") + "</div>";
+    html += '<div class="kicker">the rules\' board idea, ' + esc(d.as_of || "") + "</div>";
     html += "<h1>" + esc(top.symbol) + "</h1>";
     html += '<p class="verdict ' + (approved && !isLate ? "ok" : "warn") + '">' +
       (approved && !isLate ? "This rule has a measured edge. Still a coin flip on any one day." :
@@ -229,10 +231,89 @@
       "Research only: nothing places a short order, and a short can lose more than the stake.</p></div>";
   }
 
+  function etToday() {
+    try { return new Intl.DateTimeFormat("en-CA", { timeZone: "America/New_York", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date()); }
+    catch (e) { return new Date().toISOString().slice(0, 10); }
+  }
+
+  function pickRecord(pk) {
+    var o = ((pk.oos || {}).pick || {}).all || {};
+    var live = pk.live || {};
+    var s = "";
+    if (o.n) {
+      var b = ((pk.oos || {}).base || {}).all || {};
+      s += "Out of sample, " + o.n + " mornings: the pick closed 2 % or more above its open " + pct(o.up_rate) + " of the time and 2 % or more below " + pct(o.dn_rate) +
+        "; it closed between 2 % and 5 % above its open on " + pct(typeof o.band === "number" ? o.band / o.n : null) +
+        "; it traded 2 % above its open at some point on " + pct(o.touch_up_rate) + " of them, and 2 % below on " + pct(o.touch_dn_rate) +
+        ". Any large cap: " + pct(pk.base_up) + " up, " + pct(pk.base_dn) + " down" +
+        (b.n && typeof b.band === "number" ? ", " + pct(b.band / b.n) + " between 2 % and 5 % up, touched +2 % on " + pct(b.touch_up_rate) : "") + " (the base rates).";
+    }
+    s += " Live: " + esc(live.words || "no graded pick yet") + (live.small_sample ? " (a small sample)" : "") + ".";
+    return s;
+  }
+
+  function leftOut(pk) {
+    var parts = [];
+    if (pk.reporting_today) { parts.push(pk.reporting_today + " report earnings today"); }
+    if (pk.reacting_today) { parts.push(pk.reacting_today + " react to a report after yesterday's close"); }
+    var sp = pk.special_today || [];
+    if (sp.length) {
+      parts.push("special situations: " + sp.map(function (x) { return esc(x.symbol) + " (" + esc(x.reason) + ")"; }).join(", "));
+    }
+    return parts.length ? '<p class="small"><b>Left out this morning:</b> ' + parts.join("; ") + ". Their day is news the history does not describe.</p>" : "";
+  }
+
+  function renderPick(pk) {
+    var today = etToday();
+    if (!pk || !pk.date) {
+      return '<div class="kicker">the 8:25 pick</div><h1>Not yet.</h1><p class="verdict">The pick posts at about 8:15 ET on trading days, from what is known by 8:05.</p>';
+    }
+    if (pk.date !== today) {
+      var last = ((pk.live || {}).last || []).slice(-1)[0];
+      return '<div class="kicker">the 8:25 pick</div><h1>Not yet.</h1><p class="verdict">Today\'s pick posts at about 8:15 ET on a trading day.</p>' +
+        '<p class="plain">The last pick was for ' + esc(pk.date) + (pk.pick ? ": <b>" + esc(pk.pick.symbol) + "</b>" : ": no pick") +
+        (last && last.status === "graded" && last.date === pk.date ? ", which closed " + (last.oc_pct >= 0 ? "+" : "") + num(last.oc_pct, 2) + " % from its open" : "") + ".</p>" +
+        '<p class="small">' + pickRecord(pk) + "</p>";
+    }
+    if (!pk.pick) {
+      return '<div class="kicker">the 8:25 pick, ' + esc(pk.date) + ', data as of ' + esc(pk.cutoff) + ' ET</div><h1>No pick.</h1>' +
+        '<p class="verdict">' + esc(pk.no_pick_words || "Nothing cleared the bar this morning. That is a normal morning.") + "</p>" +
+        leftOut(pk) + '<p class="small">' + pickRecord(pk) + "</p>";
+    }
+    var p = pk.pick, pm = p.premarket || {};
+    var up = pk.claim === "up";
+    var rec = ((pk.oos || {}).pick || {}).all || {};
+    var hasRec = typeof rec.up_rate === "number";
+    var html = '<div class="kicker">the 8:25 pick, ' + esc(pk.date) + ', data as of ' + esc(pk.cutoff) + ' ET</div>' +
+      "<h1>" + esc(p.symbol) + "</h1>" +
+      '<p class="verdict ' + (up ? "ok" : "warn") + '">' + (up ? "Most likely to close 2 % or more ABOVE its open today." :
+        "Most likely to MOVE 2 % or more from its open today. Up or down: the record says it is close to a coin flip.") + "</p>" +
+      '<div class="card"><div class="row">' +
+      '<div class="stat"><div class="k">picks like this closed 2 % up</div><div class="v">' + pct(hasRec ? rec.up_rate : p.p_up) + '</div><div class="s">any large cap: ' + pct(pk.base_up) + " (the base rate)</div></div>" +
+      '<div class="stat"><div class="k">and closed 2 % down</div><div class="v">' + pct(hasRec ? rec.dn_rate : p.p_dn) + '</div><div class="s">any large cap: ' + pct(pk.base_dn) + "</div></div>" +
+      '<div class="stat"><div class="k">pre-market at 8:05</div><div class="v">' + (typeof pm.vs_prev_close_pct === "number" ? (pm.vs_prev_close_pct >= 0 ? "+" : "") + num(pm.vs_prev_close_pct, 2) + " %" : "n/a") +
+      '</div><div class="s">' + (typeof pm.last === "number" ? num(pm.last) + " vs " + num(pm.prev_close) + " close (shown, not scored)" : "no pre-market print") + "</div></div>" +
+      "</div>" +
+      '<p class="plain"><b>Why this name:</b> ' + esc((p.reasons || []).join("; ")) + ".</p>" +
+      (hasRec ? '<p class="small">Those two numbers are the record of past picks (' + rec.n + " mornings, out of sample). The model's own odds for " + esc(p.symbol) +
+        " today: " + pct(p.p_up) + " up, " + pct(p.p_dn) + " down.</p>" : "") +
+      '<p class="plain"><b>Direction:</b> ' + esc(pk.direction || "") + ".</p>" +
+      '<p class="plain"><b>The record:</b> ' + pickRecord(pk) + "</p>" + leftOut(pk) +
+      '<p class="small">The odds are counts over past mornings, refit as they go: a pick is not a prediction and not a buy. A 2 % day that happens one time in three does not happen two times in three.' +
+      (pk.store_stale ? " <b>Note:</b> the price store ends " + esc(pk.store_through) + ", not yesterday." : "") + "</p></div>";
+    var rest = (pk.ranked || []).slice(1, 6);
+    if (rest.length) {
+      html += '<div class="card"><div class="kicker" style="margin-top:0">the next five</div><div class="others">' + rest.map(function (r) {
+        return "<b>" + esc(r.symbol) + "</b> up " + pct(r.p_up) + ", down " + pct(r.p_dn);
+      }).join("<br>") + "</div></div>";
+    }
+    return html;
+  }
+
   function renderMorning(d, r) {
     var ex = ((d.exclusions || {}).earnings || []);
     var hits = (d.daily_hits || []).slice(0, 5);
-    var html = '<div class="kicker">' + esc(d.date || "") + ", before the open</div><h1>Not yet.</h1>" +
+    var html = '<div class="kicker">the rules\' board, ' + esc(d.date || "") + ", before the open</div><h1>Not yet.</h1>" +
       '<p class="verdict">The idea comes at 10:00 ET. The rules need the first 15 minutes of trading to find it.</p>' +
       '<p class="plain">' + esc(regimeWords(r) || "No regime read yet.") + "</p>";
     if (ex.length) {
@@ -247,18 +328,20 @@
     return html;
   }
 
-  Promise.all([load("data/desk.json"), load("data/regime.json"), load("data/rankings.json")]).then(function (res) {
-    var d = res[0], r = res[1], rk = res[2];
+  Promise.all([load("data/desk.json"), load("data/regime.json"), load("data/rankings.json"), load("data/pick.json")]).then(function (res) {
+    var d = res[0], r = res[1], rk = res[2], pk = res[3];
     var when = document.getElementById("when");
     var main = document.getElementById("main");
+    window.__RANKINGS = rk || null;
+    var html = renderPick(pk) + '<div class="divider"></div>';
     if (!d) {
-      when.textContent = "no board yet";
-      main.innerHTML = '<div class="kicker">today</div><h1>Not yet.</h1><p class="verdict">The desk has not run. The first board comes at 10:00 ET on a trading day.</p>';
+      when.textContent = pk && pk.date ? "pick for " + pk.date : "no board yet";
+      main.innerHTML = html + '<div class="kicker">the rules\' board</div><p class="verdict">The desk has not run. The first board comes at 10:00 ET on a trading day.</p>';
       return;
     }
     when.textContent = (d.mode === "live" ? "board as of " : "plan for ") + (d.as_of || d.date || "");
-    window.__RANKINGS = rk || null;
-    main.innerHTML = d.mode === "live" ? renderLive(d, r) : renderMorning(d, r);
+    var board = d.mode === "live" ? renderLive(d, r) : renderMorning(d, r);
+    main.innerHTML = html + board.replace(/<h1>/g, '<h2 class="sym2">').replace(/<\/h1>/g, "</h2>");
   });
 })();
 </script>
