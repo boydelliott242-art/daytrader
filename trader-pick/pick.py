@@ -5,6 +5,7 @@ beside the base rates.
     python3 pick.py train [--rule up|net|ret] [--workers N] [--publish] [--no-pit]   # the walk-forward + the live model
     python3 pick.py morning [--date D] [--at 08:05] [--write] [--publish] [--no-premarket] [--replace]
     python3 pick.py grade [--write] [--publish]                            # settle past picks from the daily store
+    python3 pick.py intraday [--write] [--publish]                         # the day so far for the pick and the shadows
     python3 pick.py report                                                  # every rule's record by half, the lifts, the live record
 
 Every number is counted, none is predicted: every scored morning in the record was ranked by a model fit only on the
@@ -32,7 +33,11 @@ from dt import pick as dtpick, bars as dtbars, clock, io as dtio, net, intel_fla
 
 MODEL = os.path.join("trader", "pick", "model.json")
 RECORD = os.path.join("trader", "pick", "record.jsonl")
-SHADOW = os.path.join("trader", "pick", "shadow.jsonl")   # the highest-ATR name each morning, a lead tracked forward, never the pick
+SHADOW = os.path.join("trader", "pick", "shadow.jsonl")   # the shadows: other rules' names each morning, tracked forward, never the pick
+SHADOW_RULES = (("atr", "the most volatile eligible liquid name (the highest ATR)"),
+                ("hit60", "the eligible liquid name with the most +2 % days in its last 60 sessions (ties by ATR)"),
+                ("net", "the pick of the net rule (up odds minus down odds)"),
+                ("ret", "the pick of the ret rule (the summed move score)"))
 OUT = os.path.join("trader", "pick.json")
 NQ_TAGS = (os.path.join("trader", "nq", "session_tags_0805.json"), os.path.join("trader", "nq", "session_tags.json"))
 LATE = datetime.time(9, 25)          # a card written after this on its own date is posted marked late and never counted
@@ -372,9 +377,13 @@ def records(path):
     return out
 
 
-def logged_shadow(a, date):
-    rows = [r for r in records(a.shadow_record) if r.get("date") == date and r.get("status") != "superseded"]
-    return rows[-1] if rows else None
+def logged_shadows(a, date):
+    """{rule: row} of the shadows already logged for the date (not superseded)."""
+    out = {}
+    for r in records(a.shadow_record):
+        if r.get("date") == date and r.get("status") != "superseded":
+            out[r.get("rule") or "atr"] = r
+    return out
 
 
 def logged_row(a, date):
@@ -518,16 +527,27 @@ def morning(a):
     # the shadow: the most volatile eligible liquid name, the one lead the rule research left (it touched +2 % more often in
     # both halves, but the second half's margin was inside the noise); tracked forward, graded each evening, never posted as
     # the pick, and joining the model only through scripts/pick_research.py
-    shadow = None
+    # the shadows: the other candidate rules' names, each logged and graded forward so fresh mornings can say which rule does
+    # best; never the pick, and a rule joins the model only through scripts/pick_research.py
+    shadow_syms = {}
     if not reason:
         pool = [c for c in cands if c[0] not in exclude and c[0] not in dtpick.CONTEXT and (c[2] or 0) >= min_adv
                 and isinstance((raws.get(c[0]) or {}).get("atr_pct"), (int, float))]
         if pool:
-            s_sym = max(pool, key=lambda c: (raws[c[0]]["atr_pct"], c[0]))[0]
-            shadow = {"symbol": s_sym, "atr_pct": round(raws[s_sym]["atr_pct"], 3), "rule": "the highest-ATR eligible liquid name"}
-    ls = logged_shadow(a, date)
-    if ls and not a.replace:
-        shadow = {"symbol": ls["symbol"], "atr_pct": ls.get("atr_pct"), "rule": "the highest-ATR eligible liquid name"}
+            shadow_syms["atr"] = max(pool, key=lambda c: (raws[c[0]]["atr_pct"], c[0]))[0]
+            hp = [c for c in pool if isinstance(raws[c[0]].get("sym_hit_60"), (int, float))]
+            if hp:
+                shadow_syms["hit60"] = max(hp, key=lambda c: (raws[c[0]]["sym_hit_60"], raws[c[0]]["atr_pct"], c[0]))[0]
+        for rn in dtpick.RULES:
+            if rn != rule and rn in dict(SHADOW_RULES):
+                sp, _ = dtpick.rank(model, cands, rn, min_adv, floor_x, exclude)
+                if sp:
+                    shadow_syms[rn] = sp["symbol"]
+    if not a.replace:
+        for rn, row in logged_shadows(a, date).items():       # the day's logged shadows stay the day's shadows
+            shadow_syms[rn] = row["symbol"]
+    shadow = {"symbol": shadow_syms["atr"], "atr_pct": round((raws.get(shadow_syms["atr"]) or {}).get("atr_pct") or 0, 3),
+              "rule": dict(SHADOW_RULES)["atr"]} if shadow_syms.get("atr") else None
     # the names after the pick, in the model's order (a kept pick is not ranked first, and never listed twice)
     top = [r for r in ranked if not pick or r["symbol"] != pick["symbol"]][:a.top]
     quote_syms = ([pick["symbol"]] if pick else []) + [r["symbol"] for r in top if not pick or r["symbol"] != pick["symbol"]]
@@ -565,7 +585,9 @@ def morning(a):
                 "pick": card(pick) if pick else None, "no_pick": pick is None, "kept_note": kept, "late": bool(late and pick),
                 "ranked": [card(r) for r in top], "next_session": intel_flags.next_trading_day(date).isoformat(),
                 "live": live_record(a), "graded_now": graded,
-                "shadow": dict(shadow or {}, live=live_record(a, a.shadow_record), why=shadow_why), "preview": early,
+                "shadow": dict(shadow or {}, live=live_record(a, a.shadow_record, "atr"), why=shadow_why), "preview": early,
+                "shadows": {rn: {"symbol": shadow_syms[rn], "rule": desc, "atr_pct": (raws.get(shadow_syms[rn]) or {}).get("atr_pct"),
+                                 "live": live_record(a, a.shadow_record, rn)} for rn, desc in SHADOW_RULES if shadow_syms.get(rn)},
                 "premarket_note": "pre-market prices are Yahoo's, delayed and thin; they are shown, not scored: the model saw none of them in its history",
                 "odds_note": ("the record's odds for the pick; the model's own top-bin rates are in-sample and shared by every name in that bin, so "
                               "they are not this name's odds"),
@@ -577,12 +599,14 @@ def morning(a):
         dtio.write_json(a.out, doc)
         if pick and not doc["late"]:
             log_pick(a, doc)
-            if shadow:
-                log_shadow(a, doc, shadow)
+            for rn, sym in shadow_syms.items():
+                log_shadow(a, doc, rn, sym, (raws.get(sym) or {}).get("atr_pct"))
         elif not pick and logged and a.replace:
             supersede_day(a, date, None, doc["written_at"])
         doc["live"] = live_record(a)
-        doc["shadow"]["live"] = live_record(a, a.shadow_record)
+        doc["shadow"]["live"] = live_record(a, a.shadow_record, "atr")
+        for rn, sh in doc["shadows"].items():
+            sh["live"] = live_record(a, a.shadow_record, rn)
         dtio.write_json(a.out, doc)
         if a.publish:
             publish(a, doc)
@@ -627,17 +651,17 @@ def supersede_day(a, date, by, when):
     return hit
 
 
-def log_shadow(a, doc, shadow):
-    """Log the day's shadow name once (it is deterministic for a day's data; --replace logs again)."""
+def log_shadow(a, doc, rule, sym, atr_pct=None):
+    """Log one rule's shadow for the day once (the day's data decide it; --replace logs it again)."""
     rows = records(a.shadow_record)
-    if any(r.get("date") == doc["date"] and r.get("status") != "superseded" for r in rows):
-        if not a.replace:
+    same = [r for r in rows if r.get("date") == doc["date"] and (r.get("rule") or "atr") == rule and r.get("status") != "superseded"]
+    if same:
+        if not a.replace or same[-1].get("symbol") == sym:
             return False
-        for r in rows:
-            if r.get("date") == doc["date"] and r.get("status") != "superseded":
-                r.update({"status": "superseded", "superseded_at": doc["written_at"]})
+        for r in same:
+            r.update({"status": "superseded", "superseded_at": doc["written_at"]})
         _rewrite(a.shadow_record, rows)
-    dtio.append_jsonl(a.shadow_record, {"date": doc["date"], "symbol": shadow["symbol"], "rule": "atr", "atr_pct": shadow["atr_pct"],
+    dtio.append_jsonl(a.shadow_record, {"date": doc["date"], "symbol": sym, "rule": rule, "atr_pct": round(atr_pct, 3) if isinstance(atr_pct, (int, float)) else None,
                                         "logged_at": doc["created_at"], "written_at": doc["written_at"], "status": "pending", "oc_pct": None,
                                         "up": None, "dn": None, "created_by": "trader-pick"})
     return True
@@ -649,6 +673,25 @@ def _rewrite(path, rows):
         for r in rows:
             fh.write(json.dumps(r, separators=(",", ":")) + "\n")
     os.replace(tmp, path)
+
+
+def first_touch(cache_root, sym, date, pct=None):
+    """From the open, which came first in the 5-minute bars: +2 % ("up"), -2 % ("down") or "neither"; a bar that reaches
+    both counts as "down" (the conservative reading). None when the store has no bars for the session."""
+    pct = dtpick.TARGET_PCT if pct is None else pct
+    st = dtbars.load_store(sym, "bars5m", cache_root)
+    rows = ((st or {}).get("sessions") or {}).get(date)
+    if not rows:
+        return None
+    b = dtbars.bars_of(rows)
+    o = float(b[0]["o"])
+    for x in b:
+        when = clock.to_eastern(clock.utc_of(x["t"])).strftime("%H:%M") if isinstance(x.get("t"), (int, float)) else None
+        if x["l"] is not None and float(x["l"]) <= o * (1 - pct / 100.0):
+            return {"first": "down", "time": when}
+        if x["h"] is not None and float(x["h"]) >= o * (1 + pct / 100.0):
+            return {"first": "up", "time": when}
+    return {"first": "neither", "time": None}
 
 
 def grade_pending(a, quiet=False):
@@ -676,7 +719,8 @@ def grade_file(a, path):
                   "cc_pct": round((c / float(prev[4]) - 1) * 100.0, 3) if prev and prev[4] else None,
                   "hi_pct": round((h / o - 1) * 100.0, 3), "lo_pct": round((l / o - 1) * 100.0, 3),
                   "up": 1 if oc >= dtpick.TARGET_PCT else 0, "dn": 1 if oc <= -dtpick.TARGET_PCT else 0,
-                  "in_band": bool(dtpick.TARGET_PCT <= oc <= dtpick.BAND_HI_PCT), "graded_at": clock.iso(clock.utc_now())})
+                  "in_band": bool(dtpick.TARGET_PCT <= oc <= dtpick.BAND_HI_PCT), "graded_at": clock.iso(clock.utc_now()),
+                  "first_touch": first_touch(a.cache_root, r["symbol"], r["date"])})
         graded.append(r["date"])
         changed = True
     if changed:
@@ -684,8 +728,8 @@ def grade_file(a, path):
     return graded
 
 
-def live_record(a, path=None):
-    rows = [r for r in records(path or a.record) if r.get("status") != "superseded"]
+def live_record(a, path=None, rule=None):
+    rows = [r for r in records(path or a.record) if r.get("status") != "superseded" and (rule is None or (r.get("rule") or "atr") == rule)]
     g = [r for r in rows if r.get("status") == "graded"]
     n = len(g)
     up = sum(r.get("up") or 0 for r in g)
@@ -743,10 +787,8 @@ def print_pick(doc):
     print("  left out, special situations: %s" % ("; ".join("%s %s" % (x["symbol"], x["reason"]) for x in sp) if sp else "none"))
     if doc.get("behind_today"):
         print("  left out, a session behind in the store: %d (%s)" % (doc["behind_today"], ", ".join(doc.get("behind_names") or [])))
-    sh = doc.get("shadow") or {}
-    if sh.get("symbol"):
-        print("  shadow (not the pick): %s, the most volatile eligible liquid name (ATR %.1f %%); its live record: %s" % (
-            sh["symbol"], sh.get("atr_pct") or 0, (sh.get("live") or {}).get("words")))
+    for rn, sh in (doc.get("shadows") or {}).items():
+        print("  shadow %-5s (not the pick): %-6s %s; live: %s" % (rn, sh.get("symbol"), sh.get("rule"), (sh.get("live") or {}).get("words")))
     print("  the next nine:")
     if doc.get("preview"):
         print("  PREVIEW: run before the cutoff; nothing was written, logged or published")
@@ -755,6 +797,86 @@ def print_pick(doc):
         print("    %-6s ATR %.1f %%%s" % (r["symbol"], (r.get("raw") or {}).get("atr_pct") or 0,
                                       ("  pre-market %+.2f %% at %s" % (pm["vs_prev_close_pct"], pm.get("time"))) if pm.get("vs_prev_close_pct") is not None else ""))
     print("  " + doc["note"])
+
+
+# ---------------------------------------------------------------- the day so far
+def intraday_of(sym, date, now_et):
+    """The session so far for one name from Yahoo's 5-minute bars: the move from the open, the high and the low against it,
+    which of +2 % and -2 % came first (a bar that reaches both counts as -2 %), and whether the session has closed."""
+    raw = net.yahoo_get(net.chart_path(sym, "1d", "5m"))
+    doc = json.loads(raw) if isinstance(raw, str) else raw
+    ser = net.series_from_result(doc["chart"]["result"][0])
+    bars_ = []
+    for t, o, h, l, c in zip(ser["t"], ser["o"], ser["h"], ser["l"], ser["c"]):
+        if c is None or o is None or h is None or l is None:
+            continue
+        et = clock.to_eastern(clock.utc_of(t))
+        end = et + datetime.timedelta(minutes=5)
+        if et.date().isoformat() == date and "09:30" <= et.strftime("%H:%M") < "16:00" and end <= now_et.replace(tzinfo=end.tzinfo):
+            bars_.append((et, float(o), float(h), float(l), float(c)))
+    if not bars_:
+        return {"symbol": sym, "error": "no regular-session bars yet"}
+    o = bars_[0][1]
+    first, first_time = None, None
+    for et, bo, bh, bl, bc in bars_:
+        if bl <= o * (1 - dtpick.TARGET_PCT / 100.0):
+            first, first_time = "down", et.strftime("%H:%M")
+            break
+        if bh >= o * (1 + dtpick.TARGET_PCT / 100.0):
+            first, first_time = "up", et.strftime("%H:%M")
+            break
+    sess = clock.session(datetime.date.fromisoformat(date))
+    last_end = bars_[-1][0] + datetime.timedelta(minutes=5)
+    closed = bool(sess) and last_end.time() >= sess[1]
+    move = (bars_[-1][4] / o - 1) * 100.0
+    return {"symbol": sym, "open": round(o, 4), "last": round(bars_[-1][4], 4), "as_of": last_end.strftime("%H:%M"),
+            "from_open_pct": round(move, 2), "high_pct": round((max(b[2] for b in bars_) / o - 1) * 100.0, 2),
+            "low_pct": round((min(b[3] for b in bars_) / o - 1) * 100.0, 2), "first_touch": first, "first_touch_time": first_time,
+            "closed": closed, "in_band": bool(closed and dtpick.TARGET_PCT <= move <= dtpick.BAND_HI_PCT)}
+
+
+def cmd_intraday(a):
+    """Follow today's pick (and the shadows) through the session: the live jobs and the 16:20 job write the day so far onto
+    the card. It shows what happened; it changes nothing in the record, which the evening grade settles from the store."""
+    now_utc = clock.parse_now(a.now) if a.now else clock.utc_now()
+    now_et = clock.to_eastern(now_utc)
+    date = a.date or now_et.date().isoformat()
+    doc = dtio.read_json(a.out, None) or {}
+    if doc.get("date") != date or not doc.get("pick"):
+        say("No pick card for %s: nothing to follow." % date)
+        return 0
+    syms = [doc["pick"]["symbol"]] + [sh.get("symbol") for sh in (doc.get("shadows") or {}).values() if sh.get("symbol")]
+    seen, names = set(), {}
+    for sym in syms:
+        if sym in seen:
+            continue
+        seen.add(sym)
+        try:
+            names[sym] = intraday_of(sym, date, now_et)
+        except Exception as e:  # one name's quote must not stop the others
+            names[sym] = {"symbol": sym, "error": str(e)[:80]}
+        if a.pause:
+            net.SLEEP(a.pause)
+    if all(v.get("error") for v in names.values()):
+        say("Intraday: no bars could be read; the card keeps what it had.")
+        return 0
+    doc["intraday"] = {"date": date, "as_of": now_et.strftime("%H:%M"), "names": names,
+                       "note": "the session so far, from Yahoo's 5-minute bars (delayed); one morning is a count of one, and the record is "
+                               "settled by the evening grade"}
+    p = names.get(doc["pick"]["symbol"]) or {}
+    if not a.quiet:
+        if p.get("error"):
+            say("Intraday %s: %s" % (doc["pick"]["symbol"], p["error"]))
+        else:
+            say("Intraday %s as of %s ET: %+.2f %% from its open (high %+.2f %%, low %+.2f %%)%s%s." % (
+                p["symbol"], p["as_of"], p["from_open_pct"], p["high_pct"], p["low_pct"],
+                ("; %s2 %% came first, at %s" % ("+" if p["first_touch"] == "up" else "-", p["first_touch_time"])) if p.get("first_touch") else "",
+                "; the session has closed" if p.get("closed") else ""))
+    if a.write:
+        dtio.write_json(a.out, doc)
+        if a.publish:
+            publish(a, doc)
+    return 0
 
 
 # ---------------------------------------------------------------- grade, report, publish
@@ -766,7 +888,9 @@ def cmd_grade(a):
         doc = dtio.read_json(a.out, None) or {}
         doc["live"] = rec
         if isinstance(doc.get("shadow"), dict):
-            doc["shadow"]["live"] = live_record(a, a.shadow_record)
+            doc["shadow"]["live"] = live_record(a, a.shadow_record, "atr")
+        for rn, sh in (doc.get("shadows") or {}).items():
+            sh["live"] = live_record(a, a.shadow_record, rn)
         dtio.write_json(a.out, doc)
         if a.publish:
             publish(a, doc)
@@ -846,13 +970,15 @@ def main(argv=None):
     p.add_argument("--no-premarket", action="store_true"); p.add_argument("--write", action="store_true")
     p.add_argument("--replace", action="store_true", help="post this run's pick even if another was already logged today (that one is marked superseded)")
     p = sub.add_parser("grade"); common(p); p.add_argument("--write", action="store_true")
+    p = sub.add_parser("intraday"); common(p)
+    p.add_argument("--date"); p.add_argument("--now"); p.add_argument("--write", action="store_true"); p.add_argument("--pause", type=float, default=0.25)
     p = sub.add_parser("report"); common(p)
     a = ap.parse_args(argv)
     if not a.cmd:
         ap.print_help()
         return 2
     try:
-        return {"train": cmd_train, "morning": cmd_morning, "grade": cmd_grade, "report": cmd_report}[a.cmd](a)
+        return {"train": cmd_train, "morning": cmd_morning, "grade": cmd_grade, "report": cmd_report, "intraday": cmd_intraday}[a.cmd](a)
     except (Error, dtpick.PickError, dtio.IOError_, clock.ClockError) as e:
         print("pick.py: %s" % e, file=sys.stderr)
         return 1

@@ -631,10 +631,27 @@ footer .wrap { padding-top: 14px; padding-bottom: 24px; }
     html += '<p class="note">Configs tested: ' + (pk.configs_tested || Object.keys(rules).length) + " rules (" + esc((pk.rules_tested || Object.keys(rules)).join(", ")) +
       "), each pick ranked by a model fit only on earlier sessions. Intervals: Wilson for one pick a morning; for the base rate, whole mornings resampled." +
       (pk.universe_rule ? " Universe: " + esc(pk.universe_rule) + "." : "") + "</p>";
-    var sh = pk.shadow || {};
-    if (sh.symbol) {
-      html += '<p class="note"><b>Shadow, not the pick:</b> <b>' + esc(sh.symbol) + "</b>, " + esc(sh.why || "") + ". Its live record: " +
-        esc((sh.live || {}).words || "no graded day yet") + ".</p>";
+    var it = pk.intraday || {}, names = it.date === pk.date ? (it.names || {}) : {};
+    var px = pk.pick ? names[pk.pick.symbol] : null;
+    if (px && !px.error) {
+      html += '<p class="note"><b>' + (px.closed ? "Today" : "So far today, as of " + esc(px.as_of) + " ET") + ":</b> " + esc(pk.pick.symbol) + " " +
+        ocv(px.from_open_pct) + " from its open (high " + ocv(px.high_pct) + ", low " + ocv(px.low_pct) + ")" +
+        (px.first_touch ? "; " + (px.first_touch === "up" ? "+" : "-") + "2 % came first, at " + esc(px.first_touch_time) : "") + ". " + esc(it.note || "") + "</p>";
+    }
+    var shs = pk.shadows || {};
+    if (Object.keys(shs).length) {
+      html += '<div class="tbl-wrap"><table class="tbl"><thead><tr><th>shadow rule, tracked forward (never the pick)</th><th>today</th>' +
+        '<th class="num">from the open</th><th>live record</th></tr></thead><tbody>' +
+        Object.keys(shs).map(function (k) {
+          var s = shs[k] || {}, x = names[s.symbol] || {};
+          return "<tr><td>" + esc(k) + ": " + esc(s.rule || "") + "</td><td><b>" + esc(s.symbol || "") + '</b></td><td class="num">' +
+            (isNum(x.from_open_pct) ? ocv(x.from_open_pct) + (x.closed ? " (closed)" : " (" + esc(x.as_of || "") + ")") : "n/a") + "</td><td>" +
+            esc((s.live || {}).words || "no graded day yet") + "</td></tr>";
+        }).join("") + "</tbody></table></div>";
+      if ((pk.shadow || {}).why) { html += '<p class="note">Why the volatility shadow: ' + esc(pk.shadow.why) + ".</p>"; }
+    } else if ((pk.shadow || {}).symbol) {
+      html += '<p class="note"><b>Shadow, not the pick:</b> <b>' + esc(pk.shadow.symbol) + "</b>, " + esc(pk.shadow.why || "") + ". Its live record: " +
+        esc(((pk.shadow || {}).live || {}).words || "no graded day yet") + ".</p>";
     }
     var live = pk.live || {};
     html += '<p class="note"><b>Live record:</b> ' + esc(live.words || "no graded pick yet") + (live.small_sample ? " (a small sample)" : "") + ".</p>";

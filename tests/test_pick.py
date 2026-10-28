@@ -676,17 +676,61 @@ class CliMore(unittest.TestCase):
         doc = dtio.read_json(os.path.join("trader", "pick.json"))
         self.assertEqual((doc["live"]["graded"], doc["shadow"]["live"]["graded"]), (1, 1))
 
-    def test_the_shadow_is_logged_and_graded_but_never_the_pick(self):
+    def test_the_shadows_are_logged_and_graded_by_rule_but_never_the_pick(self):
         code, out, err = self.morning("--write")
         self.assertEqual(code, 0, err)
         doc = dtio.read_json(os.path.join("trader", "pick.json"))
         sh = doc["shadow"]
         self.assertTrue(sh["symbol"])
         self.assertIn("not the pick", sh["why"])
+        self.assertTrue({"atr", "net", "ret"} <= set(doc["shadows"]))           # the live rule is up: the other two are shadows
+        self.assertNotIn("up", doc["shadows"])
+        self.assertEqual(doc["shadows"]["atr"]["symbol"], sh["symbol"])
         rec = records(os.path.join("trader", "pick", "shadow.jsonl"))
-        self.assertEqual([(r["symbol"], r["status"]) for r in rec], [(sh["symbol"], "pending")])
+        self.assertEqual(sorted(r["rule"] for r in rec), sorted(doc["shadows"]))   # one row a rule
+        self.assertTrue(all(r["status"] == "pending" for r in rec))
+        self.morning("--write")                                                   # a re-run logs no shadow twice
+        self.assertEqual(len(records(os.path.join("trader", "pick", "shadow.jsonl"))), len(rec))
         run(["grade", "--write"])
-        self.assertEqual(records(os.path.join("trader", "pick", "shadow.jsonl"))[0]["status"], "graded")
+        rec = records(os.path.join("trader", "pick", "shadow.jsonl"))
+        self.assertTrue(all(r["status"] == "graded" for r in rec))
+        doc = dtio.read_json(os.path.join("trader", "pick.json"))
+        for rn, s_ in doc["shadows"].items():
+            self.assertEqual(s_["live"]["graded"], 1, rn)
+        pick_rec = records(os.path.join("trader", "pick", "record.jsonl"))[0]
+        self.assertIn(pick_rec["first_touch"]["first"], ("up", "down", "neither"))   # the fixture holds 5-minute bars for the day
+
+    def test_intraday_follows_the_pick_through_the_session(self):
+        from dt import clock
+        import datetime as _dt
+        code, out, err = self.morning("--write")
+        doc = dtio.read_json(os.path.join("trader", "pick.json"))
+        sym = doc["pick"]["symbol"]
+
+        def ts(hhmm):
+            h, m = map(int, hhmm.split(":"))
+            return clock.ts_of(clock.eastern_to_utc(_dt.datetime(2026, 10, 23, h, m)))
+        stamps = [ts("%02d:%02d" % divmod(570 + 5 * k, 60)) for k in range(78)]        # 09:30 to 15:55
+        closes = [100.0 - (3.0 if k == 0 else 0.0) + 0.05 * k for k in range(78)]
+        chart = {"chart": {"result": [{"meta": {}, "timestamp": stamps, "indicators": {"quote": [{
+            "open": [100.0] + closes[:-1], "high": [c + 0.2 for c in closes], "low": [97.5] + [c - 0.2 for c in closes[1:]], "close": closes}]}}]}}
+        orig_get, orig_sleep = cli.net.yahoo_get, cli.net.SLEEP
+        cli.net.yahoo_get = lambda path: chart
+        cli.net.SLEEP = lambda s_: None
+        try:
+            code, out, err = run(["intraday", "--date", "2026-10-23", "--now", "2026-10-23 10:31", "--write"])
+            mid = dtio.read_json(os.path.join("trader", "pick.json"))["intraday"]["names"][sym]
+            code2, out2, err2 = run(["intraday", "--date", "2026-10-23", "--now", "2026-10-23 16:30", "--write"])
+            end = dtio.read_json(os.path.join("trader", "pick.json"))["intraday"]["names"][sym]
+        finally:
+            cli.net.yahoo_get, cli.net.SLEEP = orig_get, orig_sleep
+        self.assertEqual((code, code2), (0, 0), err + err2)
+        self.assertEqual((mid["as_of"], mid["closed"], mid["first_touch"], mid["first_touch_time"]), ("10:30", False, "down", "09:30"))
+        self.assertTrue(end["closed"])
+        self.assertAlmostEqual(end["from_open_pct"], closes[-1] - 100.0, 2)
+        self.assertIn("count of one", dtio.read_json(os.path.join("trader", "pick.json"))["intraday"]["note"])
+        code, out, err = run(["intraday", "--date", "2026-10-26", "--now", "2026-10-26 10:31"])   # no card for that day
+        self.assertIn("nothing to follow", out)
 
     def test_the_published_placeholder_carries_the_record(self):
         code, out, err = run(["grade", "--write", "--publish"])
@@ -772,6 +816,7 @@ class Wrapper(unittest.TestCase):
         for must in ("another run took the lock a moment ago", "the New York clock could not be read", "'redo' if d.get('failed')",
                      "--refresh-last 10", "the lock build failed"):
             self.assertIn(must, text, must)
+        self.assertEqual(text.count("trader-pick/pick.py intraday --write --publish"), 2)      # the live jobs and the 16:20 job
 
     def test_the_front_page_keeps_one_interval_helper_of_each_kind(self):
         with open(os.path.join(ROOT, "site", "index.html"), encoding="utf-8") as fh:
@@ -779,6 +824,8 @@ class Wrapper(unittest.TestCase):
         self.assertEqual(html.count("function ci("), 1)                   # the board's R interval
         self.assertEqual(html.count("function pci("), 1)                  # the pick's rate interval
         self.assertNotIn("Most likely", html)
+        for must in ("So far today", "Today:</b>", "count of one"):
+            self.assertIn(must, html, must)
 
 
 if __name__ == "__main__":

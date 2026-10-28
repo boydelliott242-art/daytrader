@@ -287,6 +287,20 @@
     return parts.length ? '<p class="small"><b>Left out this morning:</b> ' + parts.join("; ") + ". Their day is news the history does not describe.</p>" : "";
   }
 
+  function sgn(x) { return (typeof x === "number" && isFinite(x)) ? (x >= 0 ? "+" : "") + x.toFixed(2) : "n/a"; }
+
+  function todayLine(pk) {
+    var it = pk.intraday || {}, x = ((it.names || {})[pk.pick.symbol]) || null;
+    if (!x || x.error || it.date !== pk.date) { return ""; }
+    var path = "high " + sgn(x.high_pct) + " %, low " + sgn(x.low_pct) + " % against its open" +
+      (x.first_touch ? "; " + (x.first_touch === "up" ? "+" : "-") + "2 % came first, at " + esc(x.first_touch_time) : "");
+    if (x.closed) {
+      return '<p class="plain"><b>Today:</b> ' + esc(pk.pick.symbol) + " closed " + sgn(x.from_open_pct) + " % from its open (" + path + ")" +
+        (x.in_band ? ", inside the 2 to 5 % band" : "") + ". One morning is a count of one; the record below is what the odds rest on.</p>";
+    }
+    return '<p class="plain"><b>So far today</b> (as of ' + esc(x.as_of) + " ET): " + sgn(x.from_open_pct) + " % from its open (" + path + ").</p>";
+  }
+
   function notes(pk) {
     var n = [];
     if (pk.store_stale) { n.push("the price store ends " + esc(pk.store_through) + ", not the previous session"); }
@@ -331,7 +345,7 @@
       (pk.direction_kind === "down" ? "They closed 2 % down more often than 2 % up." : "Up or down, the record cannot tell.");
     var html = '<div class="kicker">the 8:25 pick, ' + esc(pk.date) + ', data as of ' + esc(pk.cutoff) + ' ET</div>' +
       "<h1>" + esc(p.symbol) + "</h1>" +
-      '<p class="verdict ' + (up ? "ok" : "warn") + '">' + verdict + "</p>" +
+      '<p class="verdict ' + (up ? "ok" : "warn") + '">' + verdict + "</p>" + todayLine(pk) +
       '<div class="card"><div class="row">' +
       '<div class="stat"><div class="k">past picks closed 2 % up</div><div class="v">' + pct(rec.up_rate) + '</div><div class="s">' + pci(rec.up_ci).trim() +
         " · any large cap " + pctci(base, "up") + "</div></div>" +

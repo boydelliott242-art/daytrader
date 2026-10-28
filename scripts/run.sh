@@ -127,6 +127,8 @@ case "$job" in
     $py trader-regime/regime.py live --write --publish >> "$log" 2>&1
     $py trader-desk/desk.py live --write --publish >> "$log" 2>&1
     $py trader-agents/agents.py rank --at "$ny_hhmm" --write --publish --quiet >> "$log" 2>&1
+    # the day so far for the 8:25 pick and its shadows (shown on the card; the record is settled by the evening grade)
+    $py trader-pick/pick.py intraday --write --publish --quiet >> "$log" 2>&1
     n=$($py -c "import json; d=json.load(open('trader/desk.json')); print(len([c for c in d.get('candidates',[]) if 'late' not in c.get('flags',[])]))" 2>/dev/null || echo 0)
     /usr/bin/osascript -e "display notification \"$n fresh candidates on the board at $ny_hhmm ET (nothing placed)\" with title \"DAYTRADER desk\"" 2>/dev/null
     publish_docs ;;
@@ -135,6 +137,7 @@ case "$job" in
     inwin 16:04 23:59 || { echo "outside 16:05-24:00" >> "$log"; exit 0; }
     $py trader-desk/desk.py grade >> "$log" 2>&1
     $py trader-scorecard/scorecard.py report --publish >> "$log" 2>&1
+    $py trader-pick/pick.py intraday --write --publish --quiet >> "$log" 2>&1
     publish_docs ;;
   lab)
     $py trader-lab/lab.py run --publish >> "$log" 2>&1
