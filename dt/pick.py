@@ -660,7 +660,11 @@ def seg_stats(recs):
     tu = sum(1 for r in recs if r["hi"] is not None and r["hi"] >= TARGET_PCT)
     td = sum(1 for r in recs if r["lo"] is not None and r["lo"] <= -TARGET_PCT)
     mornings = len(set(r["date"] for r in recs))
-    if mornings < n:
+    if mornings < 2 and n > 1:                      # one morning cannot be resampled: no interval rather than a false one
+        cis = [(None, None)] * 7
+        method = "one morning: no interval"
+        mlo, mhi = None, None
+    elif mornings < n:
         cis = _cluster_cis(recs)
         method = "mornings resampled (%d)" % mornings
         mlo, mhi = cis[5]

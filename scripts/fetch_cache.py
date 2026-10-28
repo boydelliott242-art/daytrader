@@ -107,6 +107,11 @@ def main(argv=None):
                 print("  the screener failed (%s); keeping the list on disk and refreshing it" % str(e)[:120], flush=True)
                 if not os.path.exists(a.symbols_file):
                     raise
+            old_n = len((io.read_json("trader/largecap.json", None) or {}).get("symbols") or []) if os.path.exists("trader/largecap.json") else 0
+            if doc is not None and old_n and doc["count"] < 0.8 * old_n:
+                # a screener answer that lost a fifth of the list is a broken answer, not a market: keep the list on disk
+                print("  the screener kept %d names against %d on disk; keeping the list on disk" % (doc["count"], old_n), flush=True)
+                doc = None
             if doc is not None:
                 universe.write_largecap(doc)
                 print("  %d symbols; wrote trader/largecap.json and trader/largecap.txt" % doc["count"], flush=True)

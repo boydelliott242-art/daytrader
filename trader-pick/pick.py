@@ -231,7 +231,7 @@ def cmd_train(a):
     if uni["departed"]:
         say("Names that have left the list but count while they were large caps: %s." % ", ".join(uni["departed"]))
     print_record(wf, model)
-    say("The card's claim for rule %s: %s." % (a.rule, "likely to close 2 % ABOVE its open" if model["claim"] == "up" else "likely to MOVE 2 % (direction not proven)"))
+    say("The card's claim for rule %s: %s." % (a.rule, "more likely to close 2 % ABOVE its open than below it" if model["claim"] == "up" else "likely to MOVE 2 % (direction not proven)"))
     if a.publish:
         publish(a, None)
     return 0
@@ -288,7 +288,10 @@ def premarket_quotes(symbols, date, cutoff_et, pause=0.25, say_=None):
 
 
 def _calendar(a, date):
-    doc = dtio.read_json(os.path.join(a.cache_root, "earnings", date + ".json"), None)
+    try:
+        doc = dtio.read_json(os.path.join(a.cache_root, "earnings", date + ".json"), None)
+    except dtio.IOError_:                          # a broken file is no file: the source words say what stood in
+        return None
     return doc if isinstance(doc, dict) and isinstance(doc.get("rows"), list) else None
 
 
@@ -344,7 +347,29 @@ def reasons_of(raw, market):
 
 
 def records(path):
-    return [r for r in dtio.read_jsonl(path) if isinstance(r, dict)] if os.path.exists(path) else []
+    """The rows of a JSONL record. A line that does not parse is skipped with a warning: one bad line must not stop every
+    morning (or the failure card) from here on."""
+    out = []
+    if not path or not os.path.exists(path):
+        return out
+    with open(path, encoding="utf-8") as fh:
+        for k, ln in enumerate(fh, 1):
+            ln = ln.strip()
+            if not ln:
+                continue
+            try:
+                r = json.loads(ln)
+            except ValueError:
+                print("pick.py: skipped line %d of %s: not valid JSON" % (k, path), file=sys.stderr)
+                continue
+            if isinstance(r, dict):
+                out.append(r)
+    return out
+
+
+def logged_shadow(a, date):
+    rows = [r for r in records(a.shadow_record) if r.get("date") == date and r.get("status") != "superseded"]
+    return rows[-1] if rows else None
 
 
 def logged_row(a, date):
@@ -368,6 +393,9 @@ def fail_card(a, e):
     try:
         now_utc = clock.parse_now(a.now) if a.now else clock.utc_now()
         date = a.date or clock.to_eastern(now_utc).date().isoformat()
+        if logged_row(a, date):
+            print("pick.py: the morning failed, but %s's pick is already logged; its card stays up" % date, file=sys.stderr)
+            return
         model = dtio.read_json(a.model, None) or {}
         rule = a.rule or model.get("rule") or dtpick.DEFAULT_RULE
         doc = record_fields(model, rule) if model.get("walk_forward") else {"rule": rule}
@@ -392,6 +420,13 @@ def morning(a):
     cutoff = clock.parse_hhmm(a.at, "--at")
     rule = a.rule or model.get("rule") or dtpick.DEFAULT_RULE
     spec = model["spec"]
+    real_now = clock.utc_now() if not a.now else now_utc
+    real_et = clock.to_eastern(real_now)
+    real_day = real_et.date().isoformat()
+    # a run before its own cutoff (or for a later date) is a preview: shown, never logged or published, so a manual run at
+    # 07:30 cannot stand in for the 08:08 job's pick
+    early = real_day < date or (real_day == date and real_et.time() < cutoff)
+    closed = not clock.trading_day(datetime.date.fromisoformat(date))[0]
     syms = universe(a)
     spy = dtbars.daily_rows("SPY", a.cache_root)
     vix = dtbars.daily_rows("^VIX", a.cache_root)
@@ -412,7 +447,7 @@ def morning(a):
     market = dtpick.market_for_today(spy, date, vix, nq_gap)
     if market is None:
         raise Error("not enough SPY history before %s" % date)
-    graded = grade_pending(a, quiet=True)
+    graded = grade_pending(a, quiet=True) if a.write and not early else []
     excl_earn = model.get("exclude_earnings", True)
     reporting, rep_source = reporting_today(a, date) if excl_earn else (set(), "kept: the model was trained with --keep-earnings")
     reacting, react_source = reacting_today(a, date) if excl_earn else (set(), "kept: the model was trained with --keep-earnings")
@@ -449,9 +484,14 @@ def morning(a):
     exclude = set(reporting) | reacting | set(special) | set(s.strip().upper() for s in (a.exclude.split(",") if a.exclude else []) if s.strip())
     pick, ranked = dtpick.rank(model, cands, rule, min_adv, floor_x, exclude)
     reason = None
-    if store_stale:
-        reason = ("the price store ends %s, not the previous session %s, and %d of %d names are a session behind (the 17:30 refresh did "
-                  "not finish), so the history would describe the wrong morning" % (last_row, prev, len(behind), with_rows))
+    if closed:
+        reason = "the market is closed on %s" % date
+    elif store_stale and last_row != prev:
+        reason = ("the price store ends %s, not the previous session %s (the 17:30 refresh did not run), so the history would "
+                  "describe the wrong morning" % (last_row, prev))
+    elif store_stale:
+        reason = ("%d of %d names are a session behind in the price store (the 17:30 refresh did not finish), so the history would "
+                  "describe the wrong morning" % (len(behind), with_rows))
     elif half_day:
         reason = "a 1:00 p.m. close today; the record holds full sessions only"
     if reason:
@@ -479,14 +519,26 @@ def morning(a):
         if pool:
             s_sym = max(pool, key=lambda c: (raws[c[0]]["atr_pct"], c[0]))[0]
             shadow = {"symbol": s_sym, "atr_pct": round(raws[s_sym]["atr_pct"], 3), "rule": "the highest-ATR eligible liquid name"}
-    top = ranked[:a.top]
+    ls = logged_shadow(a, date)
+    if ls and not a.replace:
+        shadow = {"symbol": ls["symbol"], "atr_pct": ls.get("atr_pct"), "rule": "the highest-ATR eligible liquid name"}
+    # the names after the pick, in the model's order (a kept pick is not ranked first, and never listed twice)
+    top = [r for r in ranked if not pick or r["symbol"] != pick["symbol"]][:a.top]
     quote_syms = ([pick["symbol"]] if pick else []) + [r["symbol"] for r in top if not pick or r["symbol"] != pick["symbol"]]
     quotes = {}
     if not a.no_premarket and quote_syms:
         quotes = premarket_quotes(quote_syms, date, cutoff, a.pause, None if a.quiet else (lambda m: print(m, file=sys.stderr)))
-    real_now = clock.utc_now() if not a.now else now_utc
-    real_et = clock.to_eastern(real_now)
-    late = real_et.date().isoformat() > date or (real_et.date().isoformat() == date and real_et.time() > LATE)
+    late = (real_day > date or (real_day == date and real_et.time() > LATE)) and not logged
+    wf = model.get("walk_forward") or {}
+    t_rec = (wf.get("baseline_highest_atr") or {})
+    p_rec = (((wf.get("rules") or {}).get(rule) or {}).get("pick") or {})
+    if (t_rec.get("h1") or {}).get("n") and (p_rec.get("h1") or {}).get("n"):
+        shadow_why = ("the most volatile eligible liquid name, tracked forward: in the record it touched +2 %% on %s and %s of mornings "
+                      "in the two halves against the pick's %s and %s, and the rule research of 2026-10-27 found the second half's margin "
+                      "inside the noise; not the pick" % (_pct(t_rec["h1"].get("touch_up_rate"), 0), _pct(t_rec["h2"].get("touch_up_rate"), 0),
+                                                          _pct(p_rec["h1"].get("touch_up_rate"), 0), _pct(p_rec["h2"].get("touch_up_rate"), 0)))
+    else:
+        shadow_why = "the most volatile eligible liquid name, tracked forward; not the pick"
 
     def card(r):
         same = [x for x in ranked if x["p_up"] == r.get("p_up") and x["p_dn"] == r.get("p_dn")]
@@ -507,19 +559,22 @@ def morning(a):
                 "pick": card(pick) if pick else None, "no_pick": pick is None, "kept_note": kept, "late": bool(late and pick),
                 "ranked": [card(r) for r in top], "next_session": intel_flags.next_trading_day(date).isoformat(),
                 "live": live_record(a), "graded_now": graded,
-                "shadow": dict(shadow or {}, live=live_record(a, a.shadow_record),
-                               why=("the most volatile eligible liquid name, tracked forward because it touched +2 % more often than the "
-                                    "pick in both halves of the record, inside the noise in the second; not the pick")),
+                "shadow": dict(shadow or {}, live=live_record(a, a.shadow_record), why=shadow_why), "preview": early,
                 "premarket_note": "pre-market prices are Yahoo's, delayed and thin; they are shown, not scored: the model saw none of them in its history",
                 "odds_note": ("the record's odds for the pick; the model's own top-bin rates are in-sample and shared by every name in that bin, so "
                               "they are not this name's odds"),
                 "no_pick_words": no_pick_words(model, rule, floor_x, reason), "note": WORDS})
-    if a.write:
+    if a.write and early:
+        print("pick.py: a preview (the run is before %s ET on %s): nothing written, logged or published; the 08:08 job posts the pick" % (
+            a.at, date), file=sys.stderr)
+    elif a.write:
         dtio.write_json(a.out, doc)
         if pick and not doc["late"]:
             log_pick(a, doc)
             if shadow:
                 log_shadow(a, doc, shadow)
+        elif not pick and logged and a.replace:
+            supersede_day(a, date, None, doc["written_at"])
         doc["live"] = live_record(a)
         doc["shadow"]["live"] = live_record(a, a.shadow_record)
         dtio.write_json(a.out, doc)
@@ -551,6 +606,19 @@ def log_pick(a, doc):
                              "futures_at": doc["futures_at"], "premarket": p.get("premarket"), "status": "pending", "oc_pct": None,
                              "cc_pct": None, "up": None, "dn": None, "created_by": "trader-pick"})
     return True
+
+
+def supersede_day(a, date, by, when):
+    """--replace that ends in NO PICK: the day's logged pick is marked superseded, never graded, never counted."""
+    rows = records(a.record)
+    hit = False
+    for r in rows:
+        if r.get("date") == date and r.get("status") != "superseded":
+            r.update({"status": "superseded", "superseded_by": by, "superseded_at": when})
+            hit = True
+    if hit:
+        _rewrite(a.record, rows)
+    return hit
 
 
 def log_shadow(a, doc, shadow):
@@ -642,7 +710,7 @@ def print_pick(doc):
     if not p:
         print("  NO PICK: " + doc["no_pick_words"])
     else:
-        what = "likely to close 2 % or more ABOVE its open" if doc["claim"] == "up" else "likely to MOVE 2 % or more from its open"
+        what = "more likely to close 2 % or more ABOVE its open than below it" if doc["claim"] == "up" else "likely to MOVE 2 % or more from its open"
         print("  %s: %s.%s" % (p["symbol"], what, "  (" + doc["kept_note"] + ")" if doc.get("kept_note") else ""))
         if o.get("n"):
             print("  its odds are the record of past picks (%d mornings): closed 2 %% up %s%s, 2 %% down %s%s; any large cap %s%s and %s%s; "
@@ -674,7 +742,9 @@ def print_pick(doc):
         print("  shadow (not the pick): %s, the most volatile eligible liquid name (ATR %.1f %%); its live record: %s" % (
             sh["symbol"], sh.get("atr_pct") or 0, (sh.get("live") or {}).get("words")))
     print("  the next nine:")
-    for r in (doc.get("ranked") or [])[1:10]:
+    if doc.get("preview"):
+        print("  PREVIEW: run before the cutoff; nothing was written, logged or published")
+    for r in [x for x in (doc.get("ranked") or []) if not p or x["symbol"] != p["symbol"]][:9]:
         pm = r.get("premarket") or {}
         print("    %-6s ATR %.1f %%%s" % (r["symbol"], (r.get("raw") or {}).get("atr_pct") or 0,
                                       ("  pre-market %+.2f %% at %s" % (pm["vs_prev_close_pct"], pm.get("time"))) if pm.get("vs_prev_close_pct") is not None else ""))
@@ -689,6 +759,8 @@ def cmd_grade(a):
     if a.write and os.path.exists(a.out):
         doc = dtio.read_json(a.out, None) or {}
         doc["live"] = rec
+        if isinstance(doc.get("shadow"), dict):
+            doc["shadow"]["live"] = live_record(a, a.shadow_record)
         dtio.write_json(a.out, doc)
         if a.publish:
             publish(a, doc)
@@ -723,7 +795,10 @@ def publish(a, today_doc):
         model = dtio.read_json(a.model, None) or {}
         rule = model.get("rule") or dtpick.DEFAULT_RULE
         doc = record_fields(model, rule) if model.get("walk_forward") else {"rule": rule}
-        doc.update({"created_by": "trader-pick", "date": None, "no_pick": True, "pick": None, "live": live_record(a), "note": WORDS})
+        today = clock.to_eastern(clock.utc_now()).date()
+        nxt = today if clock.trading_day(today)[0] else intel_flags.next_trading_day(today)
+        doc.update({"created_by": "trader-pick", "date": None, "no_pick": True, "pick": None, "live": live_record(a),
+                    "next_session": nxt.isoformat(), "note": WORDS})
     os.makedirs(a.publish_dir, exist_ok=True)
     dtio.write_json(os.path.join(a.publish_dir, "pick.json"), doc)
     say("Published %s." % os.path.join(a.publish_dir, "pick.json"))

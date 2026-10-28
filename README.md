@@ -129,8 +129,9 @@ or more above its open. It is sealed into the site and on the front page in big 
 On the last 40 picks with 5-minute bars, +2 % came first 20 times and -2 % first 19 times (once neither). So the pick
 finds a stock likely to **move** 2 % (about three times the base rate), the direction is not predictable from what is
 known at 8:05, and simply taking the most volatile liquid name does about as well. The card says exactly that: "likely to
-MOVE 2 %", with the record's odds both ways, until a rule's pick closes up more often than down with separated intervals in
-both halves. Then, and only then, it would say "likely to close 2 % ABOVE its open". It never says "most likely".
+MOVE 2 %" (the move rate's interval sits above one half), with the record's odds both ways, until a rule's pick closes up
+more often than down with separated intervals in both halves. Then, and only then, it would say "more likely to close 2 %
+ABOVE its open than below it". It never says "most likely".
 
 **The hunt for direction (2026-10-27).** Ten agents in parallel each tested one family of directional evidence through
 the same harness (`scripts/pick_research.py`: every variant chosen on the first half, judged on the second, an automatic

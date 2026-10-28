@@ -246,10 +246,10 @@
   }
   function etToday() { return etNow().date; }
 
-  function ci(c) {
+  function pci(c) {   // a rate's interval in points (the board's ci() prints R)
     return (c && typeof c[0] === "number" && typeof c[1] === "number") ? " [" + Math.round(100 * c[0]) + ", " + Math.round(100 * c[1]) + "]" : "";
   }
-  function pctci(st, k) { return st && typeof st[k + "_rate"] === "number" ? pct(st[k + "_rate"]) + ci(st[k + "_ci"]) : "n/a"; }
+  function pctci(st, k) { return st && typeof st[k + "_rate"] === "number" ? pct(st[k + "_rate"]) + pci(st[k + "_ci"]) : "n/a"; }
 
   function pickRecord(pk) {
     var oos = pk.oos || {};
@@ -281,6 +281,9 @@
       parts.push("special situations: " + sp.map(function (x) { return esc(x.symbol) + " (" + esc(x.reason) + ")"; }).join(", "));
     }
     if (pk.behind_today) { parts.push(pk.behind_today + " a session behind in the price store"); }
+    if (pk.reporting_source && String(pk.reporting_source).indexOf("Nasdaq calendar for") !== 0) {
+      parts.push("the earnings calendar: " + esc(pk.reporting_source));
+    }
     return parts.length ? '<p class="small"><b>Left out this morning:</b> ' + parts.join("; ") + ". Their day is news the history does not describe.</p>" : "";
   }
 
@@ -293,21 +296,18 @@
 
   function renderPick(pk) {
     var now = etNow(), today = now.date;
+    function waiting(next) {
+      if (next && today < next) { return ["Closed today.", "The market is closed today. The next pick posts at about 8:15 ET on " + esc(next) + "."]; }
+      if (now.minutes < 8 * 60 + 25) { return ["Not yet.", "Today's pick posts at about 8:15 ET, from what is known by 8:05."]; }
+      if (now.minutes < 9 * 60 + 25) { return ["Not posted yet.", "The morning job has not posted today's pick; it can until 9:25 ET."]; }
+      return ["No pick today.", "The morning job did not post a pick today, and nothing posts after 9:25 ET."];
+    }
     if (!pk || !pk.date) {
-      return '<div class="kicker">the 8:25 pick</div><h1>Not yet.</h1><p class="verdict">The pick posts at about 8:15 ET on trading days, from what is known by 8:05.</p>';
+      var w0 = waiting((pk || {}).next_session || "");
+      return '<div class="kicker">the 8:25 pick</div><h1>' + w0[0] + '</h1><p class="verdict">' + w0[1] + "</p>";
     }
     if (pk.date !== today) {
-      var head, words, next = pk.next_session || "";
-      if (next && today < next) {
-        head = "Closed today.";
-        words = "The market is closed today. The next pick posts at about 8:15 ET on " + esc(next) + ".";
-      } else if (now.minutes < 8 * 60 + 25) {
-        head = "Not yet.";
-        words = "Today's pick posts at about 8:15 ET.";
-      } else {
-        head = "No pick today.";
-        words = "The morning job did not post a pick today, and nothing posts after 9:25 ET.";
-      }
+      var w = waiting(pk.next_session || ""), head = w[0], words = w[1];
       var last = ((pk.live || {}).last || []).slice(-1)[0];
       var same = pk.pick && last && last.date === pk.date && last.symbol === pk.pick.symbol && last.status === "graded";
       return '<div class="kicker">the 8:25 pick</div><h1>' + head + '</h1><p class="verdict">' + words + "</p>" +
@@ -324,16 +324,18 @@
     var up = pk.claim === "up";
     var oos = pk.oos || {};
     var rec = (oos.pick || {}).all || {}, base = (oos.base || {}).all || {};
-    var verdict = up ? "Likely to close 2 % or more ABOVE its open today." :
-      "Likely to MOVE 2 % or more from its open today: past picks did on " + pctci(rec, "move") + " of mornings. " +
+    var likely = rec.move_ci && typeof rec.move_ci[0] === "number" && rec.move_ci[0] > 0.5;
+    var verdict = up ? "More likely to close 2 % or more ABOVE its open than below it: past picks did on " + pctci(rec, "up") + " of mornings, below on " + pctci(rec, "dn") + "." :
+      (likely ? "Likely to MOVE 2 % or more from its open today: past picks did on " : "It may MOVE 2 % or more from its open today: past picks did on ") +
+      pctci(rec, "move") + " of mornings. " +
       (pk.direction_kind === "down" ? "They closed 2 % down more often than 2 % up." : "Up or down, the record cannot tell.");
     var html = '<div class="kicker">the 8:25 pick, ' + esc(pk.date) + ', data as of ' + esc(pk.cutoff) + ' ET</div>' +
       "<h1>" + esc(p.symbol) + "</h1>" +
       '<p class="verdict ' + (up ? "ok" : "warn") + '">' + verdict + "</p>" +
       '<div class="card"><div class="row">' +
-      '<div class="stat"><div class="k">past picks closed 2 % up</div><div class="v">' + pct(rec.up_rate) + '</div><div class="s">' + ci(rec.up_ci).trim() +
+      '<div class="stat"><div class="k">past picks closed 2 % up</div><div class="v">' + pct(rec.up_rate) + '</div><div class="s">' + pci(rec.up_ci).trim() +
         " · any large cap " + pctci(base, "up") + "</div></div>" +
-      '<div class="stat"><div class="k">and closed 2 % down</div><div class="v">' + pct(rec.dn_rate) + '</div><div class="s">' + ci(rec.dn_ci).trim() +
+      '<div class="stat"><div class="k">and closed 2 % down</div><div class="v">' + pct(rec.dn_rate) + '</div><div class="s">' + pci(rec.dn_ci).trim() +
         " · any large cap " + pctci(base, "dn") + "</div></div>" +
       '<div class="stat"><div class="k">pre-market' + (pm.time ? " at " + esc(pm.time) : "") + '</div><div class="v">' +
         (typeof pm.vs_prev_close_pct === "number" ? (pm.vs_prev_close_pct >= 0 ? "+" : "") + num(pm.vs_prev_close_pct, 2) + " %" : "n/a") +
@@ -345,7 +347,7 @@
       '<p class="plain"><b>Direction:</b> ' + esc(pk.direction || "") + ".</p>" +
       '<p class="plain"><b>The record:</b> ' + pickRecord(pk) + "</p>" + leftOut(pk) + notes(pk) +
       '<p class="small">The odds are counts over past mornings, refit as they go: a pick is not a prediction and not a buy. A 2 % day that happens one time in three does not happen two times in three.</p></div>';
-    var rest = (pk.ranked || []).slice(1, 6);
+    var rest = (pk.ranked || []).filter(function (r) { return r.symbol !== p.symbol; }).slice(0, 5);
     if (rest.length) {
       html += '<div class="card"><div class="kicker" style="margin-top:0">the next five, in the model\'s order</div><div class="others">' + rest.map(function (r) {
         var a = (r.raw || {}).atr_pct;

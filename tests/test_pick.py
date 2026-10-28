@@ -474,6 +474,8 @@ class Intervals(unittest.TestCase):
         self.assertGreater(st["up_ci"][1] - st["up_ci"][0], 3 * (whi - wlo))   # far wider than the name-by-name interval
         one = pick.seg_stats(recs[::30])
         self.assertEqual(one["ci"], "wilson")
+        single = pick.seg_stats([r for r in recs if r["date"] == recs[0]["date"]])
+        self.assertEqual((single["ci"], single["up_ci"]), ("one morning: no interval", [None, None]))
         for k in ("band", "touch_up", "touch_dn"):
             self.assertIn(k + "_ci", one)
 
@@ -605,6 +607,75 @@ class CliMore(unittest.TestCase):
         self.assertTrue(doc["store_stale"] and doc["no_pick"])
         self.assertIn("session behind", doc["no_pick_words"])
 
+    def test_a_run_before_the_cutoff_is_a_preview_that_writes_nothing(self):
+        code, out, err = run(["morning", "--date", "2026-10-23", "--no-premarket", "--now", "2026-10-23 07:30", "--write", "--publish"])
+        self.assertEqual(code, 0, err)
+        self.assertIn("preview", err)
+        self.assertIn("PREVIEW", out)
+        for path in (os.path.join("trader", "pick.json"), os.path.join("trader", "publish", "pick.json"), os.path.join("trader", "pick", "record.jsonl")):
+            self.assertFalse(os.path.exists(path), path)
+
+    def test_a_rerun_after_925_keeps_the_logged_pick_and_is_not_late(self):
+        code, out, err = self.morning("--write")
+        first = dtio.read_json(os.path.join("trader", "pick.json"))["pick"]["symbol"]
+        code, out, err = run(["morning", "--date", "2026-10-23", "--no-premarket", "--now", "2026-10-23 10:05", "--write", "--exclude", first])
+        self.assertEqual(code, 0, err)
+        doc = dtio.read_json(os.path.join("trader", "pick.json"))
+        self.assertEqual((doc["pick"]["symbol"], doc["late"]), (first, False))
+        rec = records(os.path.join("trader", "pick", "record.jsonl"))          # the fixture holds the session, so it may be graded already
+        self.assertEqual([(r["symbol"], r["status"] in ("pending", "graded")) for r in rec], [(first, True)])
+
+    def test_replace_that_ends_in_no_pick_supersedes_the_days_pick(self):
+        code, out, err = self.morning("--write")
+        code, out, err = self.morning("--write", "--replace", "--floor-x", "100")
+        self.assertEqual(code, 0, err)
+        doc = dtio.read_json(os.path.join("trader", "pick.json"))
+        self.assertTrue(doc["no_pick"])
+        self.assertEqual([r["status"] for r in records(os.path.join("trader", "pick", "record.jsonl"))], ["superseded"])
+
+    def test_a_closed_day_posts_no_pick(self):
+        code, out, err = run(["morning", "--date", "2026-10-24", "--no-premarket", "--now", "2026-10-24 08:06", "--json"])
+        self.assertEqual(code, 0, err)
+        doc = json.loads(out)
+        self.assertTrue(doc["no_pick"])
+        self.assertIn("closed", doc["no_pick_words"])
+
+    def test_a_bad_record_line_and_a_broken_calendar_do_not_stop_the_morning(self):
+        os.makedirs(os.path.join("trader", "pick"), exist_ok=True)
+        write(os.path.join("trader", "pick", "record.jsonl"), '{"date": "2026-10-20", "symbol": "X", "status": "graded", "up": 1, "dn": 0, "oc_pct": 2.5}\n{not json\n')
+        write(os.path.join("trader", "cache", "earnings", "2026-10-23.json"), "{")
+        code, out, err = self.morning("--write")
+        self.assertEqual(code, 0, err)
+        self.assertIn("skipped line 2", err)
+        doc = dtio.read_json(os.path.join("trader", "pick.json"))
+        self.assertIn("no Nasdaq calendar file", doc["reporting_source"])
+        self.assertEqual(doc["live"]["graded"], 1)
+
+    def test_the_failure_card_never_replaces_a_logged_pick(self):
+        code, out, err = self.morning("--write", "--publish")
+        first = dtio.read_json(os.path.join("trader", "publish", "pick.json"))["pick"]["symbol"]
+        orig = cli.morning
+
+        def boom(a):
+            raise RuntimeError("boom on the retry")
+        cli.morning = boom
+        try:
+            code, out, err = self.morning("--write", "--publish")
+        finally:
+            cli.morning = orig
+        self.assertEqual(code, 1)
+        doc = dtio.read_json(os.path.join("trader", "publish", "pick.json"))
+        self.assertEqual(doc["pick"]["symbol"], first)
+        self.assertFalse(doc.get("failed"))
+
+    def test_the_next_names_never_repeat_the_pick_and_the_grade_refreshes_the_shadow(self):
+        code, out, err = self.morning("--write")
+        doc = dtio.read_json(os.path.join("trader", "pick.json"))
+        self.assertNotIn(doc["pick"]["symbol"], [r["symbol"] for r in doc["ranked"]])
+        run(["grade", "--write"])
+        doc = dtio.read_json(os.path.join("trader", "pick.json"))
+        self.assertEqual((doc["live"]["graded"], doc["shadow"]["live"]["graded"]), (1, 1))
+
     def test_the_shadow_is_logged_and_graded_but_never_the_pick(self):
         code, out, err = self.morning("--write")
         self.assertEqual(code, 0, err)
@@ -689,6 +760,16 @@ class Wrapper(unittest.TestCase):
         self.assertIn("never pick again", text)
         self.assertIn("gap_pct') is not None", text)
         self.assertLess(text.index("trader-pick/pick.py morning"), text.index("fetch_premarket.py --range 1d"))
+        for must in ("another run took the lock a moment ago", "the New York clock could not be read", "'redo' if d.get('failed')",
+                     "--refresh-last 10", "the lock build failed"):
+            self.assertIn(must, text, must)
+
+    def test_the_front_page_keeps_one_interval_helper_of_each_kind(self):
+        with open(os.path.join(ROOT, "site", "index.html"), encoding="utf-8") as fh:
+            html = fh.read()
+        self.assertEqual(html.count("function ci("), 1)                   # the board's R interval
+        self.assertEqual(html.count("function pci("), 1)                  # the pick's rate interval
+        self.assertNotIn("Most likely", html)
 
 
 if __name__ == "__main__":

@@ -50,7 +50,10 @@ def fetch_one(date, out_dir, tries=3):
         try:
             rows = net.nasdaq_earnings(date)
             new = [{key: r.get(key) for key in KEEP} for r in rows if isinstance(r, dict) and r.get("symbol")]
-            old = dtio.read_json(path, None) if os.path.exists(path) else None
+            try:
+                old = dtio.read_json(path, None) if os.path.exists(path) else None
+            except dtio.IOError_:                  # a broken file on disk is replaced by the new answer
+                old = None
             old_rows = (old.get("rows") or []) if isinstance(old, dict) else []
             if not new and old_rows:
                 return date, None, "an empty answer; kept the %d rows already on disk" % len(old_rows)

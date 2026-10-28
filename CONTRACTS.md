@@ -662,19 +662,24 @@ of +2 and -2 percent, and the mean open-to-close. One record a morning: Wilson i
 records a morning (the base rate, the top five): whole mornings are resampled, because the names of one morning share the
 market's move. Anything chosen on `h1` (a rule, a feature) is believed only if `h2` agrees.
 
-**The claim.** The card says "likely to close 2 percent ABOVE its open" only when the live rule's pick closed UP more often
-than DN with separated Wilson intervals in both halves (`claim_of`); otherwise "likely to MOVE 2 percent from its open",
-with the move rate of past picks, then "they closed 2 percent down more often than up" when the down interval sits above
-the up interval, or "up or down, the record cannot tell" (`direction_kind`). Never "most likely": the most volatile
-liquid name moved at least as often. The card's odds are the record of past picks with their intervals, beside the base
-rates and the highest-ATR name.
+**The claim.** The card says "more likely to close 2 percent ABOVE its open than below it" only when the live rule's pick
+closed UP more often than DN with separated Wilson intervals in both halves (`claim_of`); otherwise it says the pick may
+MOVE 2 percent from its open, "likely" only when the lower end of the move rate's interval is above one half, with the
+move rate of past picks, then "they closed 2 percent down more often than up" when the down interval sits above the up
+interval, or "up or down, the record cannot tell" (`direction_kind`). Never "most likely": the most volatile liquid name
+moved at least as often. The card's odds are the record of past picks with their intervals, beside the base rates and the
+highest-ATR name.
 
-**The morning's own rules.** A name whose store is not through the previous session is left out and counted; if SPY is
-behind, or more than 5 percent of the names are, the store is stale and the card is NO PICK. A futures file without a
-Nasdaq read is no gap, not a crash. A card written after 9:25 ET on its date is posted marked late and never logged. A
-second run on a date keeps the pick already logged (the card and the record always name the same stock); `--replace`
-posts another and marks the first superseded, never graded. A morning that fails posts a dated NO PICK card with the
-reason, so the site never says "Not yet" all day. The shadow: the most volatile eligible liquid name, logged to
+**The morning's own rules.** A closed day is NO PICK. A run before its own cutoff (or for a later date) is a preview:
+shown, never written, logged or published, so a manual run at 07:30 cannot stand in for the 08:08 job. A name whose store
+is not through the previous session is left out and counted; if SPY is behind, or more than 5 percent of the names are,
+the store is stale and the card is NO PICK. A futures file without a Nasdaq read is no gap, not a crash. A new pick
+written after 9:25 ET on its date is posted marked late and never logged. A second run on a date keeps the pick already
+logged, late or not (the card and the record always name the same stock, and the day's shadow stays the day's shadow);
+`--replace` posts another, or NO PICK, and marks the first superseded, never graded. A morning that fails posts a dated
+NO PICK card with the reason, so the site never says "Not yet" all day, unless that day's pick is already logged, whose
+card then stays up. A line of the record that does not parse is skipped with a warning, and a broken calendar file counts
+as no file. The shadow: the most volatile eligible liquid name, logged to
 `trader/pick/shadow.jsonl` and graded each evening, the one lead the rule research left (it touched +2 percent more often
 than the pick in both halves, inside the noise in the second); never the pick, and it joins nothing except through
 `scripts/pick_research.py`.
@@ -698,10 +703,12 @@ answer that failed: the intel ledger stands in, and the card says so.
 
 **Schedule.** `pick` at 08:08 ET and `pick2` at 08:18 ET (`scripts/run.sh pick`): the calendars from the previous session
 to today, a fresh futures read unless today's file has a Nasdaq gap, `pick.py morning --write --publish`, seal and push,
-then the pre-market history for research. A retry does nothing when today's pick is on origin, and only seals and pushes
-when today's card exists but did not land. Every job runs under `caffeinate` (the Mac stays awake while it runs), waits up
-to a minute for the network, holds a lock that names its pid (a lock whose pid is gone or that is over four hours old is
-broken and logged), and publishes only from `main` and only the bundle. The 17:30 cache job grades the pick and the shadow
+then the pre-market history for research. A retry does nothing when today's pick is on origin, only seals and pushes
+when today's card exists but did not land, and runs the morning again when today's card is a failure card. Every job runs
+under `caffeinate` (the Mac stays awake while it runs) and holds a lock that names its pid (a lock whose pid is gone or that
+is over four hours old is broken and logged; one taken less than a minute ago without a pid is respected); the jobs that
+fetch wait up to about a minute and a half for the network; a clock that cannot be read stops the job with a notice; and
+publishing happens only from `main`, only the bundle, with a notice when a build, an add, a commit or a push fails. The 17:30 cache job grades the pick and the shadow
 and refreshes the calendar; the Saturday lab job retrains.
 
 **Words.** Most people who day trade lose money. A stock that moves 2 percent one morning in three does not move two

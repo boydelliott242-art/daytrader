@@ -23,6 +23,9 @@ if ! mkdir "$lock" 2>/dev/null; then
   if [ -n "$old" ] && kill -0 "$old" 2>/dev/null && [ -z "$(find "$lock" -maxdepth 0 -mmin +240 2>/dev/null)" ]; then
     echo "$(date) $job: already running (pid $old)" >> "$log"; exit 0
   fi
+  if [ -z "$old" ] && [ -n "$(find "$lock" -maxdepth 0 -mmin -1 2>/dev/null)" ]; then
+    echo "$(date) $job: another run took the lock a moment ago" >> "$log"; exit 0
+  fi
   echo "$(date) $job: breaking a stale lock (pid ${old:-unknown} is gone, or the lock is over four hours old)" >> "$log"
   rm -rf "$lock"
   mkdir "$lock" 2>/dev/null || { echo "$(date) $job: could not take the lock" >> "$log"; exit 0; }
@@ -34,6 +37,11 @@ trap 'rm -rf "$lock" 2>/dev/null; exit 143' INT TERM
 read -r ny_day ny_hhmm ny_trading <<P
 $($py -c "import sys; sys.path.insert(0,'$root'); from dt import clock; et=clock.to_eastern(clock.utc_now()); print(et.date().isoformat(), et.strftime('%H:%M'), 'yes' if clock.trading_day(et.date())[0] else 'no')")
 P
+if [ -z "${ny_day:-}" ] || [ -z "${ny_trading:-}" ]; then
+  echo "$(date) $job: the New York clock could not be read (python or dt.clock failed); nothing ran" >> "$log"
+  notify "the job did not run: the clock could not be read"
+  exit 1
+fi
 echo "$(date) $job: New York $ny_day $ny_hhmm trading=$ny_trading" >> "$log"
 inwin() { [ "$ny_hhmm" \> "$1" ] && [ "$ny_hhmm" \< "$2" ]; }
 # after a wake the network can lag: wait up to a minute for Yahoo's and GitHub's names to resolve
@@ -55,11 +63,11 @@ publish_docs() {
     notify "the site was not updated: the repo is on $branch, not main"
     return 0
   fi
-  $py scripts/lock.py build >> "$log" 2>&1 || { echo "$(date) $job: lock build failed; nothing published" >> "$log"; return 0; }
-  git add docs/data/bundle.enc >/dev/null 2>&1 || { echo "$(date) $job: git add failed; nothing published" >> "$log"; return 0; }
+  $py scripts/lock.py build >> "$log" 2>&1 || { echo "$(date) $job: lock build failed; nothing published" >> "$log"; notify "the site was not updated: the lock build failed"; return 0; }
+  git add docs/data/bundle.enc >/dev/null 2>&1 || { echo "$(date) $job: git add failed; nothing published" >> "$log"; notify "the site was not updated: git add failed"; return 0; }
   git diff --cached --quiet -- docs/data/bundle.enc && return 0
   git -c user.name="daytrader" -c user.email="daytrader@localhost" commit -q -m "sealed dashboard: $job $ny_day $ny_hhmm ET" -- docs/data/bundle.enc >> "$log" 2>&1 \
-    || { echo "$(date) $job: commit failed; nothing published" >> "$log"; return 0; }
+    || { echo "$(date) $job: commit failed; nothing published" >> "$log"; notify "the site was not updated: the commit failed"; return 0; }
   git push -q origin main >> "$log" 2>&1 || { echo "$(date) $job: docs push failed (the local dashboard is still current)" >> "$log"; notify "the site push failed: see trader/logs/$job.log"; }
 }
 case "$job" in
@@ -83,7 +91,8 @@ case "$job" in
     # read at 08:05, the store through yesterday's close from the 17:30 cache job; sealed and pushed, live about a minute later
     [ "$ny_trading" = yes ] || { echo "not a trading day" >> "$log"; exit 0; }
     inwin 07:59 09:25 || { echo "outside 08:00-09:25" >> "$log"; exit 0; }
-    posted=$($py -c "import json; print(json.load(open('trader/publish/pick.json')).get('date'))" 2>/dev/null || echo none)
+    # a failed or preview card is not a posted pick: the retry runs the morning again for it
+    posted=$($py -c "import json; d = json.load(open('trader/publish/pick.json')); print('redo' if d.get('failed') or d.get('preview') else d.get('date'))" 2>/dev/null || echo none)
     pushed=$(git log -1 --format=%h --grep="pick $ny_day" origin/main 2>/dev/null || true)
     if [ "$posted" = "$ny_day" ] && [ -n "$pushed" ]; then
       echo "$(date) $job: today's pick is already posted" >> "$log"; exit 0
@@ -96,7 +105,7 @@ case "$job" in
       echo "$(date) $job: done" >> "$log"; exit 0
     fi
     days=$($py -c "import sys, datetime; sys.path.insert(0, '$root'); from dt import intel_flags; d = datetime.date.fromisoformat('$ny_day'); p = intel_flags.prev_trading_day(d); print(','.join((p + datetime.timedelta(days=k)).isoformat() for k in range((d - p).days + 1)))")
-    $py scripts/fetch_earnings_history.py --dates "$days" --threads 2 --quiet >> "$log" 2>&1
+    $py scripts/fetch_earnings_history.py --dates "$days" --refresh-last 10 --threads 2 --quiet >> "$log" 2>&1
     $py -c "import json, sys; f = json.load(open('trader/futures.json')); sys.exit(0 if f.get('date') == '$ny_day' and (f.get('nq') or {}).get('gap_pct') is not None else 1)" 2>/dev/null \
       || $py trader-montecarlo/montecarlo.py futures --write >> "$log" 2>&1
     $py trader-pick/pick.py morning --at "$ny_hhmm" --write --publish --quiet >> "$log" 2>&1 \
