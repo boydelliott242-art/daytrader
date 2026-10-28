@@ -13,14 +13,16 @@ it recomputes sampled dates with the rows cut there and reports any difference a
 
 The output: per rule (up, net, ret), the pick's and the top five's UP rate, DN rate and mean open-to-close move, with
 intervals, in the first half (h1) and the second half (h2) of the out-of-sample window, the base rates and the
-highest-ATR baseline. Choose on h1, believe only what h2 confirms. The rows leave out what the live model leaves out:
-earnings sessions (the report day, and the session after a report made after the close or with no time given) and
-special situations (a 20 percent move the session before); --keep-earnings and --keep-special put them back. A base
-cache built before the reaction rule flags report days only: the run says so, and --build-base rebuilds it. Stdlib
-only; workers via multiprocessing.
+highest-ATR baseline. Choose on h1, believe only what h2 confirms. The rows are the live model's: every name a kept
+large-cap list held, a session counted only while the name was a large cap (--no-pit drops that rule), and left out
+the same way: earnings sessions (the report day, and the session after any report, a Saturday report included), special
+situations (a 20 percent move the session before) and half days; --keep-earnings and --keep-special put those back. A
+base cache built before these rules says so when it is read, and --build-base rebuilds it. Stdlib only; workers via
+multiprocessing.
 """
 
 import argparse
+import glob
 import json
 import os
 import pickle
@@ -33,12 +35,27 @@ sys.path.insert(0, ROOT)
 from dt import pick, bars as dtbars, io as dtio  # noqa: E402
 
 
-EARNINGS_RULE = "report+reaction"          # what the raws' earnings flag covers (dt.pick.earnings_session)
+EARNINGS_RULE = "report+reaction(any time, weekends)+cap_est"   # what the base's raws carry (dt.pick.earnings_session, cap_est)
+
+
+def list_docs(largecap):
+    docs = []
+    hist = os.path.join(os.path.dirname(largecap) or ".", "largecap_history")
+    for path in sorted(glob.glob(os.path.join(hist, "*.json"))) + [largecap]:
+        d = dtio.read_json(path, None)
+        if isinstance(d, dict) and d.get("symbols"):
+            docs.append(d)
+    return docs
 
 
 def symbols_of(largecap):
+    """Tonight's names, then every name a kept list held (the live model's training universe)."""
     lc = dtio.read_json(largecap, None) or {}
-    return [r["symbol"] for r in lc.get("symbols") or [] if isinstance(r, dict) and r.get("symbol") and r["symbol"] not in pick.CONTEXT]
+    syms = [r["symbol"] for r in lc.get("symbols") or [] if isinstance(r, dict) and r.get("symbol") and r["symbol"] not in pick.CONTEXT]
+    for s in sorted(pick.universe_caps(list_docs(largecap))):
+        if s not in syms and s not in pick.CONTEXT:
+            syms.append(s)
+    return syms
 
 
 def market_of(cache_root, tags_path):
@@ -49,7 +66,7 @@ def market_of(cache_root, tags_path):
 def build_base(a):
     syms = symbols_of(a.largecap)
     t = time.time()
-    raws = pick.raw_rows(a.cache_root, syms, a.workers)
+    raws = pick.raw_rows(a.cache_root, syms, a.workers, None, pick.universe_caps(list_docs(a.largecap)))
     market = market_of(a.cache_root, a.nq_tags)
     with open(a.base_cache, "wb") as fh:
         pickle.dump({"raws": raws, "market": market, "symbols": syms, "built": time.strftime("%Y-%m-%d %H:%M"),
@@ -114,6 +131,7 @@ def main(argv=None):
     ap.add_argument("--refit-every", type=int, default=pick.REFIT_EVERY)
     ap.add_argument("--keep-earnings", action="store_true", help="do not leave out earnings sessions")
     ap.add_argument("--keep-special", action="store_true", help="do not leave out special situations (a 20 %% move the session before)")
+    ap.add_argument("--no-pit", action="store_true", help="count every session of every name (no point-in-time large-cap rule)")
     ap.add_argument("--leak-samples", type=int, default=40)
     ap.add_argument("--out")
     a = ap.parse_args(argv)
@@ -125,8 +143,8 @@ def main(argv=None):
     raws, symbols = base["raws"], base["symbols"]
     base_rule = base.get("earnings_rule") or "report only"
     if base_rule != EARNINGS_RULE:
-        print("NOTE: %s was built before the reaction rule (its earnings flag covers report days only); the live model also "
-              "leaves out the session after a report. Rebuild with --build-base to match it." % a.base_cache)
+        print("NOTE: %s was built before tonight's rules (its earnings flag or its cap_est may be missing: the live model leaves out "
+              "the session after any report and the sessions before a name was a large cap). Rebuild with --build-base to match it." % a.base_cache)
     market = market_of(a.cache_root, a.nq_tags)
     spec = pick.base_spec(a.extra) if a.extra else pick.base_spec()
     drop = [d.strip() for d in a.drop.split(",") if d.strip()]
@@ -147,12 +165,14 @@ def main(argv=None):
         raws = merged
         leak = pick.leak_check(a.extra, a.cache_root, symbols, a.leak_samples)
     info = {}
-    rows, dates, dropped = pick.encode_rows(raws, market, spec, not a.keep_earnings, not a.keep_special, info)
+    rows, dates, dropped = pick.encode_rows(raws, market, spec, not a.keep_earnings, not a.keep_special, info, None if a.no_pit else pick.LARGE_CAP_USD)
     rules = tuple(r.strip() for r in a.rules.split(",") if r.strip())
     res = pick.walk_forward(rows, dates, spec, a.min_train, a.refit_every, rules=rules)
     out = {"extra": a.extra, "drop": drop, "features": list(pick.features_of(spec)), "rows": len(rows), "sessions": len(dates),
            "earnings_dropped": dropped, "reaction_dropped": info.get("reaction_dropped"), "special_dropped": info.get("special_dropped"),
-           "base_earnings_rule": base_rule, "oos_first": res["oos_first"], "h2_first": res["h2_first"], "oos_last": res["oos_last"],
+           "base_earnings_rule": base_rule, "small_dropped": info.get("small_dropped"), "half_day_dropped": info.get("half_day_dropped"),
+           "switches": {"keep_earnings": a.keep_earnings, "keep_special": a.keep_special, "no_pit": a.no_pit, "special_move_pct": pick.SPECIAL_MOVE_PCT},
+           "oos_first": res["oos_first"], "h2_first": res["h2_first"], "oos_last": res["oos_last"],
            "leak": leak, "errors": dict(list(errors.items())[:5]), "n_errors": len(errors),
            "base": {k: compact(v) for k, v in res["base"].items()}, "atr": {k: compact(v) for k, v in res["baseline_highest_atr"].items()},
            "rules": {r: {"pick": {k: compact(v) for k, v in res["rules"][r]["pick"].items()},
@@ -162,9 +182,10 @@ def main(argv=None):
     if a.out:
         with open(a.out, "w", encoding="utf-8") as fh:
             json.dump(out, fh, indent=1)
-    print("features %d, rows %d, sessions %d (OOS %s to %s, h2 from %s), left out: earnings %d (reaction %d), special %d, %.0f s" % (
-        len(out["features"]), out["rows"], out["sessions"], out["oos_first"], out["oos_last"], out["h2_first"], dropped,
-        info.get("reaction_dropped") or 0, info.get("special_dropped") or 0, out["seconds"]))
+    print("features %d, rows %d, sessions %d (OOS %s to %s, h2 from %s), left out: earnings %d (reaction %d), special %d, before large cap %d, "
+          "half days %d, %.0f s" % (len(out["features"]), out["rows"], out["sessions"], out["oos_first"], out["oos_last"], out["h2_first"], dropped,
+                                    info.get("reaction_dropped") or 0, info.get("special_dropped") or 0, info.get("small_dropped") or 0,
+                                    info.get("half_day_dropped") or 0, out["seconds"]))
     if leak is not None:
         print("LEAK CHECK: %s (%d sampled dates%s)" % ("LEAK" if leak["leak"] else "clean", leak["checked"],
                                                        "; e.g. %s" % leak["mismatches"][0] if leak["leak"] else ""))

@@ -2,81 +2,90 @@
 name: trader-pick
 description: >-
   The 8:25 pick. One large cap a morning, the one whose evidence by 8:05 ET carried the best measured odds of closing
-  2 percent or more above its open, posted to the site by 8:25 with its own out-of-sample hit rate, the base rate
-  and the live record beside it. A naive-Bayes scorer over bucketed features from the daily store (yesterday's move,
-  volume, range position, momentum, ATR, RSI, realised volatility, the stock's own habit of 2 percent days, the
-  market's trend and VIX, the Nasdaq futures gap at 8:05 ET from the NQ bench), refit as it walks forward so every
-  scored morning was trained only on the mornings before it. NO PICK is a result. Use when the user says "the morning
-  pick", "which stock jumps today", "the 8:25 pick", "most likely to be up 2 percent", "train the pick", "grade the
-  picks", or "how is the pick doing".
-argument-hint: "[train [--rule up|net|ret] [--extra MODULE] | morning [--at 08:05] --write --publish | grade --write | report]"
+  2 percent or more above its open, posted to the site by 8:25 with the record of past picks (up AND down, with
+  intervals), the base rates and the live record beside it. A naive-Bayes scorer over bucketed features from the daily
+  store (yesterday's move, volume, range position, momentum, ATR, RSI, realised volatility, the stock's own habit of 2
+  percent days, the market's trend and VIX, the Nasdaq futures gap at 8:05 ET from the NQ bench), refit as it walks
+  forward so every scored morning was trained only on the mornings before it, over every name while it was a large cap.
+  NO PICK is a result. Use when the user says "the morning pick", "which stock jumps today", "the 8:25 pick", "most
+  likely to be up 2 percent", "train the pick", "grade the picks", or "how is the pick doing".
+argument-hint: "[train [--rule up|net|ret] [--extra MODULE] [--no-pit] | morning [--at 08:05] --write --publish [--replace] | grade --write | report]"
 ---
 
 # trader-pick
 
 A pick is a count, not a prediction. The base rate of a large cap closing at least 2 percent above its open is about
-one day in eight; the pick is the name whose morning evidence has historically done best, and its record is printed
-beside that base rate every day. It is not a buy. `${CLAUDE_SKILL_DIR}` is this skill's folder; run from the project.
+one day in nine; the pick is the name whose morning evidence has historically done best, and the record of past picks
+is printed beside that base rate every day, up AND down. It is not a buy. `${CLAUDE_SKILL_DIR}` is this skill's folder;
+run from the project.
 
 ```bash
-python3 "${CLAUDE_SKILL_DIR}/pick.py" train --workers 14 --rule up         # the walk-forward over every large cap and session
-python3 "${CLAUDE_SKILL_DIR}/pick.py" morning --at 08:05 --write --publish  # today's pick (the 08:08 ET job runs this)
+python3 "${CLAUDE_SKILL_DIR}/pick.py" train --workers 12 --rule up         # the walk-forward over every large cap and session
+python3 "${CLAUDE_SKILL_DIR}/pick.py" morning --at 08:05 --write --publish  # today's pick (the 08:08 ET job runs this with its own clock time)
 python3 scripts/pick_research.py --base-cache C.pickle --extra my_feature.py   # does a feature add direction in both halves?
-python3 "${CLAUDE_SKILL_DIR}/pick.py" grade --write --publish              # settle past picks from the store
+python3 "${CLAUDE_SKILL_DIR}/pick.py" grade --write --publish              # settle past picks and the shadow from the store
 python3 "${CLAUDE_SKILL_DIR}/pick.py" report                               # the out-of-sample record, the lifts, the live record
 ```
 
 ## How the pick is made
 
-1. **The rows.** For every symbol in `trader/largecap.json` and every session in the daily store (about 500), the
-   features are computed from the rows strictly before the session: ATR as a share of price, yesterday's move and
-   its relative volume and where it closed in its range, the 5 and 20-day moves, the distance to the 20-day high and
-   low, RSI, yesterday's gap, 20-day realised volatility, and the stock's own share of 2 percent up and down days over
-   the last 60 sessions. The market's context rides along: SPY's 1 and 5-day moves and trend, the VIX, the day of the
-   week, and the NQ futures gap as it stood at 8:05 ET (from `nq.py session-tags --at 07:05`, the bench's minute bars).
-   The outcome is the session's own close against its open: UP at +2 percent or more, DOWN at -2 percent or worse.
-   Left out, as live: earnings sessions (the report day, and the session after a report made after the close or with
-   no time given, from Nasdaq's calendar, `scripts/fetch_earnings_history.py`) and special situations (a name that
-   moved 20 percent or more the session before: a crash, a deal, a split the store missed).
+1. **The rows.** For every name a large-cap list has held (`trader/largecap.json` and the dated copies in
+   `trader/largecap_history/`) and every session in the daily store, counted only while the name's estimated cap at
+   the prior close was $10B or more, the features are computed from the rows strictly before the session: ATR as a
+   share of price, yesterday's move and its relative volume and where it closed in its range, the 5 and 20-day moves,
+   the distance to the 20-day high and low, RSI, yesterday's gap, 20-day realised volatility, and the stock's own share
+   of 2 percent up and down days over the last 60 sessions. The market's context rides along: SPY's 1 and 5-day moves
+   and trend, the VIX, the day of the week, and the NQ futures gap as it stood at 8:05 ET. The outcome is the session's
+   own close against its open: UP at +2 percent or more, DOWN at -2 percent or worse. Left out, as live: earnings
+   sessions (the report day, and the session after any report, a Saturday report included: Nasdaq drops report times
+   for past dates, so the time plays no part), special situations (a 20 percent move the session before), half days.
 2. **Three scorers, three rules.** Each feature is bucketed at fixed cut points; from the bucket counts come the up
-   odds, the down odds and the expected open-to-close move, calibrated on the training rows. No weights to tune: the
-   counts are the model. The `up` rule takes the best up odds (the name most likely to MOVE: volatile names go both
-   ways), `net` takes up odds minus down odds, `ret` the best expected move.
+   odds, the down odds (calibrated, in-sample, shared by every name in a bin) and a summed move score that is not
+   calibrated and ranks only the research rule `ret`. The `up` rule takes the best up odds, ties by the raw score (it
+   finds names that MOVE: volatile names go both ways), `net` takes up odds minus down odds, `ret` the move score.
 3. **The walk-forward.** Starting after 120 sessions, the model is refit every 20 sessions on everything before and
    scores the next 20. The record per rule, split into the two halves of the out-of-sample window, sits beside the
-   base rates of every liquid name and the naive pick of simply taking the highest-ATR name each morning.
-4. **The claim.** The card says "most likely to close 2 percent ABOVE its open" only when the live rule's pick closed up
-   more often than down, with separated intervals, in BOTH halves. Otherwise it says "most likely to MOVE 2 percent",
-   prints both odds side by side, and says the direction has no measured edge.
-5. **The morning.** `morning` reads the store (through yesterday's close: the 17:30 cache job must have run), today's
-   futures read, today's and yesterday's earnings calendars (names reporting today, and names reacting to a report
-   after yesterday's close, are left out, as are special situations, each listed with its reason), scores every name,
-   fetches the pre-market price of the top ten from Yahoo (shown, never scored: the model saw none of them), writes
-   `trader/pick.json`, logs the
-   pick pending in `trader/pick/record.jsonl`, and with `--publish` copies the card for the site. The 08:08 ET job seals
-   and pushes it (a retry at 08:18 if it did not land): on the front page in big words by about 8:15.
+   base rate of every liquid name and the naive pick of the highest-ATR name each morning, every rate with an
+   interval (Wilson for one pick a morning; whole mornings resampled for the base rate and the top five).
+4. **The claim.** The card says "likely to close 2 percent ABOVE its open" only when the live rule's pick closed up
+   more often than down, with separated intervals, in BOTH halves. Otherwise it says "likely to MOVE 2 percent" with
+   the move rate of past picks, and says whether the record leans down or cannot tell. Never "most likely": the most
+   volatile liquid name moved at least as often. The odds on the card are the record of past picks, not the model's
+   bin rates.
+5. **The morning.** `morning` reads the store (a name not through the previous session is left out; a stale store or
+   a half day is NO PICK), the futures read (a missing Nasdaq value is no gap, not a crash), the calendars from the
+   previous session to today (an empty calendar on a trading day is a failed answer, not a quiet day), scores every
+   name, fetches the pre-market price of the top ten from Yahoo (the last 5-minute bar that ended by the run, shown and
+   never scored), writes `trader/pick.json`, logs the pick pending in `trader/pick/record.jsonl` and the shadow in
+   `trader/pick/shadow.jsonl`, and with `--publish` copies the card for the site. A second run on the same day keeps the
+   logged pick (`--replace` posts another and marks the first superseded); a card written after 9:25 ET is posted marked
+   late and never counted; a morning that fails posts a dated NO PICK card with the reason. The 08:08 ET job seals and
+   pushes it (a retry at 08:18 pushes again if it did not land): on the front page in big words by about 8:15.
 
 ## What it reads and writes
 
 | file | what |
 | --- | --- |
 | `trader/cache/daily/*.json.gz` | the daily rows (the 17:30 cache job keeps them current) |
+| `trader/largecap.json`, `trader/largecap_history/D.json` | the lists: who counts, and each name's cap for the point-in-time rule |
 | `trader/nq/session_tags_0805.json` | the NQ gap at 8:05 ET per session, from the bench (falls back to `session_tags.json`, then na) |
-| `trader/futures.json` | this morning's NQ and ES read from the 08:05 futures job |
-| `trader/cache/earnings/D.json` | Nasdaq's calendar: a name reporting today, or reacting to yesterday's report after the close, is left out |
-| `trader/intel.json` | the fallback for today's reporters when there is no calendar file for the date |
-| `trader/pick/model.json` | the lifts, the base rate, the calibration bins, the walk-forward record |
+| `trader/futures.json` | this morning's NQ and ES read from the futures job |
+| `trader/cache/earnings/D.json` | Nasdaq's calendar, every calendar day: who reports today, who reacts to a report since the previous session |
+| `trader/intel.json` | the fallback for today's reporters when the calendar for the date is missing or empty |
+| `trader/pick/model.json` | the lifts, the base rate, the calibration bins, the universe rule, the walk-forward record |
 | `trader/pick/record.jsonl` | every pick the morning it was made (pending), then graded on the real open and close |
-| `trader/pick.json`, `trader/publish/pick.json` | today's card: the pick, the odds, the base rate, the reasons, the next nine, the records |
+| `trader/pick/shadow.jsonl` | the highest-ATR eligible name each morning, graded the same way, never the pick |
+| `trader/pick.json`, `trader/publish/pick.json` | today's card: the pick, the record's odds, the base rates, the reasons, the next nine, what was left out |
 
 ## Rules
 
 - The base rate is printed with every pick, and the live record with its interval. A record under 30 picks says so.
-- NO PICK when nothing clears the floor. A morning with no pick is a normal morning, not a broken one.
+- NO PICK when nothing clears the floor; the record says how often that happened (it has not yet), so a no-pick
+  morning points at the inputs.
 - The pre-market price is information, not a score: the model has no pre-market history and says so.
-- A stale store (the cache job did not run) is flagged on the card; the pick still runs on what it has.
+- A stale store (the cache job did not finish) is NO PICK, not a pick on the wrong morning's history.
 - A pick that hit is a count of one. The picks that made the record also made the losses the record prints.
-- Earnings days are in the backtest (no calendar reaches back) and out of the live pick (the calendar is live).
+- The shadow is a lead under test, not a second pick; it joins the model only through `scripts/pick_research.py`.
 
 ## What it never does
 

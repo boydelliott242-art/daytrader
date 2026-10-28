@@ -568,42 +568,59 @@ footer .wrap { padding-top: 14px; padding-bottom: 24px; }
 
   // ------------------------------------------------------------ the 8:25 pick: today's name, every rule's record by half, the baselines, the live record
   function pctv(x) { return isNum(x) ? (100 * x).toFixed(1) + " %" : "n/a"; }
-  function pctCiv(c) { return c && isNum(c[0]) && isNum(c[1]) ? "[" + (100 * c[0]).toFixed(0) + ", " + (100 * c[1]).toFixed(0) + "]" : ""; }
+  function pctCiv(c) { return c && isNum(c[0]) && isNum(c[1]) ? "[" + (100 * c[0]).toFixed(1) + ", " + (100 * c[1]).toFixed(1) + "]" : ""; }
   function ocv(x) { return isNum(x) ? (x >= 0 ? "+" : "") + x.toFixed(2) + " %" : "n/a"; }
   function ocCiv(c) { return c && isNum(c[0]) && isNum(c[1]) ? "[" + ocv(c[0]) + ", " + ocv(c[1]) + "]" : ""; }
+  function rateCiv(st, k) { return st && isNum(st[k + "_rate"]) ? pctv(st[k + "_rate"]) + " " + pctCiv(st[k + "_ci"]) : "n/a"; }
   function renderPickPanel(res) {
     var pk = res.doc;
     if (!pk) { el("pick-body").innerHTML = empty("pick"); sub("pick-sub", ""); return; }
-    sub("pick-sub", (pk.date ? pk.date + ", data as of " + (pk.cutoff || "") + " ET, " : "") + "rule " + (pk.rule || "up") + ", claim: " +
+    sub("pick-sub", (pk.date ? pk.date + (pk.cutoff ? ", data as of " + pk.cutoff + " ET, " : ", ") : "") + "rule " + (pk.rule || "up") + ", claim: " +
         (pk.claim === "up" ? "close 2 % above the open" : "move 2 % (direction not proven)"));
     var html = "";
+    var oos = pk.oos || {};
+    var rec = (oos.pick || {}).all || {}, base = (oos.base || {}).all || {};
     if (pk.pick) {
       var p = pk.pick, pm = p.premarket || {};
-      html += '<div class="panel"><div class="head"><span class="sym">' + esc(p.symbol) + '</span> <span class="muted">odds up ' + pctv(p.p_up) + ", down " + pctv(p.p_dn) +
-        ", expected " + ocv(p.e_oc) + "; base rate " + pctv(pk.base_up) + " up, " + pctv(pk.base_dn) + " down" +
-        (isNum(pm.vs_prev_close_pct) ? "; pre-market " + ocv(pm.vs_prev_close_pct) + " at " + esc(pm.time || "") : "") + "</span></div>" +
-        '<p class="note">' + esc((p.reasons || []).join("; ")) + ".</p></div>";
+      html += '<div class="panel"><div class="head"><span class="sym">' + esc(p.symbol) + '</span> <span class="muted">the record of past picks: closed 2 % up ' +
+        rateCiv(rec, "up") + ", 2 % down " + rateCiv(rec, "dn") + " over " + (rec.n || 0) + " mornings; any large cap " + rateCiv(base, "up") + " up, " + rateCiv(base, "dn") +
+        " down" + (isNum(pm.vs_prev_close_pct) ? "; pre-market " + ocv(pm.vs_prev_close_pct) + " at " + esc(pm.time || "") : "") + "</span></div>" +
+        '<p class="note">' + esc((p.reasons || []).join("; ")) + ".</p>" +
+        '<p class="note">The model ranks the names; its top bin this morning (' + pctv(p.p_up) + " up, " + pctv(p.p_dn) + " down, in-sample) is shared by " +
+        (p.bin_shared || 1) + " names, so it is not this name's odds.</p></div>";
     } else if (pk.date) {
       html += '<div class="empty">' + esc(pk.no_pick_words || "No pick this morning.") + "</div>";
     }
     html += '<p class="note"><b>Direction:</b> ' + esc(pk.direction || "") + ".</p>";
-    if (pk.date) {
+    var flags = [];
+    if (pk.store_stale) { flags.push("the price store ends " + esc(pk.store_through) + ", not the previous session"); }
+    if (pk.late) { flags.push("written after 9:25 ET: not counted in the live record"); }
+    if (pk.failed) { flags.push("the morning job failed: " + esc(pk.error || "")); }
+    if (pk.kept_note) { flags.push(esc(pk.kept_note)); }
+    if (pk.futures_words) { flags.push(esc(pk.futures_words)); }
+    if (flags.length) { html += '<p class="note"><b>Note:</b> ' + flags.join("; ") + ".</p>"; }
+    if (pk.date && !pk.failed) {
       var sp = pk.special_today || [];
       html += '<p class="note"><b>Left out this morning:</b> ' + (pk.reporting_today || 0) + " report earnings today (" + esc(pk.reporting_source || "") + "); " +
-        (pk.reacting_today || 0) + " react to a report after the prior close (" + esc(pk.reacting_source || "") + "); special situations: " +
-        (sp.length ? sp.map(function (x) { return "<b>" + esc(x.symbol) + "</b> " + esc(x.reason); }).join(", ") : "none") + ".</p>";
+        (pk.reacting_today || 0) + " react to a report since the previous session (" + esc(pk.reacting_source || "") + "); special situations: " +
+        (sp.length ? sp.map(function (x) { return "<b>" + esc(x.symbol) + "</b> " + esc(x.reason); }).join(", ") : "none") +
+        (pk.behind_today ? "; a session behind in the store: " + pk.behind_today + " (" + esc((pk.behind_names || []).join(", ")) + ")" : "") + ".</p>";
     }
     var rules = pk.oos_rules || {};
-    var oos = pk.oos || {};
+    if (!pk.oos || !Object.keys(rules).length) {
+      el("pick-body").innerHTML = html + '<p class="note">No record in this file yet: the next training run writes it.</p>';
+      return;
+    }
     var segs = [["h1", "first half"], ["h2", "second half (from " + (oos.h2_first || "?") + ")"]];
-    html += '<div class="tbl-wrap"><table class="tbl"><thead><tr><th>out of sample</th><th>half</th><th class="num">n</th><th class="num">closed 2 % up</th><th class="num">closed 2 % down</th>' +
-      '<th class="num">closed 2 to 5 % up</th><th class="num">average open to close</th><th class="num">touched +2 %</th><th class="num">touched -2 %</th></tr></thead><tbody>';
+    html += '<div class="tbl-wrap"><table class="tbl"><thead><tr><th>out of sample</th><th>half</th><th class="num">n</th><th class="num">closed 2 % up</th>' +
+      '<th class="num">closed 2 % down</th><th class="num">moved 2 % either way</th><th class="num">closed 2 to 5 % up</th><th class="num">average open to close</th>' +
+      '<th class="num">touched +2 %</th><th class="num">touched -2 %</th></tr></thead><tbody>';
     function row(name, seg, st) {
-      if (!st || !st.n) { return "<tr><td>" + esc(name) + "</td><td>" + esc(seg) + '</td><td class="num">0</td><td colspan="6" class="muted">no picks</td></tr>'; }
-      return "<tr><td>" + esc(name) + "</td><td>" + esc(seg) + '</td><td class="num">' + st.n + '</td><td class="num">' + pctv(st.up_rate) + " " + pctCiv(st.up_ci) +
-        '</td><td class="num">' + pctv(st.dn_rate) + " " + pctCiv(st.dn_ci) + '</td><td class="num">' + (isNum(st.band) ? pctv(st.band / st.n) : "n/a") +
-        '</td><td class="num">' + ocv(st.mean_oc) + " " + ocCiv(st.mean_oc_ci) +
-        '</td><td class="num">' + pctv(st.touch_up_rate) + '</td><td class="num">' + pctv(st.touch_dn_rate) + "</td></tr>";
+      if (!st || !st.n) { return "<tr><td>" + esc(name) + "</td><td>" + esc(seg) + '</td><td class="num">0</td><td colspan="7" class="muted">no picks</td></tr>'; }
+      return "<tr><td>" + esc(name) + "</td><td>" + esc(seg) + '</td><td class="num">' + st.n + '</td><td class="num">' + rateCiv(st, "up") +
+        '</td><td class="num">' + rateCiv(st, "dn") + '</td><td class="num">' + rateCiv(st, "move") + '</td><td class="num">' + rateCiv(st, "band") +
+        '</td><td class="num">' + ocv(st.mean_oc) + " " + ocCiv(st.mean_oc_ci) + '</td><td class="num">' + rateCiv(st, "touch_up") +
+        '</td><td class="num">' + rateCiv(st, "touch_dn") + "</td></tr>";
     }
     Object.keys(rules).forEach(function (k) {
       segs.forEach(function (sg) { html += row("rule " + k + (k === pk.rule ? " (live)" : ""), sg[1], ((rules[k] || {}).pick || {})[sg[0]]); });
@@ -611,6 +628,14 @@ footer .wrap { padding-top: 14px; padding-bottom: 24px; }
     segs.forEach(function (sg) { html += row("any large cap (the base rate)", sg[1], ((oos.base || {})[sg[0]])); });
     segs.forEach(function (sg) { html += row("the highest-ATR name", sg[1], ((oos.highest_atr || {})[sg[0]])); });
     html += "</tbody></table></div>";
+    html += '<p class="note">Configs tested: ' + (pk.configs_tested || Object.keys(rules).length) + " rules (" + esc((pk.rules_tested || Object.keys(rules)).join(", ")) +
+      "), each pick ranked by a model fit only on earlier sessions. Intervals: Wilson for one pick a morning; for the base rate, whole mornings resampled." +
+      (pk.universe_rule ? " Universe: " + esc(pk.universe_rule) + "." : "") + "</p>";
+    var sh = pk.shadow || {};
+    if (sh.symbol) {
+      html += '<p class="note"><b>Shadow, not the pick:</b> <b>' + esc(sh.symbol) + "</b>, " + esc(sh.why || "") + ". Its live record: " +
+        esc((sh.live || {}).words || "no graded day yet") + ".</p>";
+    }
     var live = pk.live || {};
     html += '<p class="note"><b>Live record:</b> ' + esc(live.words || "no graded pick yet") + (live.small_sample ? " (a small sample)" : "") + ".</p>";
     var last = (live.last || []).slice().reverse();

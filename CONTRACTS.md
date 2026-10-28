@@ -617,55 +617,92 @@ record printed beside the base rates. A pick is a count, not a prediction, and n
 above the open, DN = at least 2 percent below; the 2 to 5 percent band, the touch of +2 and -2 percent (high and low
 against the open) and close-to-close are reported beside it.
 
-**Rows.** For every name in `trader/largecap.json` and every session in the daily store with 25 sessions before it:
-features from rows strictly before the session (`symbol_table`: ATR as a share of price, yesterday's move, relative
-volume, close location and gap, the 5 and 20-day moves, the distance to the 20-day high and low, RSI 14, 20-day realised
-volatility, the stock's own share of UP and DN sessions over 60), the market's context from rows strictly before the
-session (`market_table`: SPY's 1 and 5-day moves and trend, the VIX, the weekday) and the NQ futures gap at 8:05 ET
-(`nq.py session-tags --at 07:05`, minute bars from the user's backtester; live from `trader/futures.json`). Left out of
-training, scoring and the live pick alike (`earnings_session`, `special_of`):
+**Rows.** For every name a large-cap list has held (`trader/largecap.json` and the dated copies the evening cache job
+keeps in `trader/largecap_history/`) and every session in the daily store with 25 sessions before it: features from rows
+strictly before the session (`symbol_table`: ATR as a share of price, yesterday's move, relative volume, close location
+and gap, the 5 and 20-day moves, the distance to the 20-day high and low, RSI 14, 20-day realised volatility, the stock's
+own share of UP and DN sessions over 60), the market's context from rows strictly before the session (`market_table`:
+SPY's 1 and 5-day moves and trend, the VIX, the weekday) and the NQ futures gap at 8:05 ET (`nq.py session-tags --at
+07:05`, minute bars from the user's backtester; live from `trader/futures.json`). Left out of training, scoring and the
+live pick alike (`earnings_session`, `special_of`, `HALF_DAYS`, `universe_caps`):
 
 - an earnings session: the name reports on the session (Nasdaq's calendar, `scripts/fetch_earnings_history.py` ->
-  `trader/cache/earnings/D.json`), or it reported on the session before and the report was not marked before the open
-  (after the close, or no time given, which is most of the calendar: the move lands on the next session);
+  `trader/cache/earnings/D.json`, every calendar day including weekends and holidays), or it reported on the session
+  before or on a day with no session in between (a Saturday report). The report time plays no part: Nasdaq drops the
+  times of past dates, so the history cannot tell a report after the close from one before the open, and the rule the
+  record measured is the one the live pick applies;
 - a special situation: the name moved 20 percent or more close to close on the session before (news, a deal, a crash,
-  or a split the store has not adjusted for), a day its history does not describe.
+  or a split the store has not adjusted for), a day its history does not describe;
+- a half day (a 1:00 p.m. close): the live pick posts no pick on one;
+- a session before the name was a large cap: its estimated cap at the prior close (its cap at the newest list that holds
+  it x the close then / the price at that list) under $10B. A name that left the list keeps its history for the
+  sessions it qualified. (Share counts are taken as constant; names that left before the lists were kept cannot be
+  restored.)
 
-Both rules were set before they were measured and are not tuned; the training output counts what each left out.
+These rules were set before they were measured and are not tuned; the training output counts what each left out.
 
 **Scorers.** Every feature is bucketed at fixed cut points (`CUTS`, `CATEGORICAL`; `na` is its own bucket). From the bucket
 counts: the up lift log(rate_up(bucket) / base_up), the down lift likewise, and the expected-move deviation, all smoothed
 toward the base with 20 pseudo-rows. A name's score is the sum over its buckets; the calibrated odds are the observed rate
-of the training score's bin (20 equal bins on a 1-in-10 sample of the training rows). No weights to tune.
+of the training score's bin (20 equal bins on a 1-in-10 sample of the training rows). No weights to tune. The calibrated
+odds are in-sample and every name in a bin shares them, so the card never prints them as a name's odds; the summed
+expected-move score (`e_oc`) is not calibrated and ranks only the research rule `ret`: it is never printed as an expected
+move.
 
-**Rules.** `up` ranks by the up odds (floor: 1.5 x the base rate); `net` by up odds minus down odds (floor: 2 points);
-`ret` by the expected open-to-close (floor: +0.10 percent). The liquid universe is 20-day average dollar volume of 20
-million or more. A morning whose top name misses the floor is NO PICK.
+**Rules.** `up` ranks by the up odds, ties by the raw score (floor: 1.5 x the base rate); `net` by up odds minus down odds
+(floor: 2 points); `ret` by the expected-move score (floor: +0.10). The liquid universe is 20-day average dollar volume of
+20 million or more. A morning whose top name misses the floor is NO PICK; the record counts how often that happened (it
+has not happened yet), and the card's words say so.
 
 **Walk-forward.** After 120 training sessions the model is refit every 20 on everything before and scores the next 20; a
-session's rows join the counts only after it is scored. The record per rule: the pick and the top five, UP and DN rates
-with Wilson intervals, the mean open-to-close with a bootstrap interval (a normal interval above 3,000 samples), the
-touch rates, split into the two halves of the out-of-sample window (`h1`, `h2`), beside the base rates of every liquid name
-and the highest-ATR name each morning. Anything chosen on `h1` (a rule, a feature) is believed only if `h2` agrees.
+session's rows join the counts only after it is scored. The record per rule: the pick and the top five, split into the two
+halves of the out-of-sample window (`h1`, `h2`), beside the base rate of every liquid name and the highest-ATR name each
+morning, and every rate carries an interval: the UP and DN rates, the move either way, the 2 to 5 percent band, the touch
+of +2 and -2 percent, and the mean open-to-close. One record a morning: Wilson intervals and a bootstrap of the mean. Several
+records a morning (the base rate, the top five): whole mornings are resampled, because the names of one morning share the
+market's move. Anything chosen on `h1` (a rule, a feature) is believed only if `h2` agrees.
 
-**The claim.** The card says "most likely to close 2 percent ABOVE its open" only when the live rule's pick closed UP more
-often than DN with separated Wilson intervals in both halves; otherwise "most likely to MOVE 2 percent from its open", with
-the up and down odds side by side and the direction verdict in words.
+**The claim.** The card says "likely to close 2 percent ABOVE its open" only when the live rule's pick closed UP more often
+than DN with separated Wilson intervals in both halves (`claim_of`); otherwise "likely to MOVE 2 percent from its open",
+with the move rate of past picks, then "they closed 2 percent down more often than up" when the down interval sits above
+the up interval, or "up or down, the record cannot tell" (`direction_kind`). Never "most likely": the most volatile
+liquid name moved at least as often. The card's odds are the record of past picks with their intervals, beside the base
+rates and the highest-ATR name.
+
+**The morning's own rules.** A name whose store is not through the previous session is left out and counted; if SPY is
+behind, or more than 5 percent of the names are, the store is stale and the card is NO PICK. A futures file without a
+Nasdaq read is no gap, not a crash. A card written after 9:25 ET on its date is posted marked late and never logged. A
+second run on a date keeps the pick already logged (the card and the record always name the same stock); `--replace`
+posts another and marks the first superseded, never graded. A morning that fails posts a dated NO PICK card with the
+reason, so the site never says "Not yet" all day. The shadow: the most volatile eligible liquid name, logged to
+`trader/pick/shadow.jsonl` and graded each evening, the one lead the rule research left (it touched +2 percent more often
+than the pick in both halves, inside the noise in the second); never the pick, and it joins nothing except through
+`scripts/pick_research.py`.
 
 **Research.** `scripts/pick_research.py` evaluates an extra feature module (`CUTS`, `compute(sym, rows, ctx)`) against the
 cached base rows and runs `dt.pick.leak_check` (recompute sampled dates with the rows cut there; any difference is a LEAK).
 `pick.py train --extra MODULE` makes a confirmed module part of the live model.
 
-**Files.** `trader/pick/model.json` (spec, lifts, calibration, rule, claim, the walk-forward record), `trader/pick.json`
-(today's card: the pick, both odds, the expected move, the reasons, the pre-market print at the cutoff, shown and never
-scored, the next nine, the direction verdict, every rule's record, the live record, and what was left out this morning:
-how many report today, how many react to a report after the prior close, each special situation with its reason), `trader/pick/record.jsonl` (every pick
-logged pending the morning it was made, graded on the real open, high, low and close by the evening cache job),
-`trader/publish/pick.json` (sealed into the site's bundle).
+**Files.** `trader/pick/model.json` (spec, lifts, calibration, rule, claim, the universe rule, the walk-forward record),
+`trader/pick.json` (today's card: the pick, the record's odds, the reasons, the pre-market print at the last bar that ended
+by the cutoff, shown and never scored, the next nine, the direction, every rule's record, the live record, the shadow, and
+what was left out this morning: who reports today, who reacts to a report since the previous session, each special
+situation with its reason, the names a session behind), `trader/pick/record.jsonl` (every pick logged pending the morning
+it was made, graded on the real open, high, low and close by the evening cache job), `trader/pick/shadow.jsonl`,
+`trader/publish/pick.json` (sealed into the site's bundle; before the first morning it carries the record),
+`trader/largecap_history/D.json` (each evening's list).
 
-**Schedule.** `pick` at 08:08 ET (fetch today's calendar, refresh the futures read if it is not today's, `pick.py morning
---write --publish`, seal and push), `pick2` at 08:18 ET (does nothing when today's pick is already pushed); the 17:30 cache
-job grades and refreshes the calendar; the Saturday lab job retrains.
+**Calendar files.** A refresh never makes a file worse: an empty answer does not replace a file that has rows, and a
+report time on disk survives a newer answer without one. On the morning, a calendar with no rows for a trading day is an
+answer that failed: the intel ledger stands in, and the card says so.
+
+**Schedule.** `pick` at 08:08 ET and `pick2` at 08:18 ET (`scripts/run.sh pick`): the calendars from the previous session
+to today, a fresh futures read unless today's file has a Nasdaq gap, `pick.py morning --write --publish`, seal and push,
+then the pre-market history for research. A retry does nothing when today's pick is on origin, and only seals and pushes
+when today's card exists but did not land. Every job runs under `caffeinate` (the Mac stays awake while it runs), waits up
+to a minute for the network, holds a lock that names its pid (a lock whose pid is gone or that is over four hours old is
+broken and logged), and publishes only from `main` and only the bundle. The 17:30 cache job grades the pick and the shadow
+and refreshes the calendar; the Saturday lab job retrains.
 
 **Words.** Most people who day trade lose money. A stock that moves 2 percent one morning in three does not move two
 mornings in three, and the ones that move up are matched by the ones that move down until a record says otherwise.

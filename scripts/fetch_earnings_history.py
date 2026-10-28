@@ -1,12 +1,17 @@
 #!/usr/bin/env python3
-"""Nasdaq's earnings calendar for every trading date in the daily store, one file a date, resumable.
+"""Nasdaq's earnings calendar for every calendar day the daily store covers, one file a day, resumable.
 
     python3 scripts/fetch_earnings_history.py [--cache-root trader/cache] [--threads 3] [--since 2024-10-01] [--refresh-last 3]
 
 Writes trader/cache/earnings/YYYY-MM-DD.json: {"date", "fetched_at", "rows": [{symbol, time, eps, epsForecast, surprise,
-marketCap, fiscalQuarterEnding, noOfEsts}]}. A date already on disk is skipped unless it is among the last --refresh-last
-dates (the calendar fills in EPS after the reports). The pick backtest leaves out each name on its report date, as the live
-pick does, and the research reads the surprise of a report made after the prior close (known before the open). Stdlib.
+marketCap, fiscalQuarterEnding, noOfEsts}]}. Weekends and holidays are fetched too: a company that reports on a Saturday
+(Berkshire) moves on the next session. A day already on disk is skipped unless it is among the last --refresh-last days
+(the calendar fills in EPS after the reports).
+
+A refresh never makes a file worse: an empty answer does not replace a file that has rows (the run counts it as a miss),
+and a report time already on disk is kept when Nasdaq's newer answer says "time-not-supplied" (it drops the times of past
+dates). The pick leaves out a name on its report date and on the session after any report (dt.pick.earnings_session), in
+the backtest and live alike, and the research reads the surprise of a report made after the prior close. Stdlib.
 """
 
 import argparse
@@ -23,20 +28,47 @@ sys.path.insert(0, ROOT)
 from dt import net, bars as dtbars, io as dtio  # noqa: E402
 
 KEEP = ("symbol", "time", "eps", "epsForecast", "surprise", "marketCap", "fiscalQuarterEnding", "noOfEsts")
+NO_TIME = "time-not-supplied"
+
+
+def merge(new_rows, old_rows):
+    """The new answer, with any report time the file on disk knew where the new answer has none."""
+    times = {r.get("symbol"): r.get("time") for r in old_rows or [] if isinstance(r, dict) and r.get("time") and r.get("time") != NO_TIME}
+    out = []
+    for r in new_rows:
+        r = dict(r)
+        if (not r.get("time") or r.get("time") == NO_TIME) and times.get(r.get("symbol")):
+            r["time"] = times[r["symbol"]]
+        out.append(r)
+    return out
 
 
 def fetch_one(date, out_dir, tries=3):
+    path = os.path.join(out_dir, date + ".json")
+    err = None
     for k in range(tries):
         try:
             rows = net.nasdaq_earnings(date)
-            doc = {"date": date, "fetched_at": datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ"),
-                   "rows": [{key: r.get(key) for key in KEEP} for r in rows if isinstance(r, dict) and r.get("symbol")]}
-            dtio.write_json(os.path.join(out_dir, date + ".json"), doc)
+            new = [{key: r.get(key) for key in KEEP} for r in rows if isinstance(r, dict) and r.get("symbol")]
+            old = dtio.read_json(path, None) if os.path.exists(path) else None
+            old_rows = (old.get("rows") or []) if isinstance(old, dict) else []
+            if not new and old_rows:
+                return date, None, "an empty answer; kept the %d rows already on disk" % len(old_rows)
+            doc = {"date": date, "fetched_at": datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ"), "rows": merge(new, old_rows)}
+            dtio.write_json(path, doc)
             return date, len(doc["rows"]), None
         except Exception as e:  # the next try, then a plain miss
             err = str(e)[:120]
             time.sleep(2.0 * (k + 1))
     return date, None, err
+
+
+def all_days(first, last):
+    out, d = [], first
+    while d <= last:
+        out.append(d.isoformat())
+        d += datetime.timedelta(days=1)
+    return out
 
 
 def main(argv=None):
@@ -54,20 +86,16 @@ def main(argv=None):
         dates = [d.strip() for d in a.dates.split(",") if d.strip()]
     else:
         spy = dtbars.daily_rows("SPY", a.cache_root)
-        dates = [r[0] for r in spy]
-        # the next trading days too: the calendar is known ahead
-        last = datetime.date.fromisoformat(dates[-1]) if dates else datetime.date.today()
-        d = last
-        while len(dates) and d < last + datetime.timedelta(days=7):
-            d += datetime.timedelta(days=1)
-            if d.weekday() < 5:
-                dates.append(d.isoformat())
+        first = datetime.date.fromisoformat(spy[0][0]) if spy else datetime.date.today()
+        last = datetime.date.fromisoformat(spy[-1][0]) if spy else datetime.date.today()
+        # every calendar day from the store's first session to a week past its last: the calendar is known ahead
+        dates = all_days(first, last + datetime.timedelta(days=7))
     if a.since:
         dates = [d for d in dates if d >= a.since]
     fresh = set(dates[-a.refresh_last:]) if a.refresh_last else set()
     todo = [d for d in dates if d in fresh or not os.path.exists(os.path.join(out_dir, d + ".json"))]
     if not a.quiet:
-        print("earnings calendar: %d dates, %d to fetch, %d threads -> %s" % (len(dates), len(todo), a.threads, out_dir))
+        print("earnings calendar: %d days, %d to fetch, %d threads -> %s" % (len(dates), len(todo), a.threads, out_dir))
     done = failed = 0
     t0 = time.time()
     with concurrent.futures.ThreadPoolExecutor(max_workers=max(1, a.threads)) as pool:

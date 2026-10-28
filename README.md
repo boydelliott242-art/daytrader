@@ -25,7 +25,7 @@ without your yes. Most people who day trade lose money; this desk shows you the 
 | `/trader-montecarlo` | 26,000 replays of a plan, the trade book resampled at your sizing rules, the NQ and ES overnight read |
 | `/trader-nq` | the desk's setups on fifteen years of NQ 1-minute bars with real fees and slippage, through your own backtester |
 | `/trader-agents` | the research desk: the TradingAgents roles (six analysts, bull and bear in rounds, a contrarian, the research manager, the trader, three risk debaters, a code-fed risk analyst, the portfolio manager), run by Claude over one evidence pack per symbol, validated claim by claim, scored, written as a card; the code-only rankings over the universe; the memory of settled cards |
-| `/trader-pick` | the 8:25 pick: one large cap a morning from what is known by 8:05 ET, the name with the best measured odds of closing 2 % above its open, posted by 8:25 with its odds up AND down beside the base rates and its own graded record |
+| `/trader-pick` | the 8:25 pick: one large cap a morning from what is known by 8:05 ET, the name with the best measured odds of closing 2 % above its open, posted by 8:25 with the record's odds up AND down beside the base rates and its own graded record |
 | `scripts/lock.py` | not a skill: the lock. Seals the pages and the data into `docs/data/bundle.enc`; the live site is a passphrase screen |
 
 **Live:** https://boydelliott242-art.github.io/daytrader/ is a lock screen. Behind the passphrase: the one-idea
@@ -95,38 +95,42 @@ shapes. `CONTRACTS.md` is the spec for the new layer.
 
 ## The 8:25 pick
 
-Every trading morning at 8:08 ET (a retry at 8:18) the desk scores all ~880 liquid large caps from what is known by
-8:05: two years of daily rows (yesterday's move, volume, range position, momentum, ATR, RSI, realised volatility, each
-stock's own habit of 2 % days), the market's trend and VIX, the Nasdaq futures gap at 8:05 from the user's NQ minute bars,
-and Nasdaq's earnings calendars. Left out, in the backtest and live alike: names reporting today, names reacting to a
-report made after yesterday's close (or with no time given), and special situations (a name that moved 20 % or more the
-day before: a crash, a deal, a split the store missed), each listed on the card with its reason. The pick is the name
-with the best measured odds of closing 2 % or more above its open. It is sealed into the site and on the front page in big words by about 8:15, with:
+Every trading morning at 8:08 ET (a retry at 8:18) the desk scores every liquid large cap from what is known by 8:05: two
+years of daily rows (yesterday's move, volume, range position, momentum, ATR, RSI, realised volatility, each stock's own
+habit of 2 % days), the market's trend and VIX, the Nasdaq futures gap at 8:05 from the user's NQ minute bars, and Nasdaq's
+earnings calendars. Left out, in the backtest and live alike: names reporting today, names reacting to a report since the
+previous session (Nasdaq drops report times for past dates, so the history cannot tell a report after the close from one
+before the open, and a Saturday report counts for Monday), special situations (a name that moved 20 % or more the day
+before: a crash, a deal, a split the store missed), half days, and names a session behind in the price store, each listed
+on the card. The record counts a name only while it was a large cap (its estimated cap at the prior close of $10B or
+more), and names that left the list keep their history. The pick is the name with the best measured odds of closing 2 %
+or more above its open. It is sealed into the site and on the front page in big words by about 8:15, with:
 
-- its odds of closing 2 % above its open AND its odds of closing 2 % below, beside the base rates of any large cap;
-- the plain reasons, the pre-market print at 8:05 (shown, never scored), the next five names;
+- the record of past picks as its odds, closing 2 % up AND closing 2 % down, each with its interval, beside the base rates;
+- the plain reasons, the pre-market print at the last 5-minute bar before the run (shown, never scored), the next five names;
 - its out-of-sample record half by half, and its live record, graded every evening on the real open, high, low and close.
 
-**What two years say (walk-forward, refit every 20 sessions, 329 out-of-sample mornings, 3 rules tested, earnings
-sessions and special situations left out; the model of 2026-10-27):**
+**What two years say (walk-forward, refit every 20 sessions, 327 out-of-sample mornings, 3 rules tested; the model of
+2026-10-28; intervals are Wilson for the pick and resample whole mornings for the base rate):**
 
 | | first half (Jul 2025 to Mar 2026) | second half (Mar to Oct 2026) |
 | --- | --- | --- |
-| the pick closed 2 % or more above its open | 30.5 % [24, 38] | 27.9 % [22, 35] |
-| the pick closed 2 % or more below its open | 33.5 % [27, 41] | 36.4 % [29, 44] |
-| the pick closed between 2 % and 5 % above its open | 22.0 % | 17.0 % |
-| the pick traded 2 % above its open at some point | 54.3 % | 57.6 % |
-| the pick traded 2 % below its open at some point | 67.7 % | 61.8 % |
-| any large cap: closed 2 % up / 2 % down / 2 to 5 % up | 9.9 % / 9.3 % / 8.9 % | 11.8 % / 11.8 % / 10.2 % |
-| any large cap: traded 2 % above its open | 19.9 % | 25.1 % |
-| the most volatile liquid name (highest ATR): closed 2 % up / down | 34.2 % / 37.2 % | 35.1 % / 28.5 % |
-| the most volatile liquid name: traded 2 % above its open | 71.3 % | 66.1 % |
+| the pick closed 2 % or more above its open | 31.9 % [25, 39] | 28.1 % [22, 35] |
+| the pick closed 2 % or more below its open | 35.6 % [29, 43] | 36.6 % [30, 44] |
+| the pick closed between 2 % and 5 % above its open | 23.3 % [17, 30] | 15.8 % [11, 22] |
+| the pick traded 2 % above its open at some point | 57.1 % [49, 64] | 56.1 % [48, 64] |
+| the pick traded 2 % below its open at some point | 68.1 % [61, 75] | 62.8 % [55, 70] |
+| any large cap: closed 2 % up / 2 % down | 9.7 % [8.6, 11.0] / 9.3 % [8.1, 10.6] | 11.5 % [10.4, 12.7] / 11.8 % [11.0, 12.8] |
+| any large cap: closed 2 to 5 % up | 8.7 % [7.7, 9.8] | 10.0 % [9.1, 10.9] |
+| any large cap: traded 2 % above its open | 19.5 % [17.9, 21.4] | 24.6 % [23.1, 26.1] |
+| the most volatile liquid name (highest ATR): closed 2 % up / down | 33.7 % [27, 41] / 36.8 % [30, 44] | 34.8 % [28, 42] / 28.7 % [22, 36] |
+| the most volatile liquid name: traded 2 % above its open | 69.9 % [62, 76] | 66.5 % [59, 73] |
 
-On the last 40 picks with 5-minute bars, +2 % came first 18 times and -2 % first 21 times (once neither). So the pick
+On the last 40 picks with 5-minute bars, +2 % came first 20 times and -2 % first 19 times (once neither). So the pick
 finds a stock likely to **move** 2 % (about three times the base rate), the direction is not predictable from what is
-known at 8:05, and simply taking the most volatile liquid name does about as well (it touches +2 % more often).
-The card says exactly that: "most likely to MOVE 2 %", with both odds, until a rule's pick closes up more often than down
-with separated intervals in both halves. Then, and only then, it would say "most likely to close 2 % ABOVE its open".
+known at 8:05, and simply taking the most volatile liquid name does about as well. The card says exactly that: "likely to
+MOVE 2 %", with the record's odds both ways, until a rule's pick closes up more often than down with separated intervals in
+both halves. Then, and only then, it would say "likely to close 2 % ABOVE its open". It never says "most likely".
 
 **The hunt for direction (2026-10-27).** Ten agents in parallel each tested one family of directional evidence through
 the same harness (`scripts/pick_research.py`: every variant chosen on the first half, judged on the second, an automatic
@@ -141,13 +145,30 @@ again with more of it.
 
 None of the ten held. Four families claimed both halves; independent verifiers refuted all four (moving the cut points by
 20 % broke three, and the fourth sat at the median of its own within-date shuffles). Post-earnings drift passed the
-harness's rule, but its own 20 shuffles showed the gain was noise. Nothing joined the model. The two leave-out rules added
-the same day (the session after a report, and the 20 % special situation) were set before they were measured, and moved
-the record by less than its intervals.
+harness's rule, but its own 20 shuffles showed the gain was noise. Nothing joined the model.
+
+**The rule hunt and the audit (2026-10-27 night).** Two researchers working apart tested six ranking rules each for the
+literal target (a close 2 to 5 % up; a touch of +2 %): the live rule, the highest ATR, the stock's own habit of 2 % days,
+scorers trained on the band and on the touch, and one more each. Chosen on the first half, judged on the second, none beat
+the live rule by more than the noise. The most volatile liquid name touched +2 % more often in both halves, but the second
+half's margin was +8.5 points [-1.2, +18.8], so it is tracked forward as a shadow (`trader/pick/shadow.jsonl`, graded every
+evening, never posted as the pick) until fresh mornings say otherwise. An adversarial audit (six lenses, every finding put to
+independent skeptics) found 39 defects. The ones that mattered are fixed:
+- the card's "expected" move (an uncalibrated sum that averaged +1.8 % while the picks averaged -0.2 %) and the model's
+  in-sample bin odds (shared by a dozen or more names a morning) are gone from the card;
+- a futures file without a Nasdaq read no longer crashes the morning;
+- a job killed mid-run no longer leaves a lock that stops it forever;
+- a re-run can no longer post a different stock than the one the record grades;
+- the reaction rule live now matches the history;
+- the base rate's intervals now resample whole mornings;
+- names count only while they were large caps;
+- a failed morning posts a dated card saying so;
+- a stale store or a half day posts no pick;
+- publishing happens only from main.
 
 ```bash
 python3 trader-pick/pick.py train --workers 12 --rule up --publish     # the walk-forward and the live model
-python3 trader-pick/pick.py morning --at 08:05 --write --publish        # what the 08:08 ET job runs
+python3 trader-pick/pick.py morning --at 08:05 --write --publish        # what the 08:08 ET job runs (it passes its own clock time)
 python3 trader-pick/pick.py report                                       # every rule's record by half, the lifts, the live record
 ```
 

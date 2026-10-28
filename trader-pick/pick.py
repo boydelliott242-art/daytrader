@@ -2,21 +2,25 @@
 """The 8:25 pick (trader-pick): one large cap a morning from what is known by 8:05 ET, with its measured record printed
 beside the base rates.
 
-    python3 pick.py train [--rule up|net|ret] [--workers N] [--publish]   # the walk-forward + the live model -> trader/pick/model.json
-    python3 pick.py morning [--date D] [--at 08:05] [--write] [--publish] [--no-premarket]
+    python3 pick.py train [--rule up|net|ret] [--workers N] [--publish] [--no-pit]   # the walk-forward + the live model
+    python3 pick.py morning [--date D] [--at 08:05] [--write] [--publish] [--no-premarket] [--replace]
     python3 pick.py grade [--write] [--publish]                            # settle past picks from the daily store
-    python3 pick.py report                                                  # the out-of-sample record by rule and half, the lifts, the live record
+    python3 pick.py report                                                  # every rule's record by half, the lifts, the live record
 
 Every number is counted, none is predicted: every scored morning in the record was ranked by a model fit only on the
-mornings before it. The card says "most likely to MOVE 2 percent" unless the rule's out-of-sample record shows the pick
-closing up 2 percent more often than down in both halves, in which case it says "most likely to close 2 percent ABOVE
-its open". A pick is not a buy. Nothing here places, sizes or approves an order. Most people who day trade lose money.
+mornings before it. The card prints the record of past picks (up AND down, with intervals) beside the base rates and
+says "likely to MOVE 2 percent" unless the rule's out-of-sample pick closed up 2 percent more often than down with
+separated intervals in both halves, in which case it says "likely to close 2 percent ABOVE its open". A pick is not a
+buy. Nothing here places, sizes or approves an order. Most people who day trade lose money.
 """
 
 import argparse
+import datetime
+import glob
 import json
 import os
 import sys
+import traceback
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
@@ -28,10 +32,13 @@ from dt import pick as dtpick, bars as dtbars, clock, io as dtio, net, intel_fla
 
 MODEL = os.path.join("trader", "pick", "model.json")
 RECORD = os.path.join("trader", "pick", "record.jsonl")
+SHADOW = os.path.join("trader", "pick", "shadow.jsonl")   # the highest-ATR name each morning, a lead tracked forward, never the pick
 OUT = os.path.join("trader", "pick.json")
 NQ_TAGS = (os.path.join("trader", "nq", "session_tags_0805.json"), os.path.join("trader", "nq", "session_tags.json"))
-WORDS = ("A pick is the name whose morning evidence carried the best measured odds; the odds are counts over past mornings, not a "
-         "prediction, and the base rate is printed beside them. It is not a buy. Most people who day trade lose money.")
+LATE = datetime.time(9, 25)          # a card written after this on its own date is posted marked late and never counted
+STALE_SHARE = 0.05                   # more than this share of names a session behind: the store is stale
+WORDS = ("A pick is a count over past mornings, not a prediction: its odds are the record of past picks, printed beside the "
+         "base rates. It is not a buy. Most people who day trade lose money.")
 
 
 class Error(Exception):
@@ -42,7 +49,19 @@ def say(msg):
     print(msg)
 
 
+def _pct(x, d=1):
+    return "n/a" if x is None else ("%." + str(d) + "f %%") % (100 * x)
+
+
+def _ci(ci, d=0):
+    if not ci or ci[0] is None or ci[1] is None:
+        return ""
+    return " [%s, %s]" % (("%." + str(d) + "f") % (100 * ci[0]), ("%." + str(d) + "f") % (100 * ci[1]))
+
+
+# ---------------------------------------------------------------- the universe
 def universe(a):
+    """The names the morning scores: tonight's large-cap list (or --symbols)."""
     lc = dtio.read_json(a.largecap, None) or {}
     syms = [r["symbol"] for r in lc.get("symbols") or [] if isinstance(r, dict) and r.get("symbol")]
     if not syms:
@@ -54,16 +73,41 @@ def universe(a):
     return syms
 
 
+def list_docs(a):
+    """Tonight's list and every dated copy in trader/largecap_history (scripts/fetch_cache.py keeps one an evening)."""
+    docs = []
+    hist = os.path.join(os.path.dirname(a.largecap) or ".", "largecap_history")
+    for path in sorted(glob.glob(os.path.join(hist, "*.json"))):
+        d = dtio.read_json(path, None)
+        if isinstance(d, dict) and d.get("symbols"):
+            docs.append(d)
+    cur = dtio.read_json(a.largecap, None)
+    if isinstance(cur, dict) and cur.get("symbols"):
+        docs.append(cur)
+    return docs
+
+
+def train_universe(a):
+    """-> (symbols, caps, docs): the names the record may count (tonight's list plus every name a kept list ever held, so
+    a name that left keeps its history) and each name's cap for the point-in-time rule ({} with --no-pit)."""
+    live = universe(a)
+    docs = [] if a.no_pit else list_docs(a)
+    caps = dtpick.universe_caps(docs) if docs else {}
+    if a.symbols:
+        return live, caps, docs
+    syms = list(live)
+    for s in sorted(caps):
+        if s not in syms and s not in dtpick.CONTEXT:
+            syms.append(s)
+    return syms, caps, docs
+
+
 def nq_tags():
     for path in NQ_TAGS:
         doc = dtio.read_json(path, None)
         if doc and doc.get("sessions"):
             return doc, path
     return None, None
-
-
-def _pct(x, d=1):
-    return "n/a" if x is None else ("%." + str(d) + "f %%") % (100 * x)
 
 
 # ---------------------------------------------------------------- the claim the card may make
@@ -76,6 +120,19 @@ def claim_of(wf, rule):
     return "move"
 
 
+def direction_kind(wf, rule):
+    """'up', 'down' or 'none': the same test as direction_words, for the card's second sentence."""
+    r = ((wf or {}).get("rules") or {}).get(rule) or {}
+    p = (r.get("pick") or {}).get("all") or {}
+    if not p.get("n"):
+        return "none"
+    if claim_of(wf, rule) == "up":
+        return "up"
+    if p["dn_ci"][0] > p["up_ci"][1]:
+        return "down"
+    return "none"
+
+
 def direction_words(wf, rule):
     r = ((wf or {}).get("rules") or {}).get(rule) or {}
     p = (r.get("pick") or {}).get("all") or {}
@@ -83,65 +140,126 @@ def direction_words(wf, rule):
         return "no out-of-sample record yet"
     a = "the pick closed 2 %% or more above its open on %s [%s, %s] of %d mornings and 2 %% or more below on %s [%s, %s]" % (
         _pct(p["up_rate"], 0), _pct(p["up_ci"][0], 0), _pct(p["up_ci"][1], 0), p["n"], _pct(p["dn_rate"], 0), _pct(p["dn_ci"][0], 0), _pct(p["dn_ci"][1], 0))
-    if claim_of(wf, rule) == "up":
+    kind = direction_kind(wf, rule)
+    if kind == "up":
         return "direction has a measured edge in both halves: " + a
-    if p["dn_ci"][0] > p["up_ci"][1]:
+    if kind == "down":
         return "it fell 2 % or more MORE often than it rose: " + a
     return "direction has no measured edge: " + a
 
 
+def record_fields(model, rule):
+    """What every card carries about the record, from the model's walk-forward: the claim, the direction, the rule's
+    pick and top five by half, the base rates and the highest-ATR name, every rule tested, how often the floor bound."""
+    wf = model.get("walk_forward") or {}
+    rules = wf.get("rules") or {}
+    rr = rules.get(rule) or {}
+    return {"rule": rule, "claim": claim_of(wf, rule), "direction": direction_words(wf, rule), "direction_kind": direction_kind(wf, rule),
+            "configs_tested": len(rules), "rules_tested": sorted(rules),
+            "base_up": round(model["base_up"], 4) if model.get("base_up") is not None else None,
+            "base_dn": round(model["base_dn"], 4) if model.get("base_dn") is not None else None,
+            "oos": {"first": wf.get("oos_first"), "last": wf.get("oos_last"), "sessions": wf.get("oos_sessions"), "h2_first": wf.get("h2_first"),
+                    "pick": rr.get("pick") or {}, "top5": rr.get("top5") or {}, "base": wf.get("base"), "highest_atr": wf.get("baseline_highest_atr"),
+                    "no_pick_days": rr.get("no_pick_days")},
+            "oos_rules": {k: {"pick": v.get("pick"), "top5": v.get("top5"), "no_pick_days": v.get("no_pick_days")} for k, v in rules.items()},
+            "universe_rule": (model.get("universe") or {}).get("rule"),
+            "model": {"trained_at": model.get("trained_at"), "sessions_last": model.get("sessions_last"), "rows": model.get("rows"),
+                      "nq_tags": model.get("nq_tags"), "extra": (model.get("spec") or {}).get("extra")}}
+
+
+def left_out_heading(model):
+    """The record's own exclusions, from the switches the model was trained with."""
+    parts = []
+    if model.get("exclude_earnings", True):
+        parts.append("earnings sessions")
+    if model.get("special_move_pct") is not None:
+        parts.append("special situations")
+    if (model.get("universe") or {}).get("min_cap_usd"):
+        parts.append("sessions before a name was a large cap")
+    parts.append("half days")
+    return ", ".join(parts[:-1]) + " and " + parts[-1] + " left out"
+
+
+def no_pick_words(model, rule, floor_x, reason=None):
+    if reason:
+        return "No pick today: %s. Nothing is logged." % reason
+    wf = model.get("walk_forward") or {}
+    rr = (wf.get("rules") or {}).get(rule) or {}
+    n, nd = wf.get("oos_sessions"), rr.get("no_pick_days")
+    s = "No pick: nothing cleared %s." % dtpick.floor_words(rule, model, floor_x)
+    if n:
+        s += (" The floor bound on none of the %d mornings in the record, so a morning like this points at the inputs (the store, the "
+              "model, the calendar)." % n) if not nd else " That happened on %d of the %d mornings in the record." % (nd, n)
+    return s + " Nothing is logged."
+
+
 # ---------------------------------------------------------------- train
 def cmd_train(a):
-    syms = universe(a)
+    syms, caps, docs = train_universe(a)
+    min_cap = a.min_cap if caps else None
     tags, tags_path = nq_tags()
     spec = dtpick.base_spec(a.extra) if a.extra else dtpick.base_spec()
-    say("The pick study: %d symbols, the daily store at %s%s, %d worker%s, rule %s." % (len(syms), a.cache_root,
+    say("The pick study: %d symbols%s, the daily store at %s%s, %d worker%s, rule %s." % (
+        len(syms), (" (%d dated lists; a session counts while the name was a large cap)" % len(docs)) if caps else "", a.cache_root,
         (", NQ gap at 8:05 ET from %s" % tags_path) if tags else ", no NQ overnight file (the nq_gap bucket is na)", a.workers,
         "" if a.workers == 1 else "s", a.rule))
-    rows, dates, market, info = dtpick.build_rows(a.cache_root, syms, a.workers, tags, spec, not a.keep_earnings, not a.keep_special)
+    rows, dates, market, info = dtpick.build_rows(a.cache_root, syms, a.workers, tags, spec, not a.keep_earnings, not a.keep_special,
+                                                  caps or None, min_cap)
     if len(dates) < a.min_train + 20:
         raise Error("only %d sessions: the walk-forward needs %d training sessions and more to score" % (len(dates), a.min_train))
     wf = dtpick.walk_forward(rows, dates, spec, a.min_train, a.refit_every, a.min_adv, a.floor_x)
     model = dtpick.train(rows, None, spec)
+    live = set(universe(a))
+    uni = {"rule": ("a session counts only while the name's estimated cap at the prior close was at least $%.0fB (its cap at the newest "
+                    "list holding it x the close then / the price at that list); names that left the list keep their history" % (min_cap / 1e9))
+                   if caps else "tonight's large-cap list applied to every session (no point-in-time rule)",
+           "symbols": len(syms), "lists": [((d.get("as_of") or "")[:10]) for d in docs], "min_cap_usd": min_cap,
+           "departed": sorted(s for s in caps if s not in live and s not in dtpick.CONTEXT) if caps else []}
     model.update({"created_by": "trader-pick", "trained_at": clock.iso(clock.utc_now()), "cache_root": a.cache_root, "symbols": len(syms),
                   "rows": len(rows), "sessions_first": dates[0], "sessions_last": dates[-1], "target_pct": dtpick.TARGET_PCT,
-                  "rule": a.rule, "min_adv_usd": a.min_adv, "floor_x": a.floor_x, "nq_tags": tags_path, "earnings": info,
+                  "rule": a.rule, "min_adv_usd": a.min_adv, "floor_x": a.floor_x, "nq_tags": tags_path, "earnings": info, "universe": uni,
                   "exclude_earnings": not a.keep_earnings, "special_move_pct": info.get("special_move_pct"),
                   "claim": claim_of(wf, a.rule), "walk_forward": wf, "note": WORDS})
     dtio.write_json(a.model, model)
     say("Wrote %s: %s rows, %d sessions %s to %s; base rates %s up, %s down." % (
         a.model, "{:,}".format(len(rows)), len(dates), dates[0], dates[-1], _pct(model["base_up"]), _pct(model["base_dn"])))
-    say("Left out: %d earnings sessions (%d of them the session after a report made after the close or with no time; the calendar is on "
-        "disk for %d dates) and %d special situations (%s)." % (
+    say("Left out: %d earnings sessions (%d of them the session after a report; the calendar is on disk for %d days), %d special "
+        "situations (%s), %d sessions before the name was a large cap, %d half-day sessions." % (
             info["earnings_dropped"], info.get("reaction_dropped") or 0, info["earnings_dates_on_disk"], info.get("special_dropped") or 0,
-            ("a move of %g %% or more the session before" % info["special_move_pct"]) if info.get("special_move_pct") else "kept: --keep-special"))
-    print_record(wf)
-    say("The card's claim for rule %s: %s." % (a.rule, "most likely to close 2 % ABOVE its open" if model["claim"] == "up" else "most likely to MOVE 2 % (direction not proven)"))
+            ("a move of %g %% or more the session before" % info["special_move_pct"]) if info.get("special_move_pct") else "kept: --keep-special",
+            info.get("small_dropped") or 0, info.get("half_day_dropped") or 0))
+    if uni["departed"]:
+        say("Names that have left the list but count while they were large caps: %s." % ", ".join(uni["departed"]))
+    print_record(wf, model)
+    say("The card's claim for rule %s: %s." % (a.rule, "likely to close 2 % ABOVE its open" if model["claim"] == "up" else "likely to MOVE 2 % (direction not proven)"))
     if a.publish:
         publish(a, None)
     return 0
 
 
-def print_record(wf):
-    say("Out of sample, %s to %s (%d mornings; the second half from %s), earnings sessions and special situations left out:" % (wf["oos_first"], wf["oos_last"], wf["oos_sessions"], wf["h2_first"]))
+def print_record(wf, model=None):
+    say("Out of sample, %s to %s (%d mornings; the second half from %s), %s; %d rules tested:" % (
+        wf["oos_first"], wf["oos_last"], wf["oos_sessions"], wf["h2_first"], left_out_heading(model or {}), len(wf.get("rules") or {})))
     for seg in ("h1", "h2"):
         b, t = wf["base"][seg], wf["baseline_highest_atr"][seg]
-        say("  %s  any large cap: up %s, down %s | the highest-ATR name: up %s, down %s, average %+.2f %%" % (
-            seg, _pct(b["up_rate"]), _pct(b["dn_rate"]), _pct(t["up_rate"]), _pct(t["dn_rate"]), t["mean_oc"]))
+        say("  %s  any large cap: up %s%s, down %s%s | the highest-ATR name: up %s%s, down %s%s, average %+.2f %%" % (
+            seg, _pct(b["up_rate"]), _ci(b.get("up_ci"), 1), _pct(b["dn_rate"]), _ci(b.get("dn_ci"), 1), _pct(t["up_rate"]), _ci(t.get("up_ci")),
+            _pct(t["dn_rate"]), _ci(t.get("dn_ci")), t["mean_oc"]))
     for rule, r in wf["rules"].items():
         for seg in ("h1", "h2"):
             p = r["pick"][seg]
             if not p.get("n"):
                 say("  %-4s %s  no picks" % (rule, seg))
                 continue
-            say("  %-4s %s  pick: up %s [%s, %s], down %s [%s, %s], average %+.2f %% [%+.2f, %+.2f] over %d" % (
-                rule, seg, _pct(p["up_rate"]), _pct(p["up_ci"][0], 0), _pct(p["up_ci"][1], 0), _pct(p["dn_rate"]), _pct(p["dn_ci"][0], 0), _pct(p["dn_ci"][1], 0),
-                p["mean_oc"], p["mean_oc_ci"][0] or 0, p["mean_oc_ci"][1] or 0, p["n"]))
+            say("  %-4s %s  pick: up %s%s, down %s%s, 2 to 5 %% up %s%s, average %+.2f %% [%+.2f, %+.2f] over %d" % (
+                rule, seg, _pct(p["up_rate"]), _ci(p["up_ci"]), _pct(p["dn_rate"]), _ci(p["dn_ci"]),
+                _pct(p.get("band_rate")), _ci(p.get("band_ci")), p["mean_oc"], p["mean_oc_ci"][0] or 0, p["mean_oc_ci"][1] or 0, p["n"]))
 
 
-# ---------------------------------------------------------------- morning
-def premarket_quotes(symbols, cutoff_et, pause=0.25, say_=None):
-    """{SYM: {"last", "time", "vs_prev_close_pct", "prev_close"}} from Yahoo's chart with pre-market bars, through the cutoff."""
+# ---------------------------------------------------------------- morning: inputs
+def premarket_quotes(symbols, date, cutoff_et, pause=0.25, say_=None):
+    """{SYM: {"last", "time", "vs_prev_close_pct", "prev_close"}} from Yahoo's chart with pre-market bars: the close of the
+    last 5-minute bar of the date that ENDED by the cutoff (a bar is stamped with its start), and its end time."""
     out = {}
     for i, sym in enumerate(symbols):
         try:
@@ -158,8 +276,9 @@ def premarket_quotes(symbols, cutoff_et, pause=0.25, say_=None):
             if c is None:
                 continue
             et = clock.to_eastern(clock.utc_of(t))
-            if et.time() <= cutoff_et:
-                last, when = float(c), et.strftime("%H:%M")
+            end = et + datetime.timedelta(minutes=5)
+            if et.date().isoformat() == date and end.time() <= cutoff_et and end.date() == et.date():
+                last, when = float(c), end.strftime("%H:%M")
         out[sym] = {"last": last, "time": when, "prev_close": pc, "vs_prev_close_pct": round((last / pc - 1) * 100.0, 2) if (last and pc) else None}
         if pause and i + 1 < len(symbols):
             net.SLEEP(pause)
@@ -170,33 +289,42 @@ def premarket_quotes(symbols, cutoff_et, pause=0.25, say_=None):
 
 def _calendar(a, date):
     doc = dtio.read_json(os.path.join(a.cache_root, "earnings", date + ".json"), None)
-    return doc if doc and isinstance(doc.get("rows"), list) else None
+    return doc if isinstance(doc, dict) and isinstance(doc.get("rows"), list) else None
 
 
-def _cal_syms(doc, keep=None):
-    return set(str(r.get("symbol") or "").upper().replace("/", ".") for r in doc["rows"]
-               if isinstance(r, dict) and r.get("symbol") and (keep is None or keep(r)))
+def _cal_syms(doc):
+    return set(str(r.get("symbol") or "").upper().replace("/", ".") for r in doc["rows"] if isinstance(r, dict) and r.get("symbol"))
 
 
 def reporting_today(a, date):
-    """Who reports today: the Nasdaq calendar file for the date (the backtest's own source), else the intel ledger."""
+    """Who reports today: the Nasdaq calendar file for the date (the backtest's own source). A file with no rows on a
+    trading day is an answer that failed, not a quiet day: then the intel ledger, and the card says so."""
     doc = _calendar(a, date)
-    if doc:
-        return _cal_syms(doc), "Nasdaq calendar (%s)" % os.path.join(a.cache_root, "earnings", date + ".json")
+    if doc is not None and doc["rows"]:
+        return _cal_syms(doc), "Nasdaq calendar for %s" % date
+    why = ("the Nasdaq calendar for %s came back empty" % date) if doc is not None else ("no Nasdaq calendar file for %s" % date)
     ledger = intel_flags.load_ledger(a.intel) if os.path.exists(a.intel) else None
     if ledger:
-        return set(s for s, rec in intel_flags.derive_earnings(ledger.get("items") or []).items() if rec.get("date") == date), "intel ledger (no Nasdaq file for the date)"
-    return set(), "no earnings source for the date: nobody left out"
+        return set(s for s, rec in intel_flags.derive_earnings(ledger.get("items") or []).items() if rec.get("date") == date), why + "; the intel ledger instead"
+    return set(), why + "; nobody left out for reporting today"
 
 
 def reacting_today(a, date):
-    """Who reacts today to a report on the previous session that was not marked before the open (after the close, or no
-    time given): the backtest's "reaction" sessions (dt.pick.earnings_session), from the previous session's calendar."""
-    prev = intel_flags.prev_trading_day(date).isoformat()
-    doc = _calendar(a, prev)
-    if not doc:
-        return set(), "no Nasdaq calendar for %s: nobody left out for reacting to a report" % prev
-    return _cal_syms(doc, lambda r: r.get("time") != dtpick.PRE_MARKET), "Nasdaq calendar for %s, reports not marked before the open" % prev
+    """Who reacts today: every name on the calendars from the previous session through yesterday (the previous session's
+    reports, and any Saturday or holiday report), the backtest's "reaction" sessions (dt.pick.earnings_session)."""
+    d = datetime.date.fromisoformat(date)
+    p = intel_flags.prev_trading_day(d)
+    days = [(p + datetime.timedelta(days=k)).isoformat() for k in range((d - p).days)]
+    syms, notes = set(), []
+    for day in days:
+        doc = _calendar(a, day)
+        if doc is None or (day == p.isoformat() and not doc["rows"]):
+            if day == p.isoformat():
+                notes.append("no calendar rows for %s: the names that reported then are not left out" % day)
+            continue
+        syms |= _cal_syms(doc)
+    words = "Nasdaq calendars for %s" % (days[0] if len(days) == 1 else "%s to %s" % (days[0], days[-1]))
+    return syms, words + ("; " + "; ".join(notes) if notes else "")
 
 
 def reasons_of(raw, market):
@@ -215,12 +343,52 @@ def reasons_of(raw, market):
     return out
 
 
+def records(path):
+    return [r for r in dtio.read_jsonl(path) if isinstance(r, dict)] if os.path.exists(path) else []
+
+
+def logged_row(a, date):
+    """The pick already logged for the date (not superseded), or None."""
+    rows = [r for r in records(a.record) if r.get("date") == date and r.get("status") != "superseded"]
+    return rows[-1] if rows else None
+
+
+# ---------------------------------------------------------------- morning
 def cmd_morning(a):
+    try:
+        return morning(a)
+    except Exception as e:
+        if a.write:
+            fail_card(a, e)
+        raise
+
+
+def fail_card(a, e):
+    """A morning that failed still posts a dated card, so the site says why instead of "Not yet" all day."""
+    try:
+        now_utc = clock.parse_now(a.now) if a.now else clock.utc_now()
+        date = a.date or clock.to_eastern(now_utc).date().isoformat()
+        model = dtio.read_json(a.model, None) or {}
+        rule = a.rule or model.get("rule") or dtpick.DEFAULT_RULE
+        doc = record_fields(model, rule) if model.get("walk_forward") else {"rule": rule}
+        doc.update({"created_by": "trader-pick", "date": date, "cutoff": a.at, "created_at": clock.iso(now_utc), "written_at": clock.iso(clock.utc_now()),
+                    "pick": None, "no_pick": True, "failed": True, "error": "%s: %s" % (type(e).__name__, str(e)[:200]),
+                    "no_pick_words": "No pick today: the morning job failed (%s). Nothing was logged." % (str(e)[:160] or type(e).__name__),
+                    "next_session": intel_flags.next_trading_day(date).isoformat(), "live": live_record(a), "note": WORDS})
+        dtio.write_json(a.out, doc)
+        if a.publish:
+            publish(a, doc)
+    except Exception:  # the failure card must never hide the failure itself
+        traceback.print_exc()
+
+
+def morning(a):
     model = dtio.read_json(a.model, None)
     if not model or "lift_up" not in model:
         raise Error("no model at %s: pick.py train first" % a.model)
     now_utc = clock.parse_now(a.now) if a.now else clock.utc_now()
-    date = a.date or clock.to_eastern(now_utc).date().isoformat()
+    now_et = clock.to_eastern(now_utc)
+    date = a.date or now_et.date().isoformat()
     cutoff = clock.parse_hhmm(a.at, "--at")
     rule = a.rule or model.get("rule") or dtpick.DEFAULT_RULE
     spec = model["spec"]
@@ -230,30 +398,47 @@ def cmd_morning(a):
     before_spy = [r for r in spy if r[0] < date]
     last_row = before_spy[-1][0] if before_spy else None          # what the store knew before this morning
     prev = intel_flags.prev_trading_day(date).isoformat()
-    stale = last_row != prev
     fut = dtio.read_json(a.futures, None)
-    nq_gap = (fut or {}).get("nq", {}).get("gap_pct") if fut and fut.get("date") == date else None
+    fut = fut if isinstance(fut, dict) else {}
+    fut_today = fut.get("date") == date
+    nq = (fut.get("nq") or {}) if fut_today else {}
+    nq_gap = nq.get("gap_pct") if isinstance(nq, dict) else None
+    if nq_gap is not None:
+        futures_words = "NQ %+.2f %% at %s ET" % (nq_gap, fut.get("cutoff") or "?")
+    elif fut_today:
+        futures_words = "no NQ read this morning (the futures job's NQ fetch failed)"
+    else:
+        futures_words = "no NQ read this morning (the futures file is from %s)" % (fut.get("date") or "nowhere")
     market = dtpick.market_for_today(spy, date, vix, nq_gap)
     if market is None:
         raise Error("not enough SPY history before %s" % date)
     graded = grade_pending(a, quiet=True)
-    reporting, rep_source = reporting_today(a, date)
-    reacting, react_source = reacting_today(a, date) if model.get("exclude_earnings", True) else (set(), "kept: the model was trained with --keep-earnings")
+    excl_earn = model.get("exclude_earnings", True)
+    reporting, rep_source = reporting_today(a, date) if excl_earn else (set(), "kept: the model was trained with --keep-earnings")
+    reacting, react_source = reacting_today(a, date) if excl_earn else (set(), "kept: the model was trained with --keep-earnings")
     reacting -= reporting
-    special_pct = model["special_move_pct"] if "special_move_pct" in model else dtpick.SPECIAL_MOVE_PCT
+    special_pct = model.get("special_move_pct")
     extra = dtpick.load_extra(spec["extra"]).compute if spec.get("extra") else None
     earnings_all = dtpick.load_earnings(a.cache_root) if extra else {}
-    cands, raws = [], {}
+    cands, raws, behind, with_rows = [], {}, [], 0
     for sym in syms:
         rows = dtbars.daily_rows(sym, a.cache_root)
         if not rows:
             continue
-        raw, adv = dtpick.today_raw(sym, rows, date, extra, {"cache_root": a.cache_root, "earnings": earnings_all.get(sym) or {}})
+        with_rows += 1
+        before = [r for r in rows if r[0] < date]
+        if not before or before[-1][0] != prev:                # this name's store is not through the previous session
+            behind.append(sym)
+            continue
+        raw, adv = dtpick.today_raw(sym, before, date, extra, {"cache_root": a.cache_root, "earnings": earnings_all.get(sym) or {}})
         if raw is None:
             continue
         raws[sym] = raw
         cands.append((sym, dtpick.encode(spec, raw, market), adv, None))
+    store_stale = last_row != prev or len(behind) > STALE_SHARE * max(1, with_rows)
+    half_day = date in dtpick.HALF_DAYS
     min_adv = a.min_adv or model.get("min_adv_usd", dtpick.MIN_ADV_USD)
+    floor_x = a.floor_x or model.get("floor_x", dtpick.PICK_FLOOR_X)
     adv_of = {c[0]: c[2] for c in cands}
     special = {}
     if special_pct is not None:
@@ -262,41 +447,81 @@ def cmd_morning(a):
             if why and sym not in reporting and sym not in reacting and (adv_of.get(sym) or 0) >= min_adv:
                 special[sym] = why
     exclude = set(reporting) | reacting | set(special) | set(s.strip().upper() for s in (a.exclude.split(",") if a.exclude else []) if s.strip())
-    pick, ranked = dtpick.rank(model, cands, rule, min_adv, a.floor_x or model.get("floor_x", dtpick.PICK_FLOOR_X), exclude)
+    pick, ranked = dtpick.rank(model, cands, rule, min_adv, floor_x, exclude)
+    reason = None
+    if store_stale:
+        reason = ("the price store ends %s, not the previous session %s, and %d of %d names are a session behind (the 17:30 refresh did "
+                  "not finish), so the history would describe the wrong morning" % (last_row, prev, len(behind), with_rows))
+    elif half_day:
+        reason = "a 1:00 p.m. close today; the record holds full sessions only"
+    if reason:
+        pick = None
+    # a re-run never changes the pick already logged for the day (the 08:18 retry, a manual run): it keeps that name
+    # unless --replace says otherwise, so the card and the record always name the same stock
+    logged = logged_row(a, date)
+    kept = None
+    if logged and not a.replace and (pick or {}).get("symbol") != logged.get("symbol"):
+        forced = [c for c in cands if c[0] == logged["symbol"]]
+        if forced:
+            pick = dtpick.score_candidates(model, forced)[0]
+        else:
+            pick = {"symbol": logged["symbol"], "p_up": logged.get("p_up"), "p_dn": logged.get("p_dn"), "net": (logged.get("p_up") or 0) - (logged.get("p_dn") or 0),
+                    "e_oc": logged.get("e_oc") or 0.0, "s_up": None, "s_dn": None, "adv_usd": None, "payload": None}
+        kept = "the pick logged for %s at %s was %s; this run kept it (pass --replace to post another)" % (date, logged.get("logged_at"), logged["symbol"])
+        reason = None
+    # the shadow: the most volatile eligible liquid name, the one lead the rule research left (it touched +2 % more often in
+    # both halves, but the second half's margin was inside the noise); tracked forward, graded each evening, never posted as
+    # the pick, and joining the model only through scripts/pick_research.py
+    shadow = None
+    if not reason:
+        pool = [c for c in cands if c[0] not in exclude and c[0] not in dtpick.CONTEXT and (c[2] or 0) >= min_adv
+                and isinstance((raws.get(c[0]) or {}).get("atr_pct"), (int, float))]
+        if pool:
+            s_sym = max(pool, key=lambda c: (raws[c[0]]["atr_pct"], c[0]))[0]
+            shadow = {"symbol": s_sym, "atr_pct": round(raws[s_sym]["atr_pct"], 3), "rule": "the highest-ATR eligible liquid name"}
     top = ranked[:a.top]
+    quote_syms = ([pick["symbol"]] if pick else []) + [r["symbol"] for r in top if not pick or r["symbol"] != pick["symbol"]]
     quotes = {}
-    if not a.no_premarket and top:
-        quotes = premarket_quotes([r["symbol"] for r in top], cutoff, a.pause, None if a.quiet else (lambda m: print(m, file=sys.stderr)))
-    wf = model.get("walk_forward") or {}
+    if not a.no_premarket and quote_syms:
+        quotes = premarket_quotes(quote_syms, date, cutoff, a.pause, None if a.quiet else (lambda m: print(m, file=sys.stderr)))
+    real_now = clock.utc_now() if not a.now else now_utc
+    real_et = clock.to_eastern(real_now)
+    late = real_et.date().isoformat() > date or (real_et.date().isoformat() == date and real_et.time() > LATE)
 
     def card(r):
-        return {"symbol": r["symbol"], "p_up": r["p_up"], "p_dn": r["p_dn"], "net": round(r["net"], 4), "e_oc": round(r["e_oc"], 4),
-                "adv_usd": r["adv_usd"], "premarket": quotes.get(r["symbol"]), "reasons": reasons_of(raws.get(r["symbol"]), market),
+        same = [x for x in ranked if x["p_up"] == r.get("p_up") and x["p_dn"] == r.get("p_dn")]
+        return {"symbol": r["symbol"], "p_up": r.get("p_up"), "p_dn": r.get("p_dn"), "bin_shared": len(same),
+                "net": round(r.get("net") or 0, 4), "e_oc": round(r.get("e_oc") or 0, 4), "adv_usd": r.get("adv_usd"),
+                "premarket": quotes.get(r["symbol"]), "reasons": reasons_of(raws.get(r["symbol"]), market),
                 "raw": {k: (round(v, 4) if isinstance(v, float) else v) for k, v in (raws.get(r["symbol"]) or {}).items()}}
-    rr = (wf.get("rules") or {}).get(rule) or {}
-    doc = {"created_by": "trader-pick", "as_of": "%s %s ET" % (date, a.at), "created_at": clock.iso(now_utc), "date": date, "cutoff": a.at,
-           "rule": rule, "claim": model.get("claim") or claim_of(wf, rule), "target": "close at least %g %% above (or below) the open" % dtpick.TARGET_PCT,
-           "band": [dtpick.TARGET_PCT, dtpick.BAND_HI_PCT], "store_through": last_row, "store_stale": stale, "market": market,
-           "futures_date": (fut or {}).get("date"), "nq_gap_pct": nq_gap, "base_up": round(model["base_up"], 4), "base_dn": round(model["base_dn"], 4),
-           "floor": dtpick.floor_words(rule, model, model.get("floor_x", dtpick.PICK_FLOOR_X)), "universe": len(syms), "scored": len(ranked),
-           "reporting_today": len(reporting & set(raws)), "reporting_source": rep_source,
-           "reacting_today": len(reacting & set(raws)), "reacting_source": react_source,
-           "special_today": [{"symbol": s, "reason": special[s]} for s in sorted(special)], "special_move_pct": special_pct,
-           "pick": card(pick) if pick else None, "no_pick": pick is None, "ranked": [card(r) for r in top],
-           "oos": {"first": wf.get("oos_first"), "last": wf.get("oos_last"), "sessions": wf.get("oos_sessions"), "h2_first": wf.get("h2_first"),
-                   "pick": (rr.get("pick") or {}), "top5": (rr.get("top5") or {}), "base": wf.get("base"), "highest_atr": wf.get("baseline_highest_atr")},
-           "oos_rules": {k: {"pick": v.get("pick"), "top5": v.get("top5"), "no_pick_days": v.get("no_pick_days")} for k, v in (wf.get("rules") or {}).items()},
-           "direction": direction_words(wf, rule), "live": live_record(a), "graded_now": graded,
-           "model": {"trained_at": model.get("trained_at"), "sessions_last": model.get("sessions_last"), "rows": model.get("rows"),
-                     "nq_tags": model.get("nq_tags"), "extra": spec.get("extra")},
-           "premarket_note": "pre-market prices are Yahoo's, delayed and thin; they are shown, not scored: the model saw none of them in its history",
-           "no_pick_words": "No pick: nothing cleared %s. That is a normal morning." % dtpick.floor_words(rule, model, model.get("floor_x", dtpick.PICK_FLOOR_X)),
-           "note": WORDS}
+    doc = record_fields(model, rule)
+    doc.update({"created_by": "trader-pick", "as_of": "%s %s ET" % (date, a.at), "created_at": clock.iso(now_utc), "written_at": clock.iso(real_now),
+                "date": date, "cutoff": a.at, "target": "close at least %g %% above (or below) the open" % dtpick.TARGET_PCT,
+                "band": [dtpick.TARGET_PCT, dtpick.BAND_HI_PCT], "store_through": last_row, "store_stale": store_stale,
+                "behind_today": len(behind), "behind_names": sorted(behind)[:12], "half_day": half_day, "market": market,
+                "futures_date": fut.get("date"), "futures_at": fut.get("cutoff"), "nq_gap_pct": nq_gap, "futures_words": futures_words,
+                "floor": dtpick.floor_words(rule, model, floor_x), "universe": len(syms), "scored": len(ranked),
+                "reporting_today": len(reporting & set(raws)), "reporting_source": rep_source,
+                "reacting_today": len(reacting & set(raws)), "reacting_source": react_source,
+                "special_today": [{"symbol": s, "reason": special[s]} for s in sorted(special)], "special_move_pct": special_pct,
+                "pick": card(pick) if pick else None, "no_pick": pick is None, "kept_note": kept, "late": bool(late and pick),
+                "ranked": [card(r) for r in top], "next_session": intel_flags.next_trading_day(date).isoformat(),
+                "live": live_record(a), "graded_now": graded,
+                "shadow": dict(shadow or {}, live=live_record(a, a.shadow_record),
+                               why=("the most volatile eligible liquid name, tracked forward because it touched +2 % more often than the "
+                                    "pick in both halves of the record, inside the noise in the second; not the pick")),
+                "premarket_note": "pre-market prices are Yahoo's, delayed and thin; they are shown, not scored: the model saw none of them in its history",
+                "odds_note": ("the record's odds for the pick; the model's own top-bin rates are in-sample and shared by every name in that bin, so "
+                              "they are not this name's odds"),
+                "no_pick_words": no_pick_words(model, rule, floor_x, reason), "note": WORDS})
     if a.write:
         dtio.write_json(a.out, doc)
-        if pick:
+        if pick and not doc["late"]:
             log_pick(a, doc)
+            if shadow:
+                log_shadow(a, doc, shadow)
         doc["live"] = live_record(a)
+        doc["shadow"]["live"] = live_record(a, a.shadow_record)
         dtio.write_json(a.out, doc)
         if a.publish:
             publish(a, doc)
@@ -308,24 +533,63 @@ def cmd_morning(a):
 
 
 def log_pick(a, doc):
+    """Log the day's pick once. With --replace, an earlier different pick for the day is marked superseded: never graded,
+    never counted."""
     path = a.record
-    rows = [r for r in dtio.read_jsonl(path)] if os.path.exists(path) else []
-    if any(isinstance(r, dict) and r.get("date") == doc["date"] for r in rows):
-        return False
+    rows = records(path)
     p = doc["pick"]
+    same_day = [r for r in rows if r.get("date") == doc["date"] and r.get("status") != "superseded"]
+    if same_day and same_day[-1].get("symbol") == p["symbol"]:
+        return False
+    if same_day:
+        for r in same_day:
+            r.update({"status": "superseded", "superseded_by": p["symbol"], "superseded_at": doc["written_at"]})
+        _rewrite(path, rows)
     dtio.append_jsonl(path, {"date": doc["date"], "symbol": p["symbol"], "rule": doc["rule"], "claim": doc["claim"], "p_up": p["p_up"], "p_dn": p["p_dn"],
-                             "e_oc": p["e_oc"], "base_up": doc["base_up"], "base_dn": doc["base_dn"], "logged_at": doc["created_at"], "cutoff": doc["cutoff"],
-                             "premarket": p.get("premarket"), "status": "pending", "oc_pct": None, "cc_pct": None, "up": None, "dn": None,
-                             "created_by": "trader-pick"})
+                             "e_oc": p["e_oc"], "base_up": doc["base_up"], "base_dn": doc["base_dn"], "logged_at": doc["created_at"],
+                             "written_at": doc["written_at"], "cutoff": doc["cutoff"], "store_through": doc["store_through"],
+                             "futures_at": doc["futures_at"], "premarket": p.get("premarket"), "status": "pending", "oc_pct": None,
+                             "cc_pct": None, "up": None, "dn": None, "created_by": "trader-pick"})
     return True
 
 
+def log_shadow(a, doc, shadow):
+    """Log the day's shadow name once (it is deterministic for a day's data; --replace logs again)."""
+    rows = records(a.shadow_record)
+    if any(r.get("date") == doc["date"] and r.get("status") != "superseded" for r in rows):
+        if not a.replace:
+            return False
+        for r in rows:
+            if r.get("date") == doc["date"] and r.get("status") != "superseded":
+                r.update({"status": "superseded", "superseded_at": doc["written_at"]})
+        _rewrite(a.shadow_record, rows)
+    dtio.append_jsonl(a.shadow_record, {"date": doc["date"], "symbol": shadow["symbol"], "rule": "atr", "atr_pct": shadow["atr_pct"],
+                                        "logged_at": doc["created_at"], "written_at": doc["written_at"], "status": "pending", "oc_pct": None,
+                                        "up": None, "dn": None, "created_by": "trader-pick"})
+    return True
+
+
+def _rewrite(path, rows):
+    tmp = path + ".tmp"
+    with open(tmp, "w", encoding="utf-8") as fh:
+        for r in rows:
+            fh.write(json.dumps(r, separators=(",", ":")) + "\n")
+    os.replace(tmp, path)
+
+
 def grade_pending(a, quiet=False):
-    path = a.record
-    rows = [r for r in dtio.read_jsonl(path)] if os.path.exists(path) else []
+    graded = grade_file(a, a.record)
+    grade_file(a, a.shadow_record)
+    if not quiet:
+        say("Graded %d pick(s): %s" % (len(graded), ", ".join(graded) or "none pending with a session in the store"))
+    return graded
+
+
+def grade_file(a, path):
+    rows = records(path)
     changed, graded = False, []
     for r in rows:
-        if not isinstance(r, dict) or r.get("status") != "pending":
+        if r.get("status") != "pending":
             continue
         daily = dtbars.daily_rows(r["symbol"], a.cache_root)
         row = next((x for x in daily if x[0] == r["date"]), None)
@@ -342,19 +606,12 @@ def grade_pending(a, quiet=False):
         graded.append(r["date"])
         changed = True
     if changed:
-        tmp = path + ".tmp"
-        with open(tmp, "w", encoding="utf-8") as fh:
-            for r in rows:
-                fh.write(json.dumps(r, separators=(",", ":")) + "\n")
-        os.replace(tmp, path)
-    if not quiet:
-        say("Graded %d pick(s): %s" % (len(graded), ", ".join(graded) or "none pending with a session in the store"))
+        _rewrite(path, rows)
     return graded
 
 
-def live_record(a):
-    path = a.record
-    rows = [r for r in dtio.read_jsonl(path) if isinstance(r, dict)] if os.path.exists(path) else []
+def live_record(a, path=None):
+    rows = [r for r in records(path or a.record) if r.get("status") != "superseded"]
     g = [r for r in rows if r.get("status") == "graded"]
     n = len(g)
     up = sum(r.get("up") or 0 for r in g)
@@ -375,34 +632,52 @@ def print_pick(doc):
     print("The 8:25 pick for %s (data as of %s ET; the store runs through %s%s; rule %s):" % (
         doc["date"], doc["cutoff"], doc.get("store_through"), "; STALE: the cache job has not run" if doc.get("store_stale") else "", doc["rule"]))
     m = doc.get("market") or {}
-    print("  market before the open: SPY %+.2f %% yesterday, %+.2f %% over 5 days, trend %s, VIX %s, NQ at 8:05 %s" % (
-        m.get("spy_ret_1d") or 0, m.get("spy_ret_5d") or 0, m.get("spy_trend"), m.get("vix"),
-        ("%+.2f %%" % doc["nq_gap_pct"]) if doc.get("nq_gap_pct") is not None else "n/a (no futures file for today)"))
+    print("  market before the open: SPY %+.2f %% yesterday, %+.2f %% over 5 days, trend %s, VIX %s, %s" % (
+        m.get("spy_ret_1d") or 0, m.get("spy_ret_5d") or 0, m.get("spy_trend"), ("%.1f" % m["vix"]) if isinstance(m.get("vix"), (int, float)) else "n/a",
+        doc.get("futures_words") or "no NQ read"))
     p = doc.get("pick")
+    o = (((doc.get("oos") or {}).get("pick") or {}).get("all") or {})
+    b = (((doc.get("oos") or {}).get("base") or {}).get("all") or {})
+    t = (((doc.get("oos") or {}).get("highest_atr") or {}).get("all") or {})
     if not p:
         print("  NO PICK: " + doc["no_pick_words"])
     else:
-        what = "close 2 % or more ABOVE its open" if doc["claim"] == "up" else "MOVE 2 % or more from its open"
-        print("  %s: the name most likely to %s. Odds %s up, %s down (any large cap: %s up, %s down)." % (
-            p["symbol"], what, _pct(p["p_up"], 0), _pct(p["p_dn"], 0), _pct(doc["base_up"], 0), _pct(doc["base_dn"], 0)))
+        what = "likely to close 2 % or more ABOVE its open" if doc["claim"] == "up" else "likely to MOVE 2 % or more from its open"
+        print("  %s: %s.%s" % (p["symbol"], what, "  (" + doc["kept_note"] + ")" if doc.get("kept_note") else ""))
+        if o.get("n"):
+            print("  its odds are the record of past picks (%d mornings): closed 2 %% up %s%s, 2 %% down %s%s; any large cap %s%s and %s%s; "
+                  "the most volatile liquid name %s%s and %s%s." % (
+                      o["n"], _pct(o["up_rate"], 0), _ci(o["up_ci"]), _pct(o["dn_rate"], 0), _ci(o["dn_ci"]), _pct(b.get("up_rate"), 0), _ci(b.get("up_ci")),
+                      _pct(b.get("dn_rate"), 0), _ci(b.get("dn_ci")), _pct(t.get("up_rate"), 0), _ci(t.get("up_ci")), _pct(t.get("dn_rate"), 0), _ci(t.get("dn_ci"))))
+        print("  the model's top bin this morning: %s up, %s down, shared by %d names (in-sample bin rates; the order among them comes from the raw score)" % (
+            _pct(p.get("p_up"), 0), _pct(p.get("p_dn"), 0), p.get("bin_shared") or 1))
         print("  why: " + "; ".join(p.get("reasons") or []))
         pm = p.get("premarket") or {}
         if pm.get("last"):
             print("  pre-market: %.2f at %s ET, %+.2f %% vs the prior close %.2f (shown, not scored)" % (pm["last"], pm.get("time"), pm.get("vs_prev_close_pct") or 0, pm.get("prev_close") or 0))
+        if doc.get("late"):
+            print("  LATE: written after 9:25 ET on its date, so it is not logged or counted in the live record")
     print("  out of sample: " + doc["direction"] + ".")
-    o = (((doc.get("oos") or {}).get("pick") or {}).get("all") or {})
     if o.get("n"):
-        print("  intraday: the pick traded 2 %% above its open at some point on %s of those mornings, 2 %% below on %s." % (_pct(o.get("touch_up_rate"), 0), _pct(o.get("touch_dn_rate"), 0)))
+        print("  intraday: the pick traded 2 %% above its open at some point on %s%s of those mornings, 2 %% below on %s%s; it closed 2 to 5 %% up on %s%s." % (
+            _pct(o.get("touch_up_rate"), 0), _ci(o.get("touch_up_ci")), _pct(o.get("touch_dn_rate"), 0), _ci(o.get("touch_dn_ci")),
+            _pct(o.get("band_rate"), 0), _ci(o.get("band_ci"))))
     print("  live record: %s%s." % ((doc.get("live") or {}).get("words"), " (small sample)" if (doc.get("live") or {}).get("small_sample") else ""))
     print("  left out, they report today: %d (%s)" % (doc.get("reporting_today") or 0, doc.get("reporting_source")))
-    print("  left out, they react today to a report after the prior close: %d (%s)" % (doc.get("reacting_today") or 0, doc.get("reacting_source")))
+    print("  left out, they react today to a report since the previous session: %d (%s)" % (doc.get("reacting_today") or 0, doc.get("reacting_source")))
     sp = doc.get("special_today") or []
     print("  left out, special situations: %s" % ("; ".join("%s %s" % (x["symbol"], x["reason"]) for x in sp) if sp else "none"))
+    if doc.get("behind_today"):
+        print("  left out, a session behind in the store: %d (%s)" % (doc["behind_today"], ", ".join(doc.get("behind_names") or [])))
+    sh = doc.get("shadow") or {}
+    if sh.get("symbol"):
+        print("  shadow (not the pick): %s, the most volatile eligible liquid name (ATR %.1f %%); its live record: %s" % (
+            sh["symbol"], sh.get("atr_pct") or 0, (sh.get("live") or {}).get("words")))
     print("  the next nine:")
     for r in (doc.get("ranked") or [])[1:10]:
         pm = r.get("premarket") or {}
-        print("    %-6s up %s down %s expected %+.2f %%%s" % (r["symbol"], _pct(r["p_up"], 0), _pct(r["p_dn"], 0), r["e_oc"],
-                                                         ("  pre-market %+.2f %%" % pm["vs_prev_close_pct"]) if pm.get("vs_prev_close_pct") is not None else ""))
+        print("    %-6s ATR %.1f %%%s" % (r["symbol"], (r.get("raw") or {}).get("atr_pct") or 0,
+                                      ("  pre-market %+.2f %% at %s" % (pm["vs_prev_close_pct"], pm.get("time"))) if pm.get("vs_prev_close_pct") is not None else ""))
     print("  " + doc["note"])
 
 
@@ -427,7 +702,9 @@ def cmd_report(a):
     say("Model trained %s on %s rows, %d symbols, sessions %s to %s; base rates %s up, %s down; rule %s; claim %s." % (
         model.get("trained_at"), "{:,}".format(model.get("rows") or 0), model.get("symbols") or 0, model.get("sessions_first"), model.get("sessions_last"),
         _pct(model["base_up"]), _pct(model["base_dn"]), model.get("rule"), model.get("claim")))
-    print_record(model.get("walk_forward") or {})
+    if model.get("universe"):
+        say("Universe: " + model["universe"]["rule"] + ".")
+    print_record(model.get("walk_forward") or {}, model)
     say("Biggest lifts toward +2 % (feature: bucket lift):")
     spec = model["spec"]
     for f, lifts in zip(model["features"], model["lift_up"]):
@@ -444,10 +721,9 @@ def publish(a, today_doc):
     doc = today_doc or (dtio.read_json(a.out, None) or {})
     if not doc:
         model = dtio.read_json(a.model, None) or {}
-        wf = model.get("walk_forward") or {}
         rule = model.get("rule") or dtpick.DEFAULT_RULE
-        doc = {"created_by": "trader-pick", "date": None, "no_pick": True, "pick": None, "rule": rule, "claim": model.get("claim"),
-               "direction": direction_words(wf, rule), "live": live_record(a), "note": WORDS}
+        doc = record_fields(model, rule) if model.get("walk_forward") else {"rule": rule}
+        doc.update({"created_by": "trader-pick", "date": None, "no_pick": True, "pick": None, "live": live_record(a), "note": WORDS})
     os.makedirs(a.publish_dir, exist_ok=True)
     dtio.write_json(os.path.join(a.publish_dir, "pick.json"), doc)
     say("Published %s." % os.path.join(a.publish_dir, "pick.json"))
@@ -463,6 +739,7 @@ def main(argv=None):
         p.add_argument("--symbols")
         p.add_argument("--model", default=MODEL)
         p.add_argument("--record", default=RECORD)
+        p.add_argument("--shadow-record", default=SHADOW)
         p.add_argument("--out", default=OUT)
         p.add_argument("--publish", action="store_true")
         p.add_argument("--publish-dir", default=os.path.join("trader", "publish"))
@@ -476,6 +753,8 @@ def main(argv=None):
     p.add_argument("--refit-every", type=int, default=dtpick.REFIT_EVERY)
     p.add_argument("--min-adv", type=float, default=dtpick.MIN_ADV_USD)
     p.add_argument("--floor-x", type=float, default=dtpick.PICK_FLOOR_X)
+    p.add_argument("--min-cap", type=float, default=dtpick.LARGE_CAP_USD, help="the point-in-time large-cap floor in dollars")
+    p.add_argument("--no-pit", action="store_true", help="apply tonight's list to every session (no point-in-time rule)")
     p.add_argument("--keep-earnings", action="store_true")
     p.add_argument("--keep-special", action="store_true", help="keep the special situations (a 20 %% move the session before) in")
     p = sub.add_parser("morning"); common(p)
@@ -484,6 +763,7 @@ def main(argv=None):
     p.add_argument("--exclude"); p.add_argument("--top", type=int, default=10); p.add_argument("--pause", type=float, default=0.25)
     p.add_argument("--min-adv", type=float); p.add_argument("--floor-x", type=float)
     p.add_argument("--no-premarket", action="store_true"); p.add_argument("--write", action="store_true")
+    p.add_argument("--replace", action="store_true", help="post this run's pick even if another was already logged today (that one is marked superseded)")
     p = sub.add_parser("grade"); common(p); p.add_argument("--write", action="store_true")
     p = sub.add_parser("report"); common(p)
     a = ap.parse_args(argv)
@@ -494,6 +774,10 @@ def main(argv=None):
         return {"train": cmd_train, "morning": cmd_morning, "grade": cmd_grade, "report": cmd_report}[a.cmd](a)
     except (Error, dtpick.PickError, dtio.IOError_, clock.ClockError) as e:
         print("pick.py: %s" % e, file=sys.stderr)
+        return 1
+    except Exception as e:  # anything else is a bug: say so plainly, with the trace, and fail
+        traceback.print_exc()
+        print("pick.py: unexpected %s: %s" % (type(e).__name__, e), file=sys.stderr)
         return 1
 
 

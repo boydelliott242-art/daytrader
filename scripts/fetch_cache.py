@@ -100,9 +100,21 @@ def main(argv=None):
         if a.build_universe or not os.path.exists(a.symbols_file):
             min_cap = a.min_cap or float(cfg.get("largecap_min_cap_usd") or 10e9)
             print("Building the large-cap universe from Nasdaq's screener (cap >= $%.0fB)..." % (min_cap / 1e9), flush=True)
-            doc = universe.build_largecap(net.nasdaq_screener(), min_cap)
-            universe.write_largecap(doc)
-            print("  %d symbols; wrote trader/largecap.json and trader/largecap.txt" % doc["count"], flush=True)
+            try:
+                doc = universe.build_largecap(net.nasdaq_screener(), min_cap)
+            except Exception as e:  # one screener error must not stop the refresh: keep the list on disk and go on
+                doc = None
+                print("  the screener failed (%s); keeping the list on disk and refreshing it" % str(e)[:120], flush=True)
+                if not os.path.exists(a.symbols_file):
+                    raise
+            if doc is not None:
+                universe.write_largecap(doc)
+                print("  %d symbols; wrote trader/largecap.json and trader/largecap.txt" % doc["count"], flush=True)
+                # each evening's list is kept, dated, so the pick's record can admit a name only while it was a large
+                # cap and keep the names that later leave the list (dt.pick.universe_caps)
+                hist = os.path.join("trader", "largecap_history")
+                os.makedirs(hist, exist_ok=True)
+                io.write_json(os.path.join(hist, clock.to_eastern(now).date().isoformat() + ".json"), doc)
         syms = [] if a.no_context else list(CONTEXT)
         for s in io.symbols_from_file(a.symbols_file):
             if s not in syms:

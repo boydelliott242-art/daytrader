@@ -140,20 +140,29 @@ class Earnings(unittest.TestCase):
         self.assertEqual(len(rows3), len(rows) + len(special))
         rows2, _, dropped2 = pick.encode_rows(raws, market, pick.base_spec(), exclude_earnings=False)
         self.assertEqual((dropped2, len(rows2)), (0, len(rows) + 2))
-        # a report marked before the open moves the stock on its own session only
+        # the report time plays no part (Nasdaq drops it for past dates, so the history cannot use it): a report marked
+        # before the open leaves out the next session too, the same rule the record was built with
         write(os.path.join(d, "earnings", "2026-10-22.json"), json.dumps({"date": "2026-10-22", "rows": [{"symbol": "TSLA", "time": "time-pre-market"}]}))
         raws = pick.raw_rows(d, ["TSLA"])
-        self.assertEqual([(r[0], r[8]) for r in raws if r[8]], [("2026-10-22", "report")])
+        self.assertEqual([(r[0], r[8]) for r in raws if r[8]], [("2026-10-22", "report"), ("2026-10-23", "reaction")])
+        # a Saturday report: the next session (Monday 2026-10-19) is its reaction session
+        os.remove(os.path.join(d, "earnings", "2026-10-22.json"))
+        write(os.path.join(d, "earnings", "2026-10-17.json"), json.dumps({"date": "2026-10-17", "rows": [{"symbol": "TSLA"}]}))
+        raws = pick.raw_rows(d, ["TSLA"])
+        self.assertEqual([(r[0], r[8]) for r in raws if r[8]], [("2026-10-19", "reaction")])
         shutil.rmtree(d)
 
     def test_earnings_session_by_hand(self):
         rep = {"2026-10-22": {"time": "time-after-hours"}, "2026-10-26": {"time": "time-pre-market"}, "2026-10-28": {"time": "time-not-supplied"}}
         self.assertEqual(pick.earnings_session(rep, "2026-10-22", "2026-10-21"), "report")
-        self.assertEqual(pick.earnings_session(rep, "2026-10-23", "2026-10-22"), "reaction")     # after the close: the next session
+        self.assertEqual(pick.earnings_session(rep, "2026-10-23", "2026-10-22"), "reaction")     # the session after a report
         self.assertEqual(pick.earnings_session(rep, "2026-10-26", "2026-10-23"), "report")
-        self.assertIsNone(pick.earnings_session(rep, "2026-10-27", "2026-10-26"))              # before the open: that session only
-        self.assertEqual(pick.earnings_session(rep, "2026-10-29", "2026-10-28"), "reaction")     # no time: the safe reading
+        self.assertEqual(pick.earnings_session(rep, "2026-10-27", "2026-10-26"), "reaction")     # the time plays no part
+        self.assertEqual(pick.earnings_session(rep, "2026-10-29", "2026-10-28"), "reaction")
         self.assertIsNone(pick.earnings_session(rep, "2026-10-21", "2026-10-20"))
+        sat = {"2026-10-24": {}}                                                                 # a Saturday report: Monday reacts
+        self.assertEqual(pick.earnings_session(sat, "2026-10-26", "2026-10-23"), "reaction")
+        self.assertIsNone(pick.earnings_session(sat, "2026-10-23", "2026-10-22"))
         self.assertIsNone(pick.earnings_session({}, "2026-10-21", None))
         self.assertIsNone(pick.earnings_session(None, "2026-10-21", "2026-10-20"))
 
@@ -242,7 +251,9 @@ class WalkForward(unittest.TestCase):
         cls.res = pick.walk_forward(cls.rows, cls.dates, min_train=120, refit_every=20)
 
     def test_the_fixture_rows(self):
-        self.assertEqual(len(self.dates), 450)
+        self.assertEqual(len(self.dates), 447)                     # 450 sessions less three half days (1:00 p.m. closes)
+        self.assertFalse(set(self.dates) & pick.HALF_DAYS)
+        self.assertEqual(self.info["half_day_dropped"] > 0, True)
         self.assertGreater(len(self.rows), 7000)
         for r in self.rows[:50]:
             self.assertEqual(len(r[pick.CODES]), len(pick.FEATURES))
@@ -252,21 +263,27 @@ class WalkForward(unittest.TestCase):
 
     def test_every_pick_was_ranked_before_it_was_known(self):
         res = self.res
-        self.assertEqual((res["oos_sessions"], res["refits"], res["oos_first"]), (330, 17, self.dates[120]))
-        self.assertEqual(res["h2_first"], self.dates[120 + 165])
+        self.assertEqual((res["oos_sessions"], res["refits"], res["oos_first"]), (327, 17, self.dates[120]))
+        self.assertEqual(res["h2_first"], self.dates[120 + 163])
         for rule in pick.RULES:
             r = res["rules"][rule]
             for seg in ("all", "h1", "h2"):
                 self.assertIn(seg, r["pick"])
             p = r["pick"]["all"]
-            self.assertEqual(p["n"] + r["no_pick_days"], 330)
+            self.assertEqual(p["n"] + r["no_pick_days"], 327)
+            for k in ("up", "dn", "band", "touch_up", "touch_dn"):
+                lo, hi = p[k + "_ci"]
+                self.assertTrue(lo <= p[k + "_rate"] <= hi, k)
+            self.assertEqual(p["ci"], "wilson")
+            self.assertTrue(r["top5"]["all"]["ci"].startswith("mornings resampled"))
             self.assertTrue(p["up_ci"][0] <= p["up_rate"] <= p["up_ci"][1])
             self.assertEqual(r["pick"]["h1"]["n"] + r["pick"]["h2"]["n"], p["n"])
-            self.assertEqual(r["top5"]["all"]["n"], 330 * 5)
+            self.assertEqual(r["top5"]["all"]["n"], 327 * 5)
             for x in r["recent"]:
                 self.assertGreaterEqual(x["date"], res["oos_first"])
         self.assertTrue(res["base"]["all"]["n"] > 1000)
-        self.assertEqual(res["baseline_highest_atr"]["all"]["n"], 330)
+        self.assertEqual(res["baseline_highest_atr"]["all"]["n"], 327)
+        self.assertTrue(res["base"]["all"]["ci"].startswith("mornings resampled"))
         w = pick.words(res, "up")
         self.assertIn("base rates", w)
         self.assertIn("below", w)
@@ -324,7 +341,7 @@ class Cli(unittest.TestCase):
         for must in ("Out of sample", "any large cap", "highest-ATR", "The card's claim"):
             self.assertIn(must, out, must)
         model = dtio.read_json(os.path.join("trader", "pick", "model.json"))
-        self.assertEqual((model["symbols"], model["rule"], model["walk_forward"]["oos_sessions"]), (len(SYMS), "up", 330))
+        self.assertEqual((model["symbols"], model["rule"], model["walk_forward"]["oos_sessions"]), (len(SYMS), "up", 327))
         self.assertIn(model["claim"], ("up", "move"))
         self.assertTrue(os.path.exists(os.path.join("trader", "publish", "pick.json")))
         self.assertEqual(model["special_move_pct"], pick.SPECIAL_MOVE_PCT)
@@ -338,11 +355,18 @@ class Cli(unittest.TestCase):
         self.assertEqual(code, 0, err)
         doc = dtio.read_json(os.path.join("trader", "pick.json"))
         self.assertEqual((doc["date"], doc["cutoff"], doc["store_through"], doc["store_stale"], doc["rule"]), ("2026-10-23", "08:05", "2026-10-22", False, "up"))
-        self.assertEqual((doc["reporting_today"], doc["reacting_today"]), (1, 1))
+        self.assertEqual((doc["reporting_today"], doc["reacting_today"]), (1, 2))
         self.assertIn("Nasdaq calendar", doc["reporting_source"])
         self.assertIn("2026-10-22", doc["reacting_source"])
         self.assertNotIn(SYMS[0], [r["symbol"] for r in doc["ranked"]])
         self.assertNotIn(SYMS[1], [r["symbol"] for r in doc["ranked"]])
+        self.assertNotIn(SYMS[2], [r["symbol"] for r in doc["ranked"]])
+        for k in ("oos", "oos_rules", "direction_kind", "configs_tested", "next_session", "futures_words", "odds_note"):
+            self.assertIn(k, doc, k)
+        self.assertEqual(doc["configs_tested"], 3)
+        self.assertEqual(doc["next_session"], "2026-10-26")
+        self.assertNotIn("expected", out)                               # the uncalibrated move is never printed
+        self.assertIn("record of past picks", out)
         self.assertEqual(doc["special_move_pct"], pick.SPECIAL_MOVE_PCT)
         self.assertIn("react today", out)
         self.assertIsNone(doc["nq_gap_pct"])
@@ -377,7 +401,7 @@ class Cli(unittest.TestCase):
         from dt import bars
         model = dtio.read_json(os.path.join("trader", "pick", "model.json"))
         moves = {}
-        for s in SYMS[2:]:                                     # SYMS[0] reports today and SYMS[1] reacts: already left out
+        for s in SYMS[3:]:                                     # SYMS[0] reports today, SYMS[1] and SYMS[2] react: already left out
             raw, adv = pick.today_raw(s, bars.daily_rows(s, os.path.join("trader", "cache")), "2026-10-23")
             if raw and adv and adv >= model["min_adv_usd"] and raw.get("ret_1d") is not None:
                 moves[s] = abs(raw["ret_1d"])
@@ -399,6 +423,272 @@ class Cli(unittest.TestCase):
         code, out, err = run(["morning", "--date", "2026-10-23", "--no-premarket"])
         self.assertEqual(code, 1)
         self.assertIn("train first", err)
+
+
+class Universe(unittest.TestCase):
+    def test_the_newest_list_holding_a_name_sets_its_cap(self):
+        old = {"as_of": "2026-10-25T23:00:00Z", "symbols": [{"symbol": "AAA", "market_cap": 20e9, "last_sale": 10.0},
+                                                         {"symbol": "GONE", "market_cap": 12e9, "last_sale": 4.0}]}
+        new = {"as_of": "2026-10-27T21:00:00Z", "symbols": [{"symbol": "AAA", "market_cap": 30e9, "last_sale": 15.0},
+                                                         {"symbol": "BAD", "market_cap": None, "last_sale": 2.0}]}
+        caps = pick.universe_caps([new, old])
+        self.assertEqual(caps["AAA"][:2], (30e9, 15.0))
+        self.assertEqual(caps["GONE"][:2], (12e9, 4.0))          # a name that left keeps its history
+        self.assertNotIn("BAD", caps)
+
+    def test_a_session_counts_only_while_the_name_was_a_large_cap(self):
+        from dt import bars
+        rows = bars.daily_rows("TSLA", CACHE)
+        last = float(rows[-1][4])
+        caps = {"TSLA": (10e9, last, "2026-10-23")}            # exactly the floor at the last close
+        raws = pick.raw_rows(CACHE, ["TSLA"], caps=caps)
+        self.assertTrue(all("cap_est" in r[2] for r in raws))
+        market = pick.market_table(bars.daily_rows("SPY", CACHE), bars.daily_rows("^VIX", CACHE))
+        info = {}
+        rows_pit, _, _ = pick.encode_rows(raws, market, pick.base_spec(), info=info, min_cap=10e9)
+        self.assertGreater(info["small_dropped"], 0)
+        kept = {r[0] for r in rows_pit}
+        for d, sym, raw, *_ in raws:
+            if d in kept:
+                self.assertGreaterEqual(raw["cap_est"], 10e9 - 1)
+        rows_all, _, _ = pick.encode_rows(raws, market, pick.base_spec())
+        cap_of = {r[0]: r[2]["cap_est"] for r in raws}
+        extra = [r for r in rows_all if r[0] not in kept]               # what the rule removed that the other rules kept
+        self.assertTrue(extra)
+        self.assertTrue(all(cap_of[r[0]] < 10e9 for r in extra))
+        self.assertLessEqual(len(extra), info["small_dropped"])         # a small session can also be special or a report day
+
+
+class Intervals(unittest.TestCase):
+    def test_mornings_are_resampled_when_a_morning_holds_several_names(self):
+        recs = []
+        for k in range(40):                                     # half the mornings every name closes up, half none does
+            for j in range(30):
+                up = 1 if k % 2 == 0 else 0
+                recs.append({"date": "2026-01-%02d" % (k % 28 + 1) + ("a" if k >= 28 else ""), "up": up, "dn": 0, "oc": 2.5 if up else 0.0,
+                             "hi": 3.0 if up else 0.5, "lo": -0.5})
+        st = pick.seg_stats(recs)
+        self.assertTrue(st["ci"].startswith("mornings resampled"))
+        from dt import stats
+        wlo, whi = stats.wilson(st["up"], st["n"])
+        self.assertGreater(st["up_ci"][1] - st["up_ci"][0], 3 * (whi - wlo))   # far wider than the name-by-name interval
+        one = pick.seg_stats(recs[::30])
+        self.assertEqual(one["ci"], "wilson")
+        for k in ("band", "touch_up", "touch_dn"):
+            self.assertIn(k + "_ci", one)
+
+
+class CliMore(unittest.TestCase):
+    """The morning's failure modes, each with the card it must post."""
+    @classmethod
+    def setUpClass(cls):
+        cls.base = tempfile.mkdtemp()
+        cwd = os.getcwd()
+        os.chdir(cls.base)
+        try:
+            os.makedirs(os.path.join("trader", "cache", "earnings"))
+            for sub in ("daily", "bars5m"):
+                os.symlink(os.path.join(CACHE, sub), os.path.join("trader", "cache", sub))
+            write(os.path.join("trader", "largecap.json"), json.dumps({"symbols": [{"symbol": x} for x in SYMS]}))
+            code, out, err = run(["train", "--workers", "1"])
+            assert code == 0, err
+        finally:
+            os.chdir(cwd)
+
+    @classmethod
+    def tearDownClass(cls):
+        shutil.rmtree(cls.base, ignore_errors=True)
+
+    def setUp(self):
+        self.d = tempfile.mkdtemp()
+        self.cwd = os.getcwd()
+        shutil.copytree(os.path.join(self.base, "trader"), os.path.join(self.d, "trader"), symlinks=True)
+        os.chdir(self.d)
+
+    def tearDown(self):
+        os.chdir(self.cwd)
+        shutil.rmtree(self.d, ignore_errors=True)
+
+    def morning(self, *extra):
+        code, out, err = run(["morning", "--date", "2026-10-23", "--no-premarket", "--now", "2026-10-23 08:06"] + list(extra))
+        return code, out, err
+
+    def test_a_futures_file_without_an_nq_read_does_not_crash(self):
+        write(os.path.join("trader", "futures.json"), json.dumps({"date": "2026-10-23", "cutoff": "08:05", "nq": None, "es": {"gap_pct": 0.1}}))
+        code, out, err = self.morning("--json")
+        self.assertEqual(code, 0, err)
+        doc = json.loads(out)
+        self.assertIsNone(doc["nq_gap_pct"])
+        self.assertIn("NQ fetch failed", doc["futures_words"])
+
+    def test_a_rerun_keeps_the_logged_pick_and_replace_supersedes_it(self):
+        code, out, err = self.morning("--write")
+        self.assertEqual(code, 0, err)
+        first = dtio.read_json(os.path.join("trader", "pick.json"))["pick"]["symbol"]
+        code, out, err = self.morning("--write", "--exclude", first)
+        self.assertEqual(code, 0, err)
+        doc = dtio.read_json(os.path.join("trader", "pick.json"))
+        self.assertEqual(doc["pick"]["symbol"], first)                  # the card still names the logged pick
+        self.assertIn("kept it", doc["kept_note"])
+        self.assertEqual(len(records(os.path.join("trader", "pick", "record.jsonl"))), 1)
+        code, out, err = self.morning("--write", "--exclude", first, "--replace")
+        self.assertEqual(code, 0, err)
+        doc = dtio.read_json(os.path.join("trader", "pick.json"))
+        second = doc["pick"]["symbol"]
+        self.assertNotEqual(second, first)
+        rec = records(os.path.join("trader", "pick", "record.jsonl"))
+        self.assertEqual([(r["symbol"], r["status"]) for r in rec], [(first, "superseded"), (second, "pending")])
+        run(["grade", "--write"])
+        rec = records(os.path.join("trader", "pick", "record.jsonl"))
+        self.assertEqual([r["status"] for r in rec], ["superseded", "graded"])   # only the posted pick is graded
+        self.assertEqual(cli.live_record(type("A", (), {"record": os.path.join("trader", "pick", "record.jsonl")})())["graded"], 1)
+
+    def test_a_failed_morning_posts_a_dated_no_pick_card(self):
+        orig = cli.morning
+
+        def boom(a):
+            raise RuntimeError("boom at 08:08")
+        cli.morning = boom
+        try:
+            code, out, err = self.morning("--write", "--publish")
+        finally:
+            cli.morning = orig
+        self.assertEqual(code, 1)
+        self.assertIn("boom", err)
+        doc = dtio.read_json(os.path.join("trader", "publish", "pick.json"))
+        self.assertEqual((doc["date"], doc["no_pick"], doc["failed"]), ("2026-10-23", True, True))
+        self.assertIn("boom at 08:08", doc["no_pick_words"])
+        self.assertIn("oos", doc)
+
+    def test_an_empty_calendar_is_not_a_day_nobody_reports(self):
+        write(os.path.join("trader", "cache", "earnings", "2026-10-23.json"), json.dumps({"date": "2026-10-23", "rows": []}))
+        code, out, err = self.morning("--json")
+        self.assertEqual(code, 0, err)
+        self.assertIn("came back empty", json.loads(out)["reporting_source"])
+
+    def test_a_half_day_posts_no_pick(self):
+        code, out, err = run(["morning", "--date", "2025-12-24", "--no-premarket", "--now", "2025-12-24 08:06", "--json"])
+        self.assertEqual(code, 0, err)
+        doc = json.loads(out)
+        self.assertTrue(doc["half_day"] and doc["no_pick"])
+        self.assertIn("1:00 p.m.", doc["no_pick_words"])
+
+    def test_a_late_card_is_posted_marked_and_never_counted(self):
+        code, out, err = run(["morning", "--date", "2026-10-23", "--no-premarket", "--now", "2026-10-23 10:05", "--write"])
+        self.assertEqual(code, 0, err)
+        doc = dtio.read_json(os.path.join("trader", "pick.json"))
+        self.assertTrue(doc["late"])
+        self.assertFalse(os.path.exists(os.path.join("trader", "pick", "record.jsonl")))
+        self.assertIn("LATE", out)
+
+    def test_a_name_a_session_behind_is_left_out(self):
+        from dt import bars
+        daily = os.path.join("trader", "cache", "daily")
+        os.remove(daily)                                          # a real copy of the store, one name cut two sessions short
+        shutil.copytree(os.path.join(CACHE, "daily"), daily)
+        victim = SYMS[4]
+        doc = bars.load_store(victim, "daily", os.path.join("trader", "cache"))
+        doc["rows"] = [r for r in doc["rows"] if r[0] < "2026-10-22"]
+        bars.save_store(victim, doc, "daily", os.path.join("trader", "cache"))
+        orig = cli.STALE_SHARE
+        cli.STALE_SHARE = 0.5                                     # one name of eighteen: behind, not a stale store
+        try:
+            code, out, err = self.morning("--json")
+        finally:
+            cli.STALE_SHARE = orig
+        self.assertEqual(code, 0, err)
+        doc = json.loads(out)
+        self.assertEqual((doc["behind_today"], doc["store_stale"]), (1, False))
+        self.assertNotIn(victim, [r["symbol"] for r in doc["ranked"]])
+        code, out, err = self.morning("--json")                   # at the real threshold one in eighteen is a stale store
+        doc = json.loads(out)
+        self.assertTrue(doc["store_stale"] and doc["no_pick"])
+        self.assertIn("session behind", doc["no_pick_words"])
+
+    def test_the_shadow_is_logged_and_graded_but_never_the_pick(self):
+        code, out, err = self.morning("--write")
+        self.assertEqual(code, 0, err)
+        doc = dtio.read_json(os.path.join("trader", "pick.json"))
+        sh = doc["shadow"]
+        self.assertTrue(sh["symbol"])
+        self.assertIn("not the pick", sh["why"])
+        rec = records(os.path.join("trader", "pick", "shadow.jsonl"))
+        self.assertEqual([(r["symbol"], r["status"]) for r in rec], [(sh["symbol"], "pending")])
+        run(["grade", "--write"])
+        self.assertEqual(records(os.path.join("trader", "pick", "shadow.jsonl"))[0]["status"], "graded")
+
+    def test_the_published_placeholder_carries_the_record(self):
+        code, out, err = run(["grade", "--write", "--publish"])
+        cli.publish(type("A", (), {"out": os.path.join("trader", "nothing.json"), "model": os.path.join("trader", "pick", "model.json"),
+                                   "record": os.path.join("trader", "pick", "record.jsonl"), "publish_dir": os.path.join("trader", "publish")})(), None)
+        doc = dtio.read_json(os.path.join("trader", "publish", "pick.json"))
+        self.assertIsNone(doc["date"])
+        for k in ("oos", "oos_rules", "claim", "direction_kind", "configs_tested"):
+            self.assertIn(k, doc, k)
+
+
+class Premarket(unittest.TestCase):
+    def test_the_print_is_the_last_bar_that_ended_by_the_cutoff_on_the_date(self):
+        from dt import clock
+        import datetime as _dt
+
+        def ts(day, hhmm):
+            h, m = map(int, hhmm.split(":"))
+            return clock.ts_of(clock.eastern_to_utc(_dt.datetime.combine(_dt.date.fromisoformat(day), _dt.time(h, m))))
+        stamps = [ts("2026-10-22", "15:55"), ts("2026-10-23", "07:55"), ts("2026-10-23", "08:00"), ts("2026-10-23", "08:05")]
+        doc = {"chart": {"result": [{"meta": {"chartPreviousClose": 100.0}, "timestamp": stamps,
+                                     "indicators": {"quote": [{"close": [99.0, 101.0, 102.0, 103.0]}]}}]}}
+        orig_get, orig_sleep = cli.net.yahoo_get, cli.net.SLEEP
+        cli.net.yahoo_get = lambda path: doc
+        cli.net.SLEEP = lambda s: None
+        try:
+            q = cli.premarket_quotes(["X"], "2026-10-23", _dt.time(8, 8))
+            q2 = cli.premarket_quotes(["X"], "2026-10-24", _dt.time(8, 8))
+        finally:
+            cli.net.yahoo_get, cli.net.SLEEP = orig_get, orig_sleep
+        self.assertEqual((q["X"]["last"], q["X"]["time"]), (102.0, "08:05"))   # the 08:05 bar was still forming at 08:08
+        self.assertAlmostEqual(q["X"]["vs_prev_close_pct"], 2.0)
+        self.assertIsNone(q2["X"]["last"])                                   # another day's bars never stand in
+
+
+class CalendarFetch(unittest.TestCase):
+    def test_a_refresh_never_makes_a_calendar_file_worse(self):
+        sys.path.insert(0, os.path.join(ROOT, "scripts"))
+        import fetch_earnings_history as feh
+        d = tempfile.mkdtemp()
+        write(os.path.join(d, "2026-10-26.json"), json.dumps({"date": "2026-10-26", "rows": [
+            {"symbol": "AAA", "time": "time-pre-market"}, {"symbol": "BBB", "time": "time-after-hours"}]}))
+        orig = feh.net.nasdaq_earnings
+        try:
+            feh.net.nasdaq_earnings = lambda date: []
+            date, n, err = feh.fetch_one("2026-10-26", d, tries=1)
+            self.assertIsNone(n)
+            self.assertIn("kept the 2 rows", err)
+            self.assertEqual(len(dtio.read_json(os.path.join(d, "2026-10-26.json"))["rows"]), 2)
+            feh.net.nasdaq_earnings = lambda date: [{"symbol": "AAA", "time": "time-not-supplied", "eps": "$1.00"}, {"symbol": "CCC", "time": "time-not-supplied"}]
+            date, n, err = feh.fetch_one("2026-10-26", d, tries=1)
+            rows = {r["symbol"]: r for r in dtio.read_json(os.path.join(d, "2026-10-26.json"))["rows"]}
+            self.assertEqual((n, err), (2, None))
+            self.assertEqual(rows["AAA"]["time"], "time-pre-market")        # the time on disk survives the refresh
+            self.assertEqual(rows["AAA"]["eps"], "$1.00")
+            self.assertEqual(rows["CCC"]["time"], "time-not-supplied")
+            self.assertNotIn("BBB", rows)                                   # the newer answer decides who is listed
+        finally:
+            feh.net.nasdaq_earnings = orig
+            shutil.rmtree(d, ignore_errors=True)
+
+
+class Wrapper(unittest.TestCase):
+    def test_run_sh_breaks_stale_locks_and_publishes_only_the_bundle_from_main(self):
+        with open(os.path.join(ROOT, "scripts", "run.sh"), encoding="utf-8") as fh:
+            text = fh.read()
+        self.assertIn("breaking a stale lock", text)
+        self.assertIn('echo $$ > "$lock/pid"', text)
+        self.assertIn("not main; nothing published", text)
+        self.assertIn("-- docs/data/bundle.enc", text)
+        self.assertIn("never pick again", text)
+        self.assertIn("gap_pct') is not None", text)
+        self.assertLess(text.index("trader-pick/pick.py morning"), text.index("fetch_premarket.py --range 1d"))
 
 
 if __name__ == "__main__":

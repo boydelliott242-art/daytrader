@@ -18,15 +18,17 @@ the session after a report made after the close or with no time given) and speci
 session before) are left out of training and scoring, as the live pick leaves them out. Pure stdlib.
 """
 
+import bisect
 import datetime
 import glob
+import random
 import importlib.util
 import json
 import math
 import multiprocessing
 import os
 
-from . import bars as dtbars, stats as dtstats
+from . import bars as dtbars, clock as dtclock, stats as dtstats
 
 TARGET_PCT = 2.0
 BAND_HI_PCT = 5.0
@@ -41,7 +43,10 @@ PICK_FLOOR_X = 1.5          # rule up: the pick needs calibrated up odds of at l
 NET_FLOOR = 0.02            # rule net: up odds at least 2 points above down odds
 RET_FLOOR = 0.10            # rule ret: an expected open-to-close move of at least +0.10 percent
 SPECIAL_MOVE_PCT = 20.0     # a name that moved this much close to close the session before is a special situation (left out)
+LARGE_CAP_USD = 10e9        # the universe rule: a session counts only while the name was a large cap at the prior close
 PRE_MARKET = "time-pre-market"
+# 1:00 p.m. closes: no pick, and left out of the record (a half session is not a morning the full-day odds describe)
+HALF_DAYS = frozenset(["2024-07-03", "2024-11-29", "2024-12-24", "2025-07-03", "2025-11-28", "2025-12-24"]) | frozenset(dtclock.NYSE_EARLY_CLOSE)
 RULES = ("up", "net", "ret")
 DEFAULT_RULE = "up"
 NA = "na"
@@ -297,16 +302,19 @@ def earnings_dates_known(cache_root):
     return sorted(os.path.basename(p)[:10] for p in glob.glob(os.path.join(cache_root, "earnings", "*.json")))
 
 
-def earnings_session(reports, date, prev_date):
-    """"report" when the name reports on the date, "reaction" when it reported on the session before and the report was
-    not marked before the open (after the close, or no time given: most of Nasdaq's calendar, and the move lands on the
-    next session), else None. reports: {date: calendar row} for one name. Both kinds are left out."""
+def earnings_session(reports, date, prev_date, dates_sorted=None):
+    """"report" when the name reports on the date; "reaction" when it reported on the session before or on a day with no
+    session in between (a Saturday report, a holiday), else None. reports: {date: calendar row} for one name. Both kinds
+    are left out. The report time plays no part: Nasdaq drops the times of past dates, so the history cannot tell a report
+    after the close from one before the open, and the rule that the record measured is the one the live pick applies."""
     reports = reports or {}
     if date in reports:
         return "report"
-    row = reports.get(prev_date) if prev_date else None
-    if row is not None and (row.get("time") if isinstance(row, dict) else None) != PRE_MARKET:
-        return "reaction"
+    if prev_date:
+        ds = dates_sorted if dates_sorted is not None else sorted(reports)
+        i = bisect.bisect_left(ds, prev_date)
+        if i < len(ds) and ds[i] < date:
+            return "reaction"
     return None
 
 
@@ -321,12 +329,44 @@ def special_of(raw, pct=None):
     return None
 
 
+# ------------------------------------------------------------------------------------------- the universe, point in time
+def universe_caps(lists):
+    """{SYM: (market_cap, last_sale, as_of)} from large-cap lists (trader/largecap.json and the dated copies in
+    trader/largecap_history), each name from the newest list that holds it. A name that left the list keeps its entry, so
+    its history counts for the sessions it qualified; cap_est then admits a session only while it was a large cap."""
+    out = {}
+    for doc in lists:
+        asof = (doc or {}).get("as_of") or ""
+        for r in (doc or {}).get("symbols") or []:
+            if not isinstance(r, dict) or not r.get("symbol"):
+                continue
+            cap, px = r.get("market_cap"), r.get("last_sale")
+            if not (isinstance(cap, (int, float)) and isinstance(px, (int, float)) and px > 0):
+                continue
+            sym = str(r["symbol"]).upper()
+            if sym not in out or asof >= out[sym][2]:
+                out[sym] = (float(cap), float(px), asof)
+    return out
+
+
+def load_universe_caps(root="."):
+    """universe_caps over trader/largecap.json and trader/largecap_history/*.json under root."""
+    docs = []
+    for path in sorted(glob.glob(os.path.join(root, "trader", "largecap_history", "*.json"))) + [os.path.join(root, "trader", "largecap.json")]:
+        try:
+            with open(path, encoding="utf-8") as fh:
+                docs.append(json.load(fh))
+        except (OSError, ValueError):
+            continue
+    return universe_caps(docs)
+
+
 # ------------------------------------------------------------------------------------------- building the rows
 _WORK = {}
 
 
-def _init_worker(spec_extra, cache_root, earnings):
-    _WORK.update({"extra": spec_extra, "cache_root": cache_root, "earnings": earnings})
+def _init_worker(spec_extra, cache_root, earnings, caps=None):
+    _WORK.update({"extra": spec_extra, "cache_root": cache_root, "earnings": earnings, "caps": caps or {}})
 
 
 def _raw_job(args):
@@ -334,8 +374,16 @@ def _raw_job(args):
     extra = load_extra(_WORK["extra"]).compute if _WORK.get("extra") else None
     ctx = {"cache_root": _WORK["cache_root"], "earnings": (_WORK["earnings"] or {}).get(sym) or {}}
     prev = {rows[i][0]: rows[i - 1][0] for i in range(1, len(rows))}
-    return [(d, sym, raw, oc, cc, hi, lo, adv, earnings_session(ctx["earnings"], d, prev.get(d)))
-            for d, raw, oc, cc, hi, lo, adv in symbol_table(sym, rows, extra, ctx)]
+    close_of = {r[0]: float(r[4]) for r in rows}
+    reports = sorted(ctx["earnings"])
+    cap = (_WORK.get("caps") or {}).get(sym)
+    out = []
+    for d, raw, oc, cc, hi, lo, adv in symbol_table(sym, rows, extra, ctx):
+        if cap is not None:
+            p = close_of.get(prev.get(d))                 # the estimated cap at the prior close: cap x (close then / price at the list)
+            raw["cap_est"] = cap[0] * p / cap[1] if p else None
+        out.append((d, sym, raw, oc, cc, hi, lo, adv, earnings_session(ctx["earnings"], d, prev.get(d), reports)))
+    return out
 
 
 def _pool_map(fn, jobs, workers, initargs):
@@ -350,9 +398,10 @@ def _pool_map(fn, jobs, workers, initargs):
     return [fn(j) for j in jobs]
 
 
-def raw_rows(cache_root, symbols, workers=1, extra=None):
+def raw_rows(cache_root, symbols, workers=1, extra=None, caps=None):
     """[(date, sym, raw, oc, cc, hi, lo, adv, earnings)] for every symbol with daily rows; earnings is "report",
-    "reaction" or None (earnings_session)."""
+    "reaction" or None (earnings_session); with caps (universe_caps) every raw carries cap_est, the estimated market cap
+    at the prior close."""
     earnings = load_earnings(cache_root)
     jobs = []
     for sym in symbols:
@@ -362,19 +411,27 @@ def raw_rows(cache_root, symbols, workers=1, extra=None):
         if rows:
             jobs.append((sym, rows))
     out = []
-    for part in _pool_map(_raw_job, jobs, workers, (extra, cache_root, earnings)):
+    for part in _pool_map(_raw_job, jobs, workers, (extra, cache_root, earnings, caps)):
         out.extend(part)
     return out
 
 
-def encode_rows(raws, market, spec, exclude_earnings=True, exclude_special=True, info=None):
+def encode_rows(raws, market, spec, exclude_earnings=True, exclude_special=True, info=None, min_cap=None, exclude_half_days=True):
     """-> (rows, dates, dropped): the encoded rows of the sessions the market table covers; dropped counts the earnings
     sessions left out (raws flag them "report" or "reaction"; a base built before the reaction rule flags report days
-    only). exclude_special leaves out the special situations too (special_of), as the live model does; a dict passed as
-    info gets "earnings_dropped", "reaction_dropped" (the part that is the session after a report) and "special_dropped"."""
-    rows, dropped, reaction, special = [], 0, 0, 0
+    only). exclude_special leaves out the special situations too (special_of), as the live model does; min_cap leaves out
+    a session whose estimated cap at the prior close (cap_est) was under it; half days (HALF_DAYS) are left out too. A
+    dict passed as info gets "earnings_dropped", "reaction_dropped" (the part that is the session after a report),
+    "special_dropped", "small_dropped" and "half_day_dropped"."""
+    rows, dropped, reaction, special, small, half = [], 0, 0, 0, 0, 0
     for d, sym, raw, oc, cc, hi, lo, adv, rep in raws:
         if oc is None or d not in market:
+            continue
+        if exclude_half_days and d in HALF_DAYS:
+            half += 1
+            continue
+        if min_cap is not None and isinstance(raw.get("cap_est"), (int, float)) and raw["cap_est"] < min_cap:
+            small += 1
             continue
         if exclude_earnings and rep:
             dropped += 1
@@ -386,26 +443,29 @@ def encode_rows(raws, market, spec, exclude_earnings=True, exclude_special=True,
         rows.append((d, sym, encode(spec, raw, market[d]), 1 if oc >= TARGET_PCT else 0, 1 if oc <= -TARGET_PCT else 0,
                      oc, cc, hi, lo, adv, raw.get("atr_pct")))
     if info is not None:
-        info.update({"earnings_dropped": dropped, "reaction_dropped": reaction, "special_dropped": special})
+        info.update({"earnings_dropped": dropped, "reaction_dropped": reaction, "special_dropped": special, "small_dropped": small,
+                     "half_day_dropped": half})
     return rows, sorted(set(r[DATE] for r in rows)), dropped
 
 
-def build_rows(cache_root, symbols, workers=1, nq_tags=None, spec=None, exclude_earnings=True, exclude_special=True):
-    """-> (rows, dates, market, info): every encoded row (earnings sessions and special situations dropped when asked), the
-    sorted dates, the market table, and what was dropped."""
+def build_rows(cache_root, symbols, workers=1, nq_tags=None, spec=None, exclude_earnings=True, exclude_special=True, caps=None,
+               min_cap=None):
+    """-> (rows, dates, market, info): every encoded row (earnings sessions, special situations and, with caps and min_cap,
+    sessions before a name was a large cap dropped when asked), the sorted dates, the market table, and what was dropped."""
     spec = spec or base_spec()
     spy = dtbars.daily_rows("SPY", cache_root)
     vix = dtbars.daily_rows("^VIX", cache_root)
     if not spy:
         raise PickError("no SPY daily rows under %s" % cache_root)
     market = market_table(spy, vix, nq_tags)
-    raws = raw_rows(cache_root, symbols, workers, spec.get("extra"))
+    raws = raw_rows(cache_root, symbols, workers, spec.get("extra"), caps)
     info = {}
-    rows, dates, dropped = encode_rows(raws, market, spec, exclude_earnings, exclude_special, info)
+    rows, dates, dropped = encode_rows(raws, market, spec, exclude_earnings, exclude_special, info, min_cap if caps else None)
     covered = earnings_dates_known(cache_root)
     info.update({"earnings_dates_on_disk": len(covered), "earnings_first": covered[0] if covered else None,
                  "earnings_last": covered[-1] if covered else None, "exclude_earnings": bool(exclude_earnings),
-                 "special_move_pct": SPECIAL_MOVE_PCT if exclude_special else None})
+                 "special_move_pct": SPECIAL_MOVE_PCT if exclude_special else None,
+                 "min_cap_usd": min_cap if caps else None, "symbols_with_cap": len(caps or {})})
     return rows, dates, market, info
 
 
@@ -552,30 +612,76 @@ def rank(model, cands, rule, min_adv=MIN_ADV_USD, floor_x=PICK_FLOOR_X, exclude=
 
 
 # ------------------------------------------------------------------------------------------- the walk-forward
+CLUSTER_DRAWS = 1000
+
+
+def _pct_ci(xs, alpha=0.05):
+    xs = sorted(xs)
+    return xs[int(alpha / 2 * len(xs))], xs[min(len(xs) - 1, int((1 - alpha / 2) * len(xs)))]
+
+
+def _cluster_cis(recs, draws=CLUSTER_DRAWS, seed=dtstats.SEED):
+    """Intervals for a segment with several records a morning (the base rate, the top five): whole mornings are
+    resampled, because the names on one morning share the market's move. -> [up, dn, band, touch_up, touch_dn, mean, move]."""
+    by = {}
+    for r in recs:
+        a = by.setdefault(r["date"], [0, 0, 0, 0, 0, 0, 0.0])
+        a[0] += 1
+        a[1] += r["up"]
+        a[2] += r["dn"]
+        a[3] += 1 if TARGET_PCT <= r["oc"] <= BAND_HI_PCT else 0
+        a[4] += 1 if r["hi"] is not None and r["hi"] >= TARGET_PCT else 0
+        a[5] += 1 if r["lo"] is not None and r["lo"] <= -TARGET_PCT else 0
+        a[6] += r["oc"]
+    days = [tuple(v) for v in by.values()]
+    rng = random.Random(seed)
+    acc = [[] for _ in range(7)]
+    for _ in range(draws):
+        cols = list(zip(*rng.choices(days, k=len(days))))
+        n = float(sum(cols[0]))
+        for j in range(5):
+            acc[j].append(sum(cols[j + 1]) / n)
+        acc[5].append(sum(cols[6]) / n)
+        acc[6].append((sum(cols[1]) + sum(cols[2])) / n)
+    return [_pct_ci(x) for x in acc]
+
+
 def seg_stats(recs):
+    """The record of a segment: rates with intervals (Wilson for one record a morning; whole mornings resampled when a
+    morning holds several), the band of a close 2 to 5 percent above the open, the touch of +2 and -2 percent against the
+    open, and the mean open-to-close with its interval."""
     n = len(recs)
     if not n:
         return {"n": 0}
     up = sum(r["up"] for r in recs)
     dn = sum(r["dn"] for r in recs)
     ocs = [r["oc"] for r in recs]
-    ulo, uhi = dtstats.wilson(up, n)
-    dlo, dhi = dtstats.wilson(dn, n)
-    if n > 3000:                                    # the normal interval: a bootstrap over this many is slow and no wiser
-        mu = sum(ocs) / float(n)
-        sd = math.sqrt(sum((x - mu) ** 2 for x in ocs) / (n - 1))
-        mlo, mhi = mu - 1.96 * sd / math.sqrt(n), mu + 1.96 * sd / math.sqrt(n)
+    band = sum(1 for x in ocs if TARGET_PCT <= x <= BAND_HI_PCT)
+    tu = sum(1 for r in recs if r["hi"] is not None and r["hi"] >= TARGET_PCT)
+    td = sum(1 for r in recs if r["lo"] is not None and r["lo"] <= -TARGET_PCT)
+    mornings = len(set(r["date"] for r in recs))
+    if mornings < n:
+        cis = _cluster_cis(recs)
+        method = "mornings resampled (%d)" % mornings
+        mlo, mhi = cis[5]
     else:
+        cis = [dtstats.wilson(k, n) for k in (up, dn, band, tu, td)] + [None, dtstats.wilson(up + dn, n)]
+        method = "wilson"
         mlo, mhi = dtstats.bootstrap_mean_ci(ocs) if n >= 2 else (None, None)
+
+    def r4(x):
+        return round(x, 4) if x is not None else None
     s = sorted(ocs)
-    return {"n": n, "up": up, "up_rate": round(up / float(n), 4), "up_ci": [round(ulo, 4), round(uhi, 4)],
-            "dn": dn, "dn_rate": round(dn / float(n), 4), "dn_ci": [round(dlo, 4), round(dhi, 4)],
-            "net_rate": round((up - dn) / float(n), 4), "band": sum(1 for x in ocs if TARGET_PCT <= x <= BAND_HI_PCT),
-            "touch_up_rate": round(sum(1 for r in recs if r["hi"] is not None and r["hi"] >= TARGET_PCT) / float(n), 4),
-            "touch_dn_rate": round(sum(1 for r in recs if r["lo"] is not None and r["lo"] <= -TARGET_PCT) / float(n), 4),
-            "green_rate": round(sum(1 for x in ocs if x > 0) / float(n), 4), "mean_oc": round(sum(ocs) / n, 4),
-            "mean_oc_ci": [round(mlo, 4) if mlo is not None else None, round(mhi, 4) if mhi is not None else None],
-            "median_oc": round(s[n // 2], 4)}
+    return {"n": n, "mornings": mornings, "ci": method,
+            "up": up, "up_rate": r4(up / float(n)), "up_ci": [r4(cis[0][0]), r4(cis[0][1])],
+            "dn": dn, "dn_rate": r4(dn / float(n)), "dn_ci": [r4(cis[1][0]), r4(cis[1][1])],
+            "net_rate": r4((up - dn) / float(n)),
+            "move": up + dn, "move_rate": r4((up + dn) / float(n)), "move_ci": [r4(cis[6][0]), r4(cis[6][1])],
+            "band": band, "band_rate": r4(band / float(n)), "band_ci": [r4(cis[2][0]), r4(cis[2][1])],
+            "touch_up": tu, "touch_up_rate": r4(tu / float(n)), "touch_up_ci": [r4(cis[3][0]), r4(cis[3][1])],
+            "touch_dn": td, "touch_dn_rate": r4(td / float(n)), "touch_dn_ci": [r4(cis[4][0]), r4(cis[4][1])],
+            "green_rate": r4(sum(1 for x in ocs if x > 0) / float(n)), "mean_oc": r4(sum(ocs) / n),
+            "mean_oc_ci": [r4(mlo), r4(mhi)], "median_oc": r4(s[n // 2])}
 
 
 def walk_forward(rows, dates, spec=None, min_train=MIN_TRAIN_SESSIONS, refit_every=REFIT_EVERY, min_adv=MIN_ADV_USD, floor_x=PICK_FLOOR_X,

@@ -29,9 +29,12 @@
   agents.py weights-test is the only ground they stand on, and its verdict rides on every card and ranking.
 - Sides stay separate: dt/shorts.py, |short config ids, a mirrored dt.sim, separate score vectors. Nothing places a
   short order (the upstream chain is long only; paper.py refuses one); a short is research until the config allows it.
-- The 8:25 pick (trader-pick, dt/pick.py) is a count, not a prediction: the card prints the odds up AND down beside the
-  base rates, and says "most likely to close 2 % ABOVE its open" only when the live rule's out-of-sample pick closed up
-  more often than down with separated Wilson intervals in BOTH halves (claim_of); otherwise "most likely to MOVE 2 %".
-  A new feature joins the model only through scripts/pick_research.py: chosen on h1, confirmed on h2, leak check clean.
-  The 08:08 ET job (run.sh pick) fetches today's calendar and pre-market prints, scores, seals and pushes; never move it
-  past 8:15 ET, and never let the card claim more than the record in trader/pick/model.json supports.
+- The 8:25 pick (trader-pick, dt/pick.py) is a count, not a prediction: the card prints the record of past picks (up AND
+  down, with intervals) beside the base rates, and says "likely to close 2 % ABOVE its open" only when the live rule's
+  out-of-sample pick closed up more often than down with separated Wilson intervals in BOTH halves (claim_of); otherwise
+  "likely to MOVE 2 %". Never "most likely", and never print the model's in-sample bin rates or its summed move score
+  (e_oc) as a name's odds or expected move. A new feature or rule joins the model only through scripts/pick_research.py:
+  chosen on h1, confirmed on h2, leak check clean (the highest-ATR shadow in trader/pick/shadow.jsonl stays a shadow
+  until it earns that). The 08:08 ET job (run.sh pick) fetches the calendars and the futures, scores, seals and pushes;
+  never move it past 8:15 ET, never let the card claim more than the record in trader/pick/model.json supports, and keep
+  ~/daytrader on main with nothing staged (publish_docs publishes only the bundle, only from main).
