@@ -178,6 +178,11 @@ case "$job" in
     # the hourly store behind the pick's first-hour table gets the last month added (it keeps its history), then the retrain
     $py scripts/fetch_daily_history.py --interval 60m --range 1mo --root trader/cache_long --max-age-hours 0 --threads 2 --quiet >> "$log" 2>&1
     $py trader-pick/pick.py train --publish --quiet >> "$log" 2>&1
+    # the ten-year record for the full dashboard: the long daily store and its calendar get the last weeks merged in (they
+    # keep their history), then the live model's own walk-forward over ten years (research only; several GB in memory)
+    $py scripts/fetch_daily_history.py --interval 1d --range 3mo --root trader/cache_long --max-age-hours 0 --threads 2 --quiet >> "$log" 2>&1
+    $py scripts/fetch_earnings_history.py --cache-root trader/cache_long --refresh-last 11 --threads 2 --quiet >> "$log" 2>&1
+    $py scripts/pick_long_study.py --workers 6 --publish --quiet >> "$log" 2>&1
     $py trader-lab/lab.py features --publish >> "$log" 2>&1
     $py trader-lab/lab.py robustness --publish >> "$log" 2>&1
     $py trader-agents/agents.py weights-test --write >> "$log" 2>&1

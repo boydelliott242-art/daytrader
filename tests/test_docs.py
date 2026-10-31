@@ -21,6 +21,7 @@ KEYS = {
     "scorecard.json": ("as_of", "calls", "graded", "stats"),
     "largecap.json": ("created_by", "count", "symbols"),
     "montecarlo.json": ("created_by", "kind", "books"),
+    "pick_long.json": ("created_by", "kind", "oos", "rules", "by_year", "atr_cuts", "configs_tested"),
     "nq.json": ("edge",),
     "rankings.json": ("created_by", "date", "lists", "no_trade"),
     "research.json": ("created_by", "cards"),

@@ -199,6 +199,7 @@ Mac has to be awake for any of it: `sudo pmset repeat wakeorpoweron MTWRF 06:55:
 ```bash
 python3 trader-pick/pick.py train --workers 12 --rule up --publish     # the walk-forward and the live model
 python3 scripts/fetch_cache.py --behind --threads 6                     # the morning's catch-up: the names the evening refresh left behind
+python3 scripts/pick_long_study.py --workers 6 --publish                # the ten-year record for the full dashboard (the Saturday lab job)
 python3 trader-pick/pick.py morning --at 08:05 --write --publish        # what the 08:08 ET job runs (it passes its own clock time)
 python3 trader-pick/pick.py report                                       # every rule's record by half, the lifts, the live record
 ```

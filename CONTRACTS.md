@@ -721,7 +721,13 @@ up in both halves, but two of four skeptics found the h2 margin resting on 2025 
 today's lists run backward with constant shares (`universe_caps`; PCG in 2019 and QXO before 2024 carry today's counts),
 the fallen names (FRC, SIVB, TWTR and others) are missing, "likely to move" is weaker in calm years and for picks with an
 ATR under 7 percent, and the 8:05 print exists only from 2026-08-04. Each is a question for `scripts/pick_research.py`,
-not a change to the card.
+not a change to the card. The record itself is reproducible: `scripts/pick_long_study.py` (the live model's own
+walk-forward over `trader/cache_long`, the picks grouped by their own ATR at cuts fixed in advance: 4, 5, 6, 7, 8 and 10
+percent) writes `trader/pick/long_record.json` and, with `--publish`, `trader/publish/pick_long.json`, the full
+dashboard's "Ten years of the pick" (by half, by calendar year, by ATR cut; `configs_tested` counts the rules and the
+cuts). The Saturday lab job merges the last three months into the long daily store and its calendar
+(`fetch_daily_history.py --interval 1d --range 3mo`, which never drops history; `fetch_earnings_history.py --cache-root
+trader/cache_long`) and rebuilds the record.
 
 **Research.** `scripts/pick_research.py` evaluates an extra feature module (`CUTS`, `compute(sym, rows, ctx)`) against the
 cached base rows and runs `dt.pick.leak_check` (recompute sampled dates with the rows cut there; any difference is a LEAK).
@@ -734,6 +740,7 @@ what was left out this morning: who reports today, who reacts to a report since 
 situation with its reason, the names a session behind), `trader/pick/record.jsonl` (every pick logged pending the morning
 it was made, graded on the real open, high, low and close by the evening cache job), `trader/pick/shadow.jsonl`,
 `trader/publish/pick.json` (sealed into the site's bundle; before the first morning it carries the record),
+`trader/pick/long_record.json` and `trader/publish/pick_long.json` (the ten-year record, sealed into the site),
 `trader/largecap_history/D.json` (each evening's list), `trader/cache_long/` (research only: ten years of daily bars and
 two of hourly bars from `scripts/fetch_daily_history.py`, and the calendar for the same days; the live store is never
 touched).

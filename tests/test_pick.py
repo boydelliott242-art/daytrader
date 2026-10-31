@@ -900,6 +900,63 @@ class LongHistory(unittest.TestCase):
         shutil.rmtree(d, ignore_errors=True)
 
 
+class LongStudy(unittest.TestCase):
+    """scripts/pick_long_study.py: the ten-year record from the live walk-forward, on the fixture store."""
+    def test_the_record_by_half_year_and_atr_cut_adds_up(self):
+        sys.path.insert(0, os.path.join(ROOT, "scripts"))
+        import pick_long_study as pls
+        d = tempfile.mkdtemp()
+        cwd = os.getcwd()
+        os.chdir(d)
+        try:
+            write("largecap.json", json.dumps({"symbols": [{"symbol": x} for x in SYMS]}))
+            with redirect_stdout(_io.StringIO()):
+                code = pls.main(["--cache-root", CACHE, "--largecap", "largecap.json", "--nq-tags", "", "--workers", "1", "--out", "long.json",
+                                 "--publish", "--publish-dir", "pub", "--quiet"])
+            self.assertEqual(code, 0)
+            doc = dtio.read_json("long.json")
+            self.assertEqual((doc["kind"], doc["created_by"], doc["live_rule"]), ("ten_year_record", "trader-pick", "up"))
+            self.assertEqual(doc["oos"]["sessions"], 327)                                  # the fixture: 447 sessions less 120 of training
+            p = doc["rules"]["up"]["pick"]
+            self.assertEqual(p["h1"]["n"] + p["h2"]["n"], p["all"]["n"])
+            self.assertEqual(sum(y["pick"]["n"] for y in doc["by_year"]), p["all"]["n"])      # every pick sits in one year
+            self.assertEqual(sum(y["highest_atr"]["n"] for y in doc["by_year"]), doc["highest_atr"]["all"]["n"])
+            self.assertEqual([r["cut"] for r in doc["atr_cuts"]["rows"]], [4, 5, 6, 7, 8, 10])
+            r7 = doc["atr_cuts"]["rows"][3]
+            self.assertEqual(r7["high"]["all"]["n"] + r7["low"]["all"]["n"] + doc["atr_cuts"]["unknown_atr"], p["all"]["n"])
+            self.assertEqual(doc["configs_tested"], 9)                                     # three rules and six cuts
+            self.assertTrue(os.path.exists(os.path.join("pub", "pick_long.json")))
+            self.assertIn("not a prediction", doc["note"])
+        finally:
+            os.chdir(cwd)
+            shutil.rmtree(d, ignore_errors=True)
+
+    def test_a_short_daily_refresh_merges_into_the_long_store(self):
+        sys.path.insert(0, os.path.join(ROOT, "scripts"))
+        import fetch_daily_history as fdh
+        from dt import bars, clock, net
+        import datetime as _dt
+
+        def ts(day, hhmm):
+            h, m = map(int, hhmm.split(":"))
+            return clock.ts_of(clock.eastern_to_utc(_dt.datetime.combine(_dt.date.fromisoformat(day), _dt.time(h, m))))
+        d = tempfile.mkdtemp()
+        bars.save_store("AAA", {"symbol": "AAA", "interval": "1d", "rows": [["2016-01-04", 1, 1, 1, 1, 1], ["2026-10-22", 2, 2, 2, 2, 2]]}, "daily", d)
+        series = {"t": [ts("2026-10-22", "09:30"), ts("2026-10-23", "09:30")], "o": [3.0, 4.0], "h": [3.5, 4.5], "l": [2.5, 3.5], "c": [3.2, 4.2], "v": [10, 20]}
+        orig = net.chart
+        net.chart = lambda sym, rng, interval: series
+        try:
+            sym, n, err = fdh.fetch_one("AAA", d, "1mo", clock.eastern_to_utc(_dt.datetime(2026, 10, 24, 12, 0)), "1d")
+        finally:
+            net.chart = orig
+            shutil.rmtree(d, ignore_errors=True) if False else None
+        self.assertEqual((sym, n, err), ("AAA", 2, None))
+        rows = bars.daily_rows("AAA", d)
+        self.assertEqual([r[0] for r in rows], ["2016-01-04", "2026-10-22", "2026-10-23"])   # the history kept, the refreshed session replaced
+        self.assertEqual(rows[1][4], 3.2)
+        shutil.rmtree(d, ignore_errors=True)
+
+
 class CatchUp(unittest.TestCase):
     """fetch_cache.py --behind: the names not through the last completed session, refreshed before the pick scores."""
     def test_behind_names_are_the_ones_not_through_the_last_session(self):

@@ -83,7 +83,12 @@ def fetch_one(sym, root, rng, now, interval="1d"):
         return sym, None, str(e)[:100]
     if not rows:
         return sym, 0, "no rows"
+    fetched = len(rows)
     if interval == "1d":
+        old = (bars.load_store(sym, "daily", root) or {}).get("rows") or []
+        if old:
+            have = set(r[0] for r in rows)
+            rows = sorted([r for r in old if r[0] not in have] + rows)      # a short refresh adds sessions; it never drops the history on disk
         bars.save_store(sym, {"symbol": sym, "interval": "1d", "source": "yahoo", "range": rng, "updated_at": dtio.now_iso(), "rows": rows}, "daily", root)
     else:
         path = intraday_path(root, sym, interval)
@@ -95,7 +100,7 @@ def fetch_one(sym, root, rng, now, interval="1d"):
         merged.update(rows)                    # a short refresh adds sessions; it never drops the history on disk
         dtio.write_json(path, {"symbol": sym, "interval": interval, "source": "yahoo", "range": rng,
                                "updated_at": dtio.now_iso(), "sessions": dict(sorted(merged.items()))})
-    return sym, len(rows), None
+    return sym, fetched, None
 
 
 def main(argv=None):

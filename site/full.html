@@ -222,6 +222,10 @@ footer .wrap { padding-top: 14px; padding-bottom: 24px; }
     <div class="sec-head"><h2>The 8:25 pick</h2><span class="small muted" id="pick-sub"></span></div>
     <div id="pick-body"></div>
   </section>
+  <section id="pick-long">
+    <div class="sec-head"><h2>Ten years of the pick</h2><span class="small muted" id="pick-long-sub"></span></div>
+    <div id="pick-long-body"></div>
+  </section>
 
   <section id="board">
     <div class="sec-head"><h2>Today's board</h2><span class="small muted" id="board-sub"></span></div>
@@ -324,7 +328,8 @@ footer .wrap { padding-top: 14px; padding-bottom: 24px; }
     research: "data/research.json",
     features: "data/features.json",
     robustness: "data/robustness.json",
-    pick: "data/pick.json"
+    pick: "data/pick.json",
+    pick_long: "data/pick_long.json"
   };
   var EMPTY = {
     desk: "The desk has not run yet. <code>desk.py live --write --publish</code> writes today's board here (and <code>desk.py morning</code> the plan before the open).",
@@ -572,6 +577,60 @@ footer .wrap { padding-top: 14px; padding-bottom: 24px; }
   function ocv(x) { return isNum(x) ? (x >= 0 ? "+" : "") + x.toFixed(2) + " %" : "n/a"; }
   function ocCiv(c) { return c && isNum(c[0]) && isNum(c[1]) ? "[" + ocv(c[0]) + ", " + ocv(c[1]) + "]" : ""; }
   function rateCiv(st, k) { return st && isNum(st[k + "_rate"]) ? pctv(st[k + "_rate"]) + " " + pctCiv(st[k + "_ci"]) : "n/a"; }
+  function renderLongRecord(res) {
+    var d = res && res.doc;
+    var box = el("pick-long-body");
+    if (!box) { return; }
+    if (!d || !d.rules) {
+      box.innerHTML = '<div class="empty">No ten-year record in this bundle yet: the Saturday lab job writes it (scripts/pick_long_study.py).</div>';
+      sub("pick-long-sub", "");
+      return;
+    }
+    var oos = d.oos || {}, rule = d.live_rule || "up";
+    sub("pick-long-sub", (oos.sessions || 0) + " out-of-sample mornings, " + esc(oos.first || "") + " to " + esc(oos.last || "") + ", second half from " +
+      esc(oos.h2_first || "") + "; configs tested: " + (d.configs_tested || "?") + "; built " + esc(d.built_at || ""));
+    var segs = [["h1", "first half"], ["h2", "second half"], ["all", "all ten years"]];
+    function row(name, seg, st) {
+      if (!st || !st.n) { return "<tr><td>" + esc(name) + "</td><td>" + esc(seg) + '</td><td class="num">0</td><td colspan="7" class="muted">no picks</td></tr>'; }
+      return "<tr><td>" + esc(name) + "</td><td>" + esc(seg) + '</td><td class="num">' + st.n + '</td><td class="num">' + rateCiv(st, "up") +
+        '</td><td class="num">' + rateCiv(st, "dn") + '</td><td class="num">' + rateCiv(st, "move") + '</td><td class="num">' + rateCiv(st, "band") +
+        '</td><td class="num">' + ocv(st.mean_oc) + " " + ocCiv(st.mean_oc_ci) + '</td><td class="num">' + rateCiv(st, "touch_up") +
+        '</td><td class="num">' + rateCiv(st, "touch_dn") + "</td></tr>";
+    }
+    var html = '<p class="note">The same walk-forward as the live record, over ten years of daily bars: every pick ranked by a model that saw only the sessions before it. ' +
+      "The direction is not predictable in any half or any year; the most volatile liquid name moved 2 % more often than the pick and sat in the 2 to 5 % band less often. " +
+      "A count, not a prediction, not a buy.</p>";
+    html += '<div class="tbl-wrap"><table class="tbl"><thead><tr><th>ten years, out of sample</th><th>half</th><th class="num">n</th><th class="num">closed 2 % up</th>' +
+      '<th class="num">closed 2 % down</th><th class="num">moved 2 % either way</th><th class="num">closed 2 to 5 % up</th><th class="num">average open to close</th>' +
+      '<th class="num">touched +2 %</th><th class="num">touched -2 %</th></tr></thead><tbody>';
+    Object.keys(d.rules).forEach(function (k) {
+      segs.forEach(function (sg) { html += row("rule " + k + (k === rule ? " (live)" : ""), sg[1], ((d.rules[k] || {}).pick || {})[sg[0]]); });
+    });
+    segs.forEach(function (sg) { html += row("any large cap (the base rate)", sg[1], (d.base || {})[sg[0]]); });
+    segs.forEach(function (sg) { html += row("the highest-ATR name", sg[1], (d.highest_atr || {})[sg[0]]); });
+    html += "</tbody></table></div>";
+    html += '<div class="tbl-wrap"><table class="tbl"><thead><tr><th>year</th><th class="num">mornings</th><th class="num">the pick closed 2 % up</th><th class="num">2 % down</th>' +
+      '<th class="num">moved 2 %</th><th class="num">closed 2 to 5 % up</th><th class="num">the highest-ATR name moved 2 %</th><th class="num">any large cap moved 2 %</th></tr></thead><tbody>' +
+      (d.by_year || []).map(function (y) {
+        var p = y.pick || {}, a = y.highest_atr || {}, b = y.base || {};
+        return "<tr><td>" + esc(y.year) + '</td><td class="num">' + (p.n || 0) + '</td><td class="num">' + rateCiv(p, "up") + '</td><td class="num">' + rateCiv(p, "dn") +
+          '</td><td class="num">' + rateCiv(p, "move") + '</td><td class="num">' + rateCiv(p, "band") + '</td><td class="num">' + rateCiv(a, "move") +
+          '</td><td class="num">' + rateCiv(b, "move") + "</td></tr>";
+      }).join("") + "</tbody></table></div>";
+    var ac = d.atr_cuts || {};
+    html += '<div class="tbl-wrap"><table class="tbl"><thead><tr><th>the pick\'s own ATR at the prior close</th><th class="num">first half, at or above: moved 2 %</th><th class="num">below</th>' +
+      '<th class="num">second half, at or above</th><th class="num">below</th></tr></thead><tbody>' +
+      (ac.rows || []).map(function (r) {
+        var h = r.high || {}, l = r.low || {};
+        return "<tr><td>" + r.cut + " % or more</td>" + ["h1", "h2"].map(function (sg) {
+          return '<td class="num">' + rateCiv(h[sg], "move") + " (n " + ((h[sg] || {}).n || 0) + ')</td><td class="num">' + rateCiv(l[sg], "move") + " (n " + ((l[sg] || {}).n || 0) + ")</td>";
+        }).join("") + "</tr>";
+      }).join("") + "</tbody></table></div>";
+    html += '<p class="note">' + esc(ac.note || "") + (ac.unknown_atr ? " (" + ac.unknown_atr + " picks without an ATR)" : "") + "</p>";
+    html += '<p class="note">' + esc(d.note || "") + (d.universe_rule ? " Universe: " + esc(d.universe_rule) + "." : "") + "</p>";
+    box.innerHTML = html;
+  }
+
   function renderPickPanel(res) {
     var pk = res.doc;
     if (!pk) { el("pick-body").innerHTML = empty("pick"); sub("pick-sub", ""); return; }
@@ -1039,6 +1098,7 @@ footer .wrap { padding-top: 14px; padding-bottom: 24px; }
     renderHeader(docs);
     renderRegime(docs.regime, docs.desk.doc);
     renderPickPanel(docs.pick);
+    renderLongRecord(docs.pick_long);
     renderBoard(docs.desk);
     renderShortBoard(docs.desk);
     renderEdge(docs.edge);
