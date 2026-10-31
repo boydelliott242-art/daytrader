@@ -304,6 +304,8 @@
 
   function notes(pk) {
     var n = [];
+    if (pk.half_day_note) { n.push(esc(pk.half_day_note)); }
+    if (pk.refreshed_at) { n.push("the pick was posted at " + esc(pk.cutoff) + " ET and the card refreshed at " + esc(pk.refreshed_at) + " ET (the latest pre-market print; the pick does not change)"); }
     if (pk.store_stale) { n.push("the price store ends " + esc(pk.store_through) + ", not the previous session"); }
     if (pk.late) { n.push("this card was written after 9:25 ET, so it is not counted in the live record"); }
     return n.length ? '<p class="small"><b>Note:</b> ' + n.join("; ") + ".</p>" : "";

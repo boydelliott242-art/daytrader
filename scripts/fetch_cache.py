@@ -4,15 +4,20 @@
     python3 scripts/fetch_cache.py --build-universe        # Nasdaq screener -> trader/largecap.*, then every symbol
     python3 scripts/fetch_cache.py --only SPY,QQQ,^VIX     # a few symbols
     python3 scripts/fetch_cache.py --max-age-hours 0       # force a refresh
+    python3 scripts/fetch_cache.py --behind --threads 6    # only the names not through the last completed session
 
 Resumable: a symbol refreshed within --max-age-hours is skipped. Polite: 0.5 s between
 requests. Merges new full sessions into the existing store so history grows over time.
+--behind is the catch-up the morning pick and the late-evening job run: a name counts as behind when its daily store
+does not reach the last completed session (yesterday's before today's close, today's after it), whatever its age.
 """
 
 import argparse
+import concurrent.futures
 import datetime
 import os
 import sys
+import threading
 import time
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -32,6 +37,24 @@ def fresh(store, max_age_hours):
     except ValueError:
         return False
     return (clock.utc_now() - t).total_seconds() < max_age_hours * 3600
+
+
+def last_completed_session(now_utc):
+    """The last session whose close has passed, as an ISO date: today after 4:00 p.m. ET (1:00 p.m. on a half day), else
+    the previous trading day."""
+    from dt import intel_flags
+    now_et = clock.to_eastern(now_utc)
+    d = now_et.date()
+    s = clock.session(d)
+    if s and now_et.time() >= s[1]:
+        return d.isoformat()
+    return intel_flags.prev_trading_day(d).isoformat()
+
+
+def behind(sym, ref, root=None):
+    """True when the daily store for sym does not reach the session ref (no store at all counts as behind)."""
+    rows = bars.daily_rows(sym, root)
+    return not rows or rows[-1][0] < ref
 
 
 def daily_rows_from_series(series, now_utc):
@@ -79,6 +102,10 @@ def refresh_symbol(sym, now_utc, daily=True, root=None):
 
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+
+    def say(msg):
+        if not a.quiet:
+            print(msg, flush=True)
     ap.add_argument("--symbols-file", default="trader/largecap.txt")
     ap.add_argument("--build-universe", action="store_true", help="rebuild trader/largecap.* from Nasdaq's screener first")
     ap.add_argument("--min-cap", type=float, default=None, help="market cap floor (default: config largecap_min_cap_usd or 10e9)")
@@ -89,6 +116,10 @@ def main(argv=None):
     ap.add_argument("--limit", type=int, default=0)
     ap.add_argument("--pause", type=float, default=net.PAUSE)
     ap.add_argument("--root", default=None, help="cache root (default trader/cache)")
+    ap.add_argument("--behind", action="store_true", help="only the names whose daily store is not through the last completed session (age ignored)")
+    ap.add_argument("--threads", type=int, default=1, help="parallel fetches (the morning catch-up runs 6; the evening job 1)")
+    ap.add_argument("--deadline", default=None, help="an ET clock time (HH:MM): no fetch starts after it, so a morning catch-up leaves time to post")
+    ap.add_argument("--quiet", action="store_true")
     a = ap.parse_args(argv)
     os.chdir(ROOT)
     cfg = io.read_config()
@@ -126,29 +157,63 @@ def main(argv=None):
                 syms.append(s)
     if a.limit:
         syms = syms[:a.limit]
-    print("%d symbols to refresh (skipping any fresher than %.0fh)" % (len(syms), a.max_age_hours), flush=True)
-    done = skipped = 0
-    failed = {}
-    dropped = {}
-    for i, sym in enumerate(syms, 1):
+    ref = None
+    if a.behind:
+        ref = last_completed_session(now)
+        syms = [s for s in syms if behind(s, ref, a.root)]
+        a.max_age_hours = 0
+        say("%d names are not through %s in the daily store; refreshing them with %d thread(s)" % (len(syms), ref, max(1, a.threads)))
+    if not a.quiet:
+        print("%d symbols to refresh (skipping any fresher than %.0fh)" % (len(syms), a.max_age_hours), flush=True)
+    state = {"done": 0, "skipped": 0, "failed": {}, "dropped": {}, "i": 0, "late": 0}
+    lock = threading.Lock()
+    deadline = clock.parse_hhmm(a.deadline, "--deadline") if a.deadline else None
+
+    def one(sym):
+        if deadline and clock.to_eastern(clock.utc_now()).time() >= deadline:
+            with lock:
+                state["late"] += 1
+                state["i"] += 1
+            return
         store = bars.load_store(sym, "bars5m", a.root)
         if fresh(store, a.max_age_hours):
-            skipped += 1
-            continue
+            with lock:
+                state["skipped"] += 1
+                state["i"] += 1
+            return
         try:
             r = refresh_symbol(sym, now, daily=not a.no_daily, root=a.root)
-            done += 1
-            if r["dropped"]:
-                dropped[sym] = r["dropped"]
+            with lock:
+                state["done"] += 1
+                if r["dropped"]:
+                    state["dropped"][sym] = r["dropped"]
         except net.NetError as e:
-            failed[sym] = str(e)
+            with lock:
+                state["failed"][sym] = str(e)
         except Exception as e:  # keep going: one bad chart must not stop the run
-            failed[sym] = "%s: %s" % (type(e).__name__, e)
-        if i % 25 == 0 or i == len(syms):
-            print("  %d/%d  fetched %d  skipped %d  failed %d  %.0fs" % (i, len(syms), done, skipped, len(failed),
-                                                                      time.time() - t0), flush=True)
+            with lock:
+                state["failed"][sym] = "%s: %s" % (type(e).__name__, e)
+        with lock:
+            state["i"] += 1
+            i = state["i"]
+            if not a.quiet and (i % 25 == 0 or i == len(syms)):
+                print("  %d/%d  fetched %d  skipped %d  failed %d  %.0fs" % (i, len(syms), state["done"], state["skipped"], len(state["failed"]),
+                                                                          time.time() - t0), flush=True)
         if a.pause:
             net.SLEEP(a.pause)
+
+    if max(1, a.threads) == 1:
+        for sym in syms:
+            one(sym)
+    else:
+        with concurrent.futures.ThreadPoolExecutor(max_workers=a.threads) as pool:
+            list(pool.map(one, syms))
+    done, skipped, failed, dropped = state["done"], state["skipped"], state["failed"], state["dropped"]
+    if state["late"]:
+        say("%d names were not fetched: the deadline %s ET passed" % (state["late"], a.deadline))
+    if ref:
+        still = [s for s in syms if behind(s, ref, a.root)]
+        say("%d of %d still not through %s after the refresh%s" % (len(still), len(syms), ref, (": " + ", ".join(sorted(still)[:12])) if still else ""))
     # meta
     counts = []
     first = last = None
@@ -170,10 +235,10 @@ def main(argv=None):
     io.write_json(os.path.join(root, "meta.json"), meta)
     io.write_json(os.path.join(root, "bars5m", "_failed.json"), failed)
     io.write_json(os.path.join(root, "bars5m", "_dropped.json"), dropped)
-    print("Done: %d fetched, %d skipped, %d failed in %.0fs. Store: %d symbols, %s..%s, %d-%d sessions each."
-          % (done, skipped, len(failed), time.time() - t0, meta["symbols"], first, last, meta["sessions_min"],
-             meta["sessions_max"]), flush=True)
-    return 0 if done or skipped else 1
+    say("Done: %d fetched, %d skipped, %d failed in %.0fs. Store: %d symbols, %s..%s, %d-%d sessions each."
+        % (done, skipped, len(failed), time.time() - t0, meta["symbols"], first, last, meta["sessions_min"],
+           meta["sessions_max"]))
+    return 0 if done or skipped or (a.behind and not syms) else 1
 
 
 if __name__ == "__main__":

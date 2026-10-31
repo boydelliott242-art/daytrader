@@ -594,6 +594,8 @@ footer .wrap { padding-top: 14px; padding-bottom: 24px; }
     html += '<p class="note"><b>Direction:</b> ' + esc(pk.direction || "") + ".</p>";
     var flags = [];
     if (pk.store_stale) { flags.push("the price store ends " + esc(pk.store_through) + ", not the previous session"); }
+    if (pk.half_day_note) { flags.push(esc(pk.half_day_note)); }
+    if (pk.refreshed_at) { flags.push("posted at " + esc(pk.cutoff) + " ET, the card refreshed at " + esc(pk.refreshed_at) + " ET with the latest pre-market print"); }
     if (pk.late) { flags.push("written after 9:25 ET: not counted in the live record"); }
     if (pk.failed) { flags.push("the morning job failed: " + esc(pk.error || "")); }
     if (pk.kept_note) { flags.push(esc(pk.kept_note)); }

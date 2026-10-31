@@ -42,7 +42,7 @@ OUT = os.path.join("trader", "pick.json")
 NQ_TAGS = (os.path.join("trader", "nq", "session_tags_0805.json"), os.path.join("trader", "nq", "session_tags.json"))
 HOURLY = os.path.join("trader", "cache_long", "bars60m")    # two years of hourly bars (scripts/fetch_daily_history.py) for the first-hour table
 LATE = datetime.time(9, 25)          # a card written after this on its own date is posted marked late and never counted
-STALE_SHARE = 0.05                   # more than this share of names a session behind: the store is stale
+STALE_SHARE = 0.5                    # more than this share of names a session behind: the store is stale (SPY behind is stale on its own)
 WORDS = ("A pick is a count over past mornings, not a prediction: its odds are the record of past picks, printed beside the "
          "base rates. It is not a buy. Most people who day trade lose money.")
 
@@ -531,15 +531,17 @@ def morning(a):
     if closed:
         reason = "the market is closed on %s" % date
     elif store_stale and last_row != prev:
-        reason = ("the price store ends %s, not the previous session %s (the 17:30 refresh did not run), so the history would "
-                  "describe the wrong morning" % (last_row, prev))
+        reason = ("the price store ends %s, not the previous session %s (the evening refresh did not run and the morning's catch-up "
+                  "could not reach Yahoo), so the history would describe the wrong morning" % (last_row, prev))
     elif store_stale:
-        reason = ("%d of %d names are a session behind in the price store (the 17:30 refresh did not finish), so the history would "
+        reason = ("%d of %d names are a session behind in the price store after the morning's catch-up, so most of the history would "
                   "describe the wrong morning" % (len(behind), with_rows))
-    elif half_day:
-        reason = "a 1:00 p.m. close today; the record holds full sessions only"
     if reason:
         pick = None
+    # a half day (a 1:00 p.m. close) is left out of the record, so its pick is shown and not counted: logged with the flag,
+    # graded, and kept out of the live record's rates
+    half_day_note = ("a 1:00 p.m. close today: the record holds full sessions only, so this pick is shown and not counted"
+                     if half_day and pick else None)
     # a re-run never changes the pick already logged for the day (the 08:18 retry, a manual run): it keeps that name
     # unless --replace says otherwise, so the card and the record always name the same stock
     logged = logged_row(a, date)
@@ -553,9 +555,15 @@ def morning(a):
                     "e_oc": logged.get("e_oc") or 0.0, "s_up": None, "s_dn": None, "adv_usd": None, "payload": None}
         kept = "the pick logged for %s at %s was %s; this run kept it (pass --replace to post another)" % (date, logged.get("logged_at"), logged["symbol"])
         reason = None
-    # the shadow: the most volatile eligible liquid name, the one lead the rule research left (it touched +2 % more often in
-    # both halves, but the second half's margin was inside the noise); tracked forward, graded each evening, never posted as
-    # the pick, and joining the model only through scripts/pick_research.py
+        half_day_note = ("a 1:00 p.m. close today: the record holds full sessions only, so this pick is shown and not counted"
+                         if half_day else None)
+    # a run that names the pick already logged (a retry, the pre-open refresh) carries that pick's own cutoff and says when it
+    # was refreshed; its quotes are as of this run, so the card's pre-market print is the latest one
+    refreshed = bool(logged and not a.replace and pick and pick["symbol"] == logged.get("symbol") and (logged.get("cutoff") or a.at) != a.at)
+    cutoff_words = logged["cutoff"] if refreshed else a.at
+    # the shadow: the most volatile eligible liquid name, the one lead the rule research left (over ten years it moved 2 %
+    # either way more often than the pick, and sat in the 2 to 5 % band less often); tracked forward, graded each evening,
+    # never posted as the pick, and joining the model only through scripts/pick_research.py
     # the shadows: the other candidate rules' names, each logged and graded forward so fresh mornings can say which rule does
     # best; never the pick, and a rule joins the model only through scripts/pick_research.py
     shadow_syms = {}
@@ -589,9 +597,11 @@ def morning(a):
     p_rec = (((wf.get("rules") or {}).get(rule) or {}).get("pick") or {})
     if (t_rec.get("h1") or {}).get("n") and (p_rec.get("h1") or {}).get("n"):
         shadow_why = ("the most volatile eligible liquid name, tracked forward: in the record it touched +2 %% on %s and %s of mornings "
-                      "in the two halves against the pick's %s and %s, and the rule research of 2026-10-27 found the second half's margin "
-                      "inside the noise; not the pick" % (_pct(t_rec["h1"].get("touch_up_rate"), 0), _pct(t_rec["h2"].get("touch_up_rate"), 0),
-                                                          _pct(p_rec["h1"].get("touch_up_rate"), 0), _pct(p_rec["h2"].get("touch_up_rate"), 0)))
+                      "in the two halves against the pick's %s and %s; over ten years (2,335 mornings, 2017 to 2026) it closed 2 %% either way "
+                      "more often than the pick (+4.5 points [+2.1, +6.9]; +6.5 [+3.0, +9.9] in the second half, six skeptics upheld) and in the "
+                      "2 to 5 %% band slightly less often (-2.2 [-4.0, -0.3]), with no direction either; the mover, not the pick" % (
+                          _pct(t_rec["h1"].get("touch_up_rate"), 0), _pct(t_rec["h2"].get("touch_up_rate"), 0),
+                          _pct(p_rec["h1"].get("touch_up_rate"), 0), _pct(p_rec["h2"].get("touch_up_rate"), 0)))
     else:
         shadow_why = "the most volatile eligible liquid name, tracked forward; not the pick"
 
@@ -602,10 +612,11 @@ def morning(a):
                 "premarket": quotes.get(r["symbol"]), "reasons": reasons_of(raws.get(r["symbol"]), market),
                 "raw": {k: (round(v, 4) if isinstance(v, float) else v) for k, v in (raws.get(r["symbol"]) or {}).items()}}
     doc = record_fields(model, rule)
-    doc.update({"created_by": "trader-pick", "as_of": "%s %s ET" % (date, a.at), "created_at": clock.iso(now_utc), "written_at": clock.iso(real_now),
-                "date": date, "cutoff": a.at, "target": "close at least %g %% above (or below) the open" % dtpick.TARGET_PCT,
+    doc.update({"created_by": "trader-pick", "as_of": "%s %s ET" % (date, cutoff_words), "created_at": clock.iso(now_utc), "written_at": clock.iso(real_now),
+                "date": date, "cutoff": cutoff_words, "quotes_at": a.at, "refreshed_at": a.at if refreshed else None,
+                "target": "close at least %g %% above (or below) the open" % dtpick.TARGET_PCT,
                 "band": [dtpick.TARGET_PCT, dtpick.BAND_HI_PCT], "store_through": last_row, "store_stale": store_stale,
-                "behind_today": len(behind), "behind_names": sorted(behind)[:12], "half_day": half_day, "market": market,
+                "behind_today": len(behind), "behind_names": sorted(behind)[:12], "half_day": half_day, "half_day_note": half_day_note, "market": market,
                 "futures_date": fut.get("date"), "futures_at": fut.get("cutoff"), "nq_gap_pct": nq_gap, "futures_words": futures_words,
                 "floor": dtpick.floor_words(rule, model, floor_x), "universe": len(syms), "scored": len(ranked),
                 "reporting_today": len(reporting & set(raws)), "reporting_source": rep_source,
@@ -663,7 +674,7 @@ def log_pick(a, doc):
                              "e_oc": p["e_oc"], "base_up": doc["base_up"], "base_dn": doc["base_dn"], "logged_at": doc["created_at"],
                              "written_at": doc["written_at"], "cutoff": doc["cutoff"], "store_through": doc["store_through"],
                              "futures_at": doc["futures_at"], "premarket": p.get("premarket"), "status": "pending", "oc_pct": None,
-                             "cc_pct": None, "up": None, "dn": None, "created_by": "trader-pick"})
+                             "cc_pct": None, "up": None, "dn": None, "half_day": bool(doc.get("half_day")), "created_by": "trader-pick"})
     return True
 
 
@@ -692,7 +703,7 @@ def log_shadow(a, doc, rule, sym, atr_pct=None):
         _rewrite(a.shadow_record, rows)
     dtio.append_jsonl(a.shadow_record, {"date": doc["date"], "symbol": sym, "rule": rule, "atr_pct": round(atr_pct, 3) if isinstance(atr_pct, (int, float)) else None,
                                         "logged_at": doc["created_at"], "written_at": doc["written_at"], "status": "pending", "oc_pct": None,
-                                        "up": None, "dn": None, "created_by": "trader-pick"})
+                                        "up": None, "dn": None, "half_day": bool(doc.get("half_day")), "created_by": "trader-pick"})
     return True
 
 
@@ -768,8 +779,11 @@ def grade_file(a, path):
 
 
 def live_record(a, path=None, rule=None):
+    """The record of the logged picks (or one rule's shadows): the graded ones' rates with Wilson intervals. Half-day picks are
+    shown and not counted: they are listed, never in the rates."""
     rows = [r for r in records(path or a.record) if r.get("status") != "superseded" and (rule is None or (r.get("rule") or "atr") == rule)]
-    g = [r for r in rows if r.get("status") == "graded"]
+    half = [r for r in rows if r.get("half_day")]
+    g = [r for r in rows if r.get("status") == "graded" and not r.get("half_day")]
     n = len(g)
     up = sum(r.get("up") or 0 for r in g)
     dn = sum(r.get("dn") or 0 for r in g)
@@ -778,6 +792,8 @@ def live_record(a, path=None, rule=None):
     ocs = [r["oc_pct"] for r in g if r.get("oc_pct") is not None]
     words = ("%d graded: closed 2 %% up on %d (%s [%s, %s]), 2 %% down on %d (%s [%s, %s]), average %+.2f %%" % (
         n, up, _pct(up / float(n), 0), _pct(ulo, 0), _pct(uhi, 0), dn, _pct(dn / float(n), 0), _pct(dlo, 0), _pct(dhi, 0), sum(ocs) / len(ocs))) if n else "no graded pick yet"
+    if half:
+        words += "; %d half-day pick%s shown, not counted" % (len(half), "" if len(half) == 1 else "s")
     tr = [r["fh_breakout"] for r in g if isinstance(r.get("fh_breakout"), dict) and r["fh_breakout"].get("entered") and r["fh_breakout"].get("r") is not None]
     rs = [t_["r"] for t_ in tr]
     rlo, rhi = dtstats.bootstrap_mean_ci(rs) if len(rs) >= 2 else (None, None)
@@ -786,8 +802,8 @@ def live_record(a, path=None, rule=None):
                 "words": ("the close-confirmed first-hour breakout entered on %d of %d graded days, averaging %+.2f R%s" % (
                     len(tr), len([r for r in g if isinstance(r.get("fh_breakout"), dict)]), sum(rs) / len(rs),
                     (" [%+.2f, %+.2f]" % (rlo, rhi)) if rlo is not None else "")) if rs else "no breakout trade graded yet"}
-    return {"picks": len(rows), "graded": n, "pending": len([r for r in rows if r.get("status") == "pending"]), "up": up, "dn": dn,
-            "breakout": breakout,
+    return {"picks": len(rows), "graded": n, "pending": len([r for r in rows if r.get("status") == "pending" and not r.get("half_day")]), "up": up, "dn": dn,
+            "half_day": len(half), "breakout": breakout,
             "up_rate": round(up / float(n), 4) if n else None, "up_ci": [ulo, uhi], "dn_rate": round(dn / float(n), 4) if n else None, "dn_ci": [dlo, dhi],
             "mean_oc_pct": round(sum(ocs) / len(ocs), 3) if ocs else None, "in_band": sum(1 for r in g if r.get("in_band")),
             "small_sample": n < 30, "last": [{k: r.get(k) for k in ("date", "symbol", "oc_pct", "hi_pct", "lo_pct", "up", "dn", "status")} for r in rows[-10:]],
@@ -821,6 +837,10 @@ def print_pick(doc):
         pm = p.get("premarket") or {}
         if pm.get("last"):
             print("  pre-market: %.2f at %s ET, %+.2f %% vs the prior close %.2f (shown, not scored)" % (pm["last"], pm.get("time"), pm.get("vs_prev_close_pct") or 0, pm.get("prev_close") or 0))
+        if doc.get("half_day_note"):
+            print("  HALF DAY: " + doc["half_day_note"])
+        if doc.get("refreshed_at"):
+            print("  refreshed at %s ET: the pick is the one logged at %s; the pre-market print is as of this run" % (doc["refreshed_at"], doc["cutoff"]))
         if doc.get("late"):
             print("  LATE: written after 9:25 ET on its date, so it is not logged or counted in the live record")
     print("  out of sample: " + doc["direction"] + ".")

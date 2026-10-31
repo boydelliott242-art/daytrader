@@ -1,6 +1,7 @@
 """trader-pick: the spec and buckets, the features by hand, the market table, earnings, the three scorers and rules, the
 walk-forward on the fixture cache, the look-ahead check, the card's claim, and the CLI offline."""
 
+import argparse
 import io as _io
 import json
 import os
@@ -568,12 +569,34 @@ class CliMore(unittest.TestCase):
         self.assertEqual(code, 0, err)
         self.assertIn("came back empty", json.loads(out)["reporting_source"])
 
-    def test_a_half_day_posts_no_pick(self):
-        code, out, err = run(["morning", "--date", "2025-12-24", "--no-premarket", "--now", "2025-12-24 08:06", "--json"])
+    def test_a_half_day_pick_is_shown_and_not_counted(self):
+        code, out, err = run(["morning", "--date", "2025-12-24", "--no-premarket", "--now", "2025-12-24 08:06", "--write"])
         self.assertEqual(code, 0, err)
-        doc = json.loads(out)
-        self.assertTrue(doc["half_day"] and doc["no_pick"])
-        self.assertIn("1:00 p.m.", doc["no_pick_words"])
+        doc = dtio.read_json(os.path.join("trader", "pick.json"))
+        self.assertTrue(doc["half_day"] and doc["pick"] and not doc["no_pick"])
+        self.assertIn("1:00 p.m.", doc["half_day_note"])
+        self.assertIn("HALF DAY", out)
+        rows = records(os.path.join("trader", "pick", "record.jsonl"))
+        self.assertEqual([r["half_day"] for r in rows], [True])          # logged with the flag...
+        live = cli.live_record(argparse.Namespace(record=os.path.join("trader", "pick", "record.jsonl")))
+        self.assertEqual((live["picks"], live["graded"], live["pending"], live["half_day"]), (1, 0, 0, 1))   # ...and never in the rates
+        self.assertIn("shown, not counted", live["words"])
+        code, out, err = run(["morning", "--date", "2025-12-24", "--no-premarket", "--now", "2025-12-24 08:06", "--json"])
+        self.assertEqual(json.loads(out)["pick"]["symbol"], doc["pick"]["symbol"])   # a re-run keeps it
+
+    def test_a_pre_open_rerun_keeps_the_pick_and_refreshes_the_card(self):
+        code, out, err = self.morning("--write")
+        self.assertEqual(code, 0, err)
+        first = dtio.read_json(os.path.join("trader", "pick.json"))
+        self.assertEqual((first["cutoff"], first["refreshed_at"]), ("08:05", None))       # the fixture's cutoff is 08:05, run at 08:06
+        code, out, err = run(["morning", "--date", "2026-10-23", "--no-premarket", "--now", "2026-10-23 09:19", "--at", "09:19", "--write"])
+        self.assertEqual(code, 0, err)
+        doc = dtio.read_json(os.path.join("trader", "pick.json"))
+        self.assertEqual(doc["pick"]["symbol"], first["pick"]["symbol"])
+        self.assertEqual((doc["cutoff"], doc["quotes_at"], doc["refreshed_at"], doc["late"]), ("08:05", "09:19", "09:19", False))
+        self.assertIn("refreshed at 09:19 ET", out)
+        rows = records(os.path.join("trader", "pick", "record.jsonl"))
+        self.assertEqual([(r["symbol"], r["cutoff"]) for r in rows], [(first["pick"]["symbol"], "08:05")])   # logged once, at its own cutoff
 
     def test_a_late_card_is_posted_marked_and_never_counted(self):
         code, out, err = run(["morning", "--date", "2026-10-23", "--no-premarket", "--now", "2026-10-23 10:05", "--write"])
@@ -592,17 +615,18 @@ class CliMore(unittest.TestCase):
         doc = bars.load_store(victim, "daily", os.path.join("trader", "cache"))
         doc["rows"] = [r for r in doc["rows"] if r[0] < "2026-10-22"]
         bars.save_store(victim, doc, "daily", os.path.join("trader", "cache"))
+        self.assertEqual(cli.STALE_SHARE, 0.5)                    # the store is stale only when most names are behind (or SPY is)
+        code, out, err = self.morning("--json")                   # one name of eighteen: behind and left out, the pick posts
+        self.assertEqual(code, 0, err)
+        doc = json.loads(out)
+        self.assertEqual((doc["behind_today"], doc["store_stale"], doc["no_pick"]), (1, False, False))
+        self.assertNotIn(victim, [r["symbol"] for r in doc["ranked"]])
         orig = cli.STALE_SHARE
-        cli.STALE_SHARE = 0.5                                     # one name of eighteen: behind, not a stale store
+        cli.STALE_SHARE = 0.02                                    # a threshold one name crosses: a stale store, NO PICK
         try:
             code, out, err = self.morning("--json")
         finally:
             cli.STALE_SHARE = orig
-        self.assertEqual(code, 0, err)
-        doc = json.loads(out)
-        self.assertEqual((doc["behind_today"], doc["store_stale"]), (1, False))
-        self.assertNotIn(victim, [r["symbol"] for r in doc["ranked"]])
-        code, out, err = self.morning("--json")                   # at the real threshold one in eighteen is a stale store
         doc = json.loads(out)
         self.assertTrue(doc["store_stale"] and doc["no_pick"])
         self.assertIn("session behind", doc["no_pick_words"])
@@ -874,6 +898,47 @@ class LongHistory(unittest.TestCase):
         self.assertEqual(list(sess), ["2026-10-22"])                       # today's session is partial until the close; pre-market is not kept
         self.assertEqual([b[0] for b in sess["2026-10-22"]], ["09:30", "15:30"])
         shutil.rmtree(d, ignore_errors=True)
+
+
+class CatchUp(unittest.TestCase):
+    """fetch_cache.py --behind: the names not through the last completed session, refreshed before the pick scores."""
+    def test_behind_names_are_the_ones_not_through_the_last_session(self):
+        sys.path.insert(0, os.path.join(ROOT, "scripts"))
+        import fetch_cache as fc
+        from dt import clock, bars
+        import datetime as _dt
+        et = lambda day, h, m: clock.eastern_to_utc(_dt.datetime(2026, 10, day, h, m))
+        self.assertEqual(fc.last_completed_session(et(23, 8, 8)), "2026-10-22")       # Friday 08:08: yesterday's session
+        self.assertEqual(fc.last_completed_session(et(23, 17, 30)), "2026-10-23")     # after the close: today's
+        self.assertEqual(fc.last_completed_session(et(24, 11, 0)), "2026-10-23")      # Saturday: Friday's
+        self.assertEqual(fc.last_completed_session(clock.eastern_to_utc(_dt.datetime(2026, 11, 27, 14, 0))), "2026-11-27")   # a half day closes at 1:00
+        self.assertFalse(fc.behind("SPY", "2026-10-23", CACHE))                       # the fixture store runs through 2026-10-23
+        self.assertTrue(fc.behind("SPY", "2026-10-26", CACHE))
+        self.assertTrue(fc.behind("NOSUCH", "2026-10-23", CACHE))                     # no store at all counts as behind
+        d = tempfile.mkdtemp()
+        fetched = []
+
+        def stub(sym, now_utc, daily=True, root=None):                                # no network in a test: the fetch writes the session
+            fetched.append(sym)
+            ref = fc.last_completed_session(now_utc)
+            bars.save_store(sym, {"symbol": sym, "interval": "1d", "rows": [["2017-01-03", 1, 1, 1, 1, 1], [ref, 1, 1, 1, 1, 1]]}, "daily", root)
+            bars.save_store(sym, {"symbol": sym, "interval": "5m", "sessions": {}, "updated_at": dtio.now_iso()}, "bars5m", root)
+            return {"sessions": 1, "total": 1, "dropped": []}
+        orig = fc.refresh_symbol
+        fc.refresh_symbol = stub
+        try:
+            with redirect_stdout(_io.StringIO()):
+                code = fc.main(["--root", d, "--only", "AAA,BBB", "--behind", "--threads", "2", "--pause", "0", "--deadline", "00:00", "--quiet"])
+            self.assertEqual((code, fetched), (1, []))                                 # the deadline passed: nothing fetched
+            with redirect_stdout(_io.StringIO()):
+                code = fc.main(["--root", d, "--only", "AAA,BBB", "--behind", "--threads", "2", "--pause", "0", "--quiet"])
+            self.assertEqual((code, sorted(fetched)), (0, ["AAA", "BBB"]))
+            with redirect_stdout(_io.StringIO()):
+                code = fc.main(["--root", d, "--only", "AAA,BBB", "--behind", "--pause", "0", "--quiet"])
+            self.assertEqual((code, len(fetched)), (0, 2))                             # through the session now: nothing to fetch, still a success
+        finally:
+            fc.refresh_symbol = orig
+            shutil.rmtree(d, ignore_errors=True)
 
 
 class FirstHour(unittest.TestCase):

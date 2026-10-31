@@ -138,11 +138,12 @@ the same harness (`scripts/pick_research.py`: every variant chosen on the first 
 look-ahead check on every module, independent verifiers re-running anything that claimed to hold): intraday persistence,
 short-term reversal, post-earnings drift, relative strength to the sector, volume flow, calendar effects, the futures gap
 times beta, price levels, each stock's own asymmetry, volatility regimes. The desk also tested the morning's own gap:
-over two years, news-free gap-downs of 3 % or more bounced +0.40 % and +0.33 % from the open in the two halves (intervals
-clear of zero), yet in the most recent 60 mornings, measured with real 8:05 pre-market prints (which track the opening gap
-with a correlation of 0.81), the same names closed -0.12 % with 23 % up and 26 % down. An edge that holds for a year and
-then fades is not one to post as a promise. The pre-market history now grows every morning, so the question can be asked
-again with more of it.
+over two years, news-free gap-downs of 3 % or more had bounced +0.40 % and +0.33 % from the open in the two halves;
+over ten years the same rule reads +0.08 % [-0.09, +0.26] and -0.02 % [-0.17, +0.13], so the two-year bounce was the
+sample, not the market, and it is retired. One lead from the gap stands, printed nowhere: when the pick itself opens 5 %
+or more above the prior close it closed 2 % down more often than up in both halves (second half: down 51 % [38, 63], up
+22 % [13, 34], 59 mornings), but two of four skeptics found that margin resting on 2025 alone, so it waits for more
+mornings. The pre-market history grows every morning, so the question can be asked again at 8:05.
 
 None of the ten held. Four families claimed both halves; independent verifiers refuted all four (moving the cut points by
 20 % broke three, and the fourth sat at the median of its own within-date shuffles). Post-earnings drift passed the
@@ -167,11 +168,37 @@ independent skeptics) found 39 defects. The ones that mattered are fixed:
 - the base rate's intervals now resample whole mornings;
 - names count only while they were large caps;
 - a failed morning posts a dated card saying so;
-- a stale store or a half day posts no pick;
+- the morning catches the store up before it scores (every name the evening refresh left behind); a store with SPY or
+  most names behind posts no pick; a half day's pick is shown and not counted;
 - publishing happens only from main.
+
+**What ten years say (2026-10-28).** With ten years of daily bars (`trader/cache_long`, research only) the same
+walk-forward ran over 2,335 out-of-sample mornings (July 2017 to October 2026, the second half from February 2022), 25
+agents with every claim re-run by independent skeptics. The pick closed 2 % up on 25.9 % [23, 28] and 30.6 % [28, 33] of
+mornings in the two halves and 2 % down on 27.3 % [25, 30] and 29.9 % [27, 33]: no direction, in no year. It moved 2 %
+either way on 53 % and 60 % against 16 % and 19 % for any large cap, in every year. The most volatile liquid name moved 2 %
+more often than the pick: +2.4 points [-1.0, +5.7] in the first half, +6.5 [+3.0, +9.9] in the second, +4.5 [+2.1, +6.9]
+over all (six of six skeptics upheld it; it holds on the last five years and with a $30B floor), and touched +2 % more
+often (+8.1 [+4.8, +11.5] in the second half); it landed in the 2 to 5 % band slightly less often (-2.2 [-4.0, -0.3]
+pooled, inside the noise in each half). So the pick stays the pick for a close 2 to 5 % up, and the card names the most
+volatile name beside it as the mover. Short-term reversal and relative-strength features were tried the honest way,
+chosen on the first half: each cut the pick's move rate in the second (reversal -3.2 [-5.5, -0.8]); nothing joined. The
+study's own critic listed what the long record cannot do: today's lists run backward with constant share counts (PCG in
+2019 and QXO before 2024 carry today's shares; FRC, SIVB, TWTR and the other fallen names are missing), and a rough cut
+moves the second-half margin from +6.5 to +5.8 [+2.3, +9.3]; "likely to move" is weaker in calm years (43 to 46 % in
+2017 and 2018) and for picks with an ATR under 7 %; and the 8:05 print was never tested. Those are the next questions.
+
+**The morning, no matter what (2026-10-31).** On 2026-10-30 the evening refresh met a flaky network and a sleeping Mac,
+left 332 names a session behind, and the morning posted NO PICK. Now the morning catches those names up itself before it
+scores, posts the pick over the names that are through (NO PICK only when SPY or most names are behind), retries at
+08:18, 08:40 and 09:05, and a pre-open run at 09:19 ET posts the pick if nothing before it could, or keeps the logged
+pick and refreshes its pre-market print, so the card five minutes before the open carries the latest print. A second
+evening pass at 21:30 fetches again whatever the 17:30 job left behind. A half day's pick is shown and not counted. The
+Mac has to be awake for any of it: `sudo pmset repeat wakeorpoweron MTWRF 06:55:00`.
 
 ```bash
 python3 trader-pick/pick.py train --workers 12 --rule up --publish     # the walk-forward and the live model
+python3 scripts/fetch_cache.py --behind --threads 6                     # the morning's catch-up: the names the evening refresh left behind
 python3 trader-pick/pick.py morning --at 08:05 --write --publish        # what the 08:08 ET job runs (it passes its own clock time)
 python3 trader-pick/pick.py report                                       # every rule's record by half, the lifts, the live record
 ```

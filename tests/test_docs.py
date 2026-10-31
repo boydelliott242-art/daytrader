@@ -90,7 +90,12 @@ class Scripts(unittest.TestCase):
         self.assertEqual(plists, ["com.daytrader.cache.plist", "com.daytrader.futures.plist", "com.daytrader.grade.plist",
                                   "com.daytrader.lab.plist", "com.daytrader.live.plist", "com.daytrader.live2.plist",
                                   "com.daytrader.live3.plist", "com.daytrader.live4.plist", "com.daytrader.morning.plist",
-                                  "com.daytrader.pick.plist", "com.daytrader.pick2.plist"])
+                                  "com.daytrader.pick.plist", "com.daytrader.pick2.plist", "com.daytrader.pick3.plist",
+                                  "com.daytrader.pick4.plist", "com.daytrader.preopen.plist", "com.daytrader.recache.plist"])
+        with open(os.path.join(d, "com.daytrader.preopen.plist"), encoding="utf-8") as fh:
+            self.assertIn("<string>preopen</string>", fh.read())           # the pre-open run is its own job, not a pick retry
+        with open(os.path.join(d, "com.daytrader.pick4.plist"), encoding="utf-8") as fh:
+            self.assertIn("<string>pick</string>", fh.read())
         for f in plists:
             path = os.path.join(d, f)
             lint = subprocess.run(["plutil", "-lint", path], capture_output=True, text=True)
@@ -109,8 +114,9 @@ class Scripts(unittest.TestCase):
     def test_run_sh_knows_its_jobs_and_never_calls_the_broker(self):
         with open(os.path.join(SCRIPTS, "run.sh"), encoding="utf-8") as fh:
             text = fh.read()
-        for job in ("cache)", "morning)", "live)", "grade)", "lab)", "futures)", "pick)"):
+        for job in ("cache)", "morning)", "live)", "grade)", "lab)", "futures)", "pick|preopen)", "recache)"):
             self.assertIn(job, text, job)
+        self.assertIn("fetch_cache.py --behind", text)                      # the morning catches the store up before it scores
         self.assertNotIn("ticket.py approve", text)
         self.assertNotIn("place_stock_order", text)
         self.assertNotIn("paper.py place", text)

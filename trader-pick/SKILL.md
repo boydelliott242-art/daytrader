@@ -52,15 +52,18 @@ python3 "${CLAUDE_SKILL_DIR}/pick.py" report                               # the
    the move rate of past picks, and says whether the record leans down or cannot tell. Never "most likely": the most
    volatile liquid name moved at least as often. The odds on the card are the record of past picks, not the model's
    bin rates.
-5. **The morning.** `morning` reads the store (a name not through the previous session is left out; a stale store or
-   a half day is NO PICK), the futures read (a missing Nasdaq value is no gap, not a crash), the calendars from the
+5. **The morning.** `morning` reads the store (the job first catches up every name not through the previous session;
+   one still behind is left out; a store with SPY or most names behind is NO PICK; a half day's pick is shown and not
+   counted), the futures read (a missing Nasdaq value is no gap, not a crash), the calendars from the
    previous session to today (an empty calendar on a trading day is a failed answer, not a quiet day), scores every
    name, fetches the pre-market price of the top ten from Yahoo (the last 5-minute bar that ended by the run, shown and
    never scored), writes `trader/pick.json`, logs the pick pending in `trader/pick/record.jsonl` and the shadow in
    `trader/pick/shadow.jsonl`, and with `--publish` copies the card for the site. A second run on the same day keeps the
    logged pick (`--replace` posts another and marks the first superseded); a card written after 9:25 ET is posted marked
    late and never counted; a morning that fails posts a dated NO PICK card with the reason. The 08:08 ET job seals and
-   pushes it (a retry at 08:18 pushes again if it did not land): on the front page in big words by about 8:15.
+   pushes it (retries at 08:18, 08:40 and 09:05 post or push again if it did not land; the 09:19 pre-open run keeps the
+   logged pick and refreshes its pre-market print): on the front page in big words by about 8:15, refreshed five minutes
+   before the open.
 
 ## What it reads and writes
 

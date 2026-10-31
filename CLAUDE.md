@@ -35,6 +35,9 @@
   that it may MOVE 2 % ("likely" only when the move rate's interval sits above one half). Never "most likely", and never print the model's in-sample bin rates or its summed move score
   (e_oc) as a name's odds or expected move. A new feature or rule joins the model only through scripts/pick_research.py:
   chosen on h1, confirmed on h2, leak check clean (the highest-ATR shadow in trader/pick/shadow.jsonl stays a shadow
-  until it earns that). The 08:08 ET job (run.sh pick) fetches the calendars and the futures, scores, seals and pushes;
-  never move it past 8:15 ET, never let the card claim more than the record in trader/pick/model.json supports, and keep
-  ~/daytrader on main with nothing staged (publish_docs publishes only the bundle, only from main).
+  until it earns that; over ten years it moved 2 % more often but sat in the 2-5 % band less often). The 08:08 ET job
+  (run.sh pick) catches the store up, fetches the calendars and the futures, scores, seals and pushes; the retries to
+  09:05 and the 09:19 pre-open run keep the day's logged name (a re-run never changes it; the pre-open run refreshes the
+  pre-market print). Never move the first run past 8:15 ET, never let the card claim more than the record in
+  trader/pick/model.json supports, and keep ~/daytrader on main with nothing staged (publish_docs publishes only the
+  bundle, only from main).

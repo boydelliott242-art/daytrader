@@ -1,10 +1,11 @@
 #!/bin/sh
-# The scheduled jobs: run.sh <cache|morning|live|grade|lab|futures|pick>. Each exits at once outside its window on the
-# New York clock, holds a lock so two runs never overlap, logs to trader/logs/<job>.log, and never places an order.
+# The scheduled jobs: run.sh <cache|recache|morning|live|grade|lab|futures|pick|preopen>. Each exits at once outside its
+# window on the New York clock, holds a lock so two runs never overlap, logs to trader/logs/<job>.log, and never places
+# an order.
 set -u
 root="$(cd "$(dirname "$0")/.." && pwd)"
 job="${1:-}"
-[ -n "$job" ] || { echo "usage: run.sh <cache|morning|live|grade|lab|futures|pick>"; exit 2; }
+[ -n "$job" ] || { echo "usage: run.sh <cache|recache|morning|live|grade|lab|futures|pick|preopen>"; exit 2; }
 # keep the Mac awake while a job runs (idle sleep always, system sleep on AC): a job that started in a dark wake would
 # otherwise run in slices between sleeps and post after its window
 if [ -z "${DT_AWAKE:-}" ] && [ -x /usr/bin/caffeinate ]; then
@@ -86,33 +87,66 @@ case "$job" in
     inwin 08:00 09:31 || { echo "outside 08:00-09:30" >> "$log"; exit 0; }
     wait_net
     $py trader-montecarlo/montecarlo.py futures --write >> "$log" 2>&1 ;;
-  pick)
-    # the 8:25 pick (08:08 ET, a retry at 08:18): the earnings calendars from the previous session to today, the futures
-    # read at 08:05, the store through yesterday's close from the 17:30 cache job; sealed and pushed, live about a minute later
+  pick|preopen)
+    # the 8:25 pick (08:08 ET; retries at 08:18, 08:40 and 09:05; the pre-open run at 09:19): the earnings calendars from the
+    # previous session to today, the futures read at 08:05, the store through yesterday's close from the 17:30 cache job,
+    # with every name that job left behind caught up here first; sealed and pushed, live about a minute later. The pre-open
+    # run posts the pick if no run before it could; otherwise it keeps the logged pick and refreshes its pre-market print,
+    # so the card five minutes before the open carries the latest print
     [ "$ny_trading" = yes ] || { echo "not a trading day" >> "$log"; exit 0; }
-    inwin 07:59 09:25 || { echo "outside 08:00-09:25" >> "$log"; exit 0; }
+    if [ "$job" = preopen ]; then
+      inwin 09:09 09:25 || { echo "outside 09:10-09:25" >> "$log"; exit 0; }
+    else
+      inwin 07:59 09:25 || { echo "outside 08:00-09:25" >> "$log"; exit 0; }
+    fi
     # a failed or preview card is not a posted pick: the retry runs the morning again for it
     posted=$($py -c "import json; d = json.load(open('trader/publish/pick.json')); print('redo' if d.get('failed') or d.get('preview') else d.get('date'))" 2>/dev/null || echo none)
-    pushed=$(git log -1 --format=%h --grep="pick $ny_day" origin/main 2>/dev/null || true)
-    if [ "$posted" = "$ny_day" ] && [ -n "$pushed" ]; then
+    pushed=$(git log -1 --format=%h --grep="pick $ny_day" --grep="preopen $ny_day" origin/main 2>/dev/null || true)
+    if [ "$posted" = "$ny_day" ] && [ -n "$pushed" ] && [ "$job" != preopen ]; then
       echo "$(date) $job: today's pick is already posted" >> "$log"; exit 0
     fi
     wait_net
-    if [ "$posted" = "$ny_day" ]; then
+    if [ "$posted" = "$ny_day" ] && [ "$job" != preopen ]; then
       # today's card was written but did not reach origin: push it again, never pick again
       echo "$(date) $job: today's card exists but is not on origin; publishing it again" >> "$log"
       publish_docs
       echo "$(date) $job: done" >> "$log"; exit 0
     fi
-    days=$($py -c "import sys, datetime; sys.path.insert(0, '$root'); from dt import intel_flags; d = datetime.date.fromisoformat('$ny_day'); p = intel_flags.prev_trading_day(d); print(','.join((p + datetime.timedelta(days=k)).isoformat() for k in range((d - p).days + 1)))")
-    $py scripts/fetch_earnings_history.py --dates "$days" --refresh-last 10 --threads 2 --quiet >> "$log" 2>&1
-    $py -c "import json, sys; f = json.load(open('trader/futures.json')); sys.exit(0 if f.get('date') == '$ny_day' and (f.get('nq') or {}).get('gap_pct') is not None else 1)" 2>/dev/null \
-      || $py trader-montecarlo/montecarlo.py futures --write >> "$log" 2>&1
+    if [ "$posted" != "$ny_day" ]; then
+      # the catch-up: every name the evening refresh left a session behind (a flaky network, a Mac that slept), with a
+      # deadline that leaves time to score and post before 9:25
+      deadline=$($py -c "import sys; sys.path.insert(0, '$root'); from dt import clock; t = clock.parse_hhmm('$ny_hhmm'); m = min(t.hour * 60 + t.minute + 12, 9 * 60 + 21); print('%02d:%02d' % divmod(m, 60))" 2>/dev/null || echo 09:21)
+      $py scripts/fetch_cache.py --behind --threads 6 --deadline "$deadline" --quiet >> "$log" 2>&1
+      days=$($py -c "import sys, datetime; sys.path.insert(0, '$root'); from dt import intel_flags; d = datetime.date.fromisoformat('$ny_day'); p = intel_flags.prev_trading_day(d); print(','.join((p + datetime.timedelta(days=k)).isoformat() for k in range((d - p).days + 1)))")
+      $py scripts/fetch_earnings_history.py --dates "$days" --refresh-last 10 --threads 2 --quiet >> "$log" 2>&1
+      $py -c "import json, sys; f = json.load(open('trader/futures.json')); sys.exit(0 if f.get('date') == '$ny_day' and (f.get('nq') or {}).get('gap_pct') is not None else 1)" 2>/dev/null \
+        || $py trader-montecarlo/montecarlo.py futures --write >> "$log" 2>&1
+    fi
     $py trader-pick/pick.py morning --at "$ny_hhmm" --write --publish --quiet >> "$log" 2>&1 \
-      || notify "the 8:25 pick failed; see trader/logs/pick.log"
+      || notify "the 8:25 pick failed; see $log"
     publish_docs
-    # the pre-market history for research, after the card is out (the pick fetches its own quotes for its top ten)
-    $py scripts/fetch_premarket.py --range 1d --max-age-hours 0 --threads 6 --quiet >> "$log" 2>&1 ;;
+    if [ "$job" = preopen ]; then
+      said=$($py -c "import json; d = json.load(open('trader/publish/pick.json')); p = d.get('pick') or {}; pm = p.get('premarket') or {}; print(('%s, pre-market %+.2f %% at %s ET (shown, not scored)' % (p['symbol'], pm.get('vs_prev_close_pct') or 0, pm.get('time') or '?')) if p and d.get('date') == '$ny_day' else 'no pick today: ' + str(d.get('no_pick_words') or '')[:90])" 2>/dev/null || echo "see the site")
+      notify "before the open: $said"
+    else
+      # the pre-market history for research, after the card is out (the pick fetches its own quotes for its top ten)
+      $py scripts/fetch_premarket.py --range 1d --max-age-hours 0 --threads 6 --quiet >> "$log" 2>&1
+    fi ;;
+  recache)
+    # the second evening pass (21:30 ET): the names the 17:30 refresh left behind (a flaky network, a Mac that slept) are
+    # fetched again, the pick graded if it was not, the site sealed; it waits while the 17:30 job is still running
+    [ "$ny_trading" = yes ] || { echo "not a trading day" >> "$log"; exit 0; }
+    inwin 19:59 23:59 || { echo "outside 20:00-24:00" >> "$log"; exit 0; }
+    wait_net
+    for i in $(seq 1 90); do
+      cpid=$(cat trader/logs/.cache.lock/pid 2>/dev/null || true)
+      { [ -n "$cpid" ] && kill -0 "$cpid" 2>/dev/null; } || break
+      [ "$i" = 1 ] && echo "$(date) $job: the cache job is still running (pid $cpid); waiting" >> "$log"
+      sleep 60
+    done
+    $py scripts/fetch_cache.py --behind --threads 4 --quiet >> "$log" 2>&1
+    $py trader-pick/pick.py grade --write --publish --quiet >> "$log" 2>&1
+    publish_docs ;;
   morning)
     [ "$ny_trading" = yes ] || { echo "not a trading day" >> "$log"; exit 0; }
     inwin 07:59 09:30 || { echo "outside 08:00-09:30" >> "$log"; exit 0; }

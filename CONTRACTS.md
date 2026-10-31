@@ -633,7 +633,8 @@ live pick alike (`earnings_session`, `special_of`, `HALF_DAYS`, `universe_caps`)
   record measured is the one the live pick applies;
 - a special situation: the name moved 20 percent or more close to close on the session before (news, a deal, a crash,
   or a split the store has not adjusted for), a day its history does not describe;
-- a half day (a 1:00 p.m. close): the live pick posts no pick on one;
+- a half day (a 1:00 p.m. close): the live pick on one is shown and not counted (logged with `half_day`, graded, kept out of
+  the live record's rates);
 - a session before the name was a large cap: its estimated cap at the prior close (its cap at the newest list that holds
   it x the close then / the price at that list) under $10B. A name that left the list keeps its history for the
   sessions it qualified. (Share counts are taken as constant; names that left before the lists were kept cannot be
@@ -671,14 +672,20 @@ moved at least as often. The card's odds are the record of past picks with their
 highest-ATR name.
 
 **The morning's own rules.** A closed day is NO PICK. A run before its own cutoff (or for a later date) is a preview:
-shown, never written, logged or published, so a manual run at 07:30 cannot stand in for the 08:08 job. A name whose store
-is not through the previous session is left out and counted; if SPY is behind, or more than 5 percent of the names are,
-the store is stale and the card is NO PICK. A futures file without a Nasdaq read is no gap, not a crash. A new pick
+shown, never written, logged or published, so a manual run at 07:30 cannot stand in for the 08:08 job. The morning first
+catches the store up (`scripts/fetch_cache.py --behind`: every name whose daily store is not through the last completed
+session, six threads, a deadline twelve minutes on and never past 09:21), because an evening refresh that met a flaky
+network or a sleeping Mac must not cost the morning (it cost 2026-10-30). A name still behind is left out and counted; if
+SPY is behind, or more than half of the names are (`STALE_SHARE`), the store is stale and the card is NO PICK; otherwise
+the pick is scored over the names that are through, and the card says how many were left out. A futures file without a
+Nasdaq read is no gap, not a crash. A new pick
 written after 9:25 ET on its date is posted marked late and never logged. A second run on a date keeps the pick already
 logged, late or not (the card and the record always name the same stock, and the day's shadow stays the day's shadow);
-`--replace` posts another, or NO PICK, and marks the first superseded, never graded. A morning that fails posts a dated
-NO PICK card with the reason, so the site never says "Not yet" all day, unless that day's pick is already logged, whose
-card then stays up. A line of the record that does not parse is skipped with a warning, and a broken calendar file counts
+`--replace` posts another, or NO PICK, and marks the first superseded, never graded. A run that names the pick already
+logged carries that pick's own `cutoff` and says when it was refreshed (`refreshed_at`, `quotes_at`): its pre-market print
+is the latest one, the pick does not change. A morning that fails posts a dated NO PICK card with the reason, so the site
+never says "Not yet" all day, unless that day's pick is already logged, whose card then stays up. A half day's pick is
+posted with `half_day_note` and logged with `half_day`: shown, graded, never in the live record's rates. A line of the record that does not parse is skipped with a warning, and a broken calendar file counts
 as no file. The shadows: every candidate rule's name, logged to `trader/pick/shadow.jsonl` (one row a rule a
 morning) and graded each evening: `atr` (the most volatile eligible liquid name, the lead the rule research left: it
 touched +2 percent more often than the pick in both halves, inside the noise in the second), `hit60` (the most +2 percent
@@ -700,6 +707,22 @@ close-confirmed first-hour breakout (buy after an hourly bar closes above the fi
 the close), is graded forward on every pick and shadow (`fh_breakout`) and tallied on the full dashboard as watched, not
 acted on.
 
+**Ten years (2026-10-28).** `trader/cache_long` holds ten years of daily bars (research only). The same walk-forward over
+2,335 out-of-sample mornings (2017-07-07 to 2026-10-28, `h2` from 2022-02-24; 25 agents, every claim re-run by independent
+skeptics): no direction in either half or any year (up 25.9 and 30.6 percent, down 27.3 and 29.9); the move rate 53 and 60
+percent against 16 and 19 for the base in every year; the highest-ATR name moved 2 percent either way more often than the
+pick (+2.4 points [-1.0, +5.7] in h1, +6.5 [+3.0, +9.9] in h2, +4.5 [+2.1, +6.9] pooled; six of six skeptics upheld it, on
+the last five years and with a $30B floor too) and sat in the 2 to 5 percent band less often (-2.2 [-4.0, -0.3] pooled,
+inside the noise in each half), so the live rule stays and the shadow's words carry the margin; the two-year gap-down
+bounce reads +0.08 percent [-0.09, +0.26] and -0.02 [-0.17, +0.13] over ten years and is retired; reversal and
+relative-strength variants chosen on h1 cut the pick's move rate on h2 (reversal -3.2 [-5.5, -0.8]) and are rejected. One
+lead, printed nowhere: the pick that opens 5 percent or more above the prior close closed 2 percent down more often than
+up in both halves, but two of four skeptics found the h2 margin resting on 2025 alone. Known limits of the long record:
+today's lists run backward with constant shares (`universe_caps`; PCG in 2019 and QXO before 2024 carry today's counts),
+the fallen names (FRC, SIVB, TWTR and others) are missing, "likely to move" is weaker in calm years and for picks with an
+ATR under 7 percent, and the 8:05 print exists only from 2026-08-04. Each is a question for `scripts/pick_research.py`,
+not a change to the card.
+
 **Research.** `scripts/pick_research.py` evaluates an extra feature module (`CUTS`, `compute(sym, rows, ctx)`) against the
 cached base rows and runs `dt.pick.leak_check` (recompute sampled dates with the rows cut there; any difference is a LEAK).
 `pick.py train --extra MODULE` makes a confirmed module part of the live model.
@@ -719,15 +742,20 @@ touched).
 report time on disk survives a newer answer without one. On the morning, a calendar with no rows for a trading day is an
 answer that failed: the intel ledger stands in, and the card says so.
 
-**Schedule.** `pick` at 08:08 ET and `pick2` at 08:18 ET (`scripts/run.sh pick`): the calendars from the previous session
-to today, a fresh futures read unless today's file has a Nasdaq gap, `pick.py morning --write --publish`, seal and push,
-then the pre-market history for research. A retry does nothing when today's pick is on origin, only seals and pushes
-when today's card exists but did not land, and runs the morning again when today's card is a failure card. Every job runs
+**Schedule.** `pick` at 08:08 ET, the retries `pick2`, `pick3` and `pick4` at 08:18, 08:40 and 09:05, and `preopen` at
+09:19 (`scripts/run.sh pick|preopen`): the store caught up, the calendars from the previous session to today, a fresh
+futures read unless today's file has a Nasdaq gap, `pick.py morning --write --publish`, seal and push, then the
+pre-market history for research. A retry does nothing when today's pick is on origin, only seals and pushes when today's
+card exists but did not land, and runs the morning again when today's card is a failure card. The pre-open run is the last
+chance before the 9:25 late line: it posts the pick when no run before it could, and otherwise keeps the logged pick and
+refreshes its pre-market print, so the card five minutes before the open carries the latest print, with a notification on
+the Mac. The Mac must be awake: `sudo pmset repeat wakeorpoweron MTWRF 06:55:00` (Chicago) is the user's to run. Every job runs
 under `caffeinate` (the Mac stays awake while it runs) and holds a lock that names its pid (a lock whose pid is gone or that
 is over four hours old is broken and logged; one taken less than a minute ago without a pid is respected); the jobs that
 fetch wait up to about a minute and a half for the network; a clock that cannot be read stops the job with a notice; and
-publishing happens only from `main`, only the bundle, with a notice when a build, an add, a commit or a push fails. The 17:30 cache job grades the pick and the shadow
-and refreshes the calendar; the Saturday lab job retrains.
+publishing happens only from `main`, only the bundle, with a notice when a build, an add, a commit or a push fails. The
+17:30 cache job grades the pick and the shadows and refreshes the calendar; `recache` at 21:30 fetches again every name
+the 17:30 job left behind (after waiting for it) and grades what it could not; the Saturday lab job retrains.
 
 **Words.** Most people who day trade lose money. A stock that moves 2 percent one morning in three does not move two
 mornings in three, and the ones that move up are matched by the ones that move down until a record says otherwise.
