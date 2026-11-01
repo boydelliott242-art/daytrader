@@ -199,8 +199,10 @@ left 332 names a session behind, and the morning posted NO PICK. Now the morning
 scores, posts the pick over the names that are through (NO PICK only when SPY or most names are behind), retries at
 08:18, 08:40 and 09:05, and a pre-open run at 09:19 ET posts the pick if nothing before it could, or keeps the logged
 pick and refreshes its pre-market print, so the card five minutes before the open carries the latest print. A second
-evening pass at 21:30 fetches again whatever the 17:30 job left behind. A half day's pick is shown and not counted. The
-Mac has to be awake for any of it: `sudo pmset repeat wakeorpoweron MTWRF 06:55:00`.
+evening pass at 21:30 fetches again whatever the 17:30 job left behind. A NO PICK that came from a stale store is
+retried, not kept; the retries and the pre-open run share one lock and one publisher, so two mornings never run or land
+at once; a replacement after 9:25 is late and never logged. A half day's pick is shown and not counted. The Mac has to
+be awake for any of it: `sudo pmset repeat wakeorpoweron MTWRF 06:55:00`.
 
 ```bash
 python3 trader-pick/pick.py train --workers 12 --rule up --publish     # the walk-forward and the live model

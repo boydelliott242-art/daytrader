@@ -118,6 +118,9 @@ class Scripts(unittest.TestCase):
         for job in ("cache)", "morning)", "live)", "grade)", "lab)", "futures)", "pick|preopen)", "recache)"):
             self.assertIn(job, text, job)
         self.assertIn("fetch_cache.py --behind", text)                      # the morning catches the store up before it scores
+        self.assertIn("d.get('store_stale') or d.get('behind_today')", text)  # a stale-store NO PICK is retried, not kept
+        self.assertIn('[ "$job" = preopen ] && lockname=pick', text)       # one morning at a time
+        self.assertIn('plock="trader/logs/.publish.lock"', text)           # one publisher at a time
         self.assertNotIn("ticket.py approve", text)
         self.assertNotIn("place_stock_order", text)
         self.assertNotIn("paper.py place", text)

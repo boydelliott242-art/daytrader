@@ -35,7 +35,7 @@ def write_json(path, doc, indent=2):
     d = os.path.dirname(path)
     if d:
         os.makedirs(d, exist_ok=True)
-    tmp = path + ".tmp"
+    tmp = "%s.%d.tmp" % (path, os.getpid())        # a name no other process shares: two writers can never tear one file
     if path.endswith(".gz"):
         with gzip.open(tmp, "wt", encoding="utf-8") as fh:
             json.dump(doc, fh, separators=(",", ":"))

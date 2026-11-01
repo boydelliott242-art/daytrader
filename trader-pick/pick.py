@@ -496,7 +496,11 @@ def fail_card(a, e):
         doc.update({"created_by": "trader-pick", "date": date, "cutoff": a.at, "created_at": clock.iso(now_utc), "written_at": clock.iso(clock.utc_now()),
                     "pick": None, "no_pick": True, "failed": True, "error": "%s: %s" % (type(e).__name__, str(e)[:200]),
                     "no_pick_words": "No pick today: the morning job failed (%s). Nothing was logged." % (str(e)[:160] or type(e).__name__),
-                    "next_session": intel_flags.next_trading_day(date).isoformat(), "live": live_record(a), "note": WORDS})
+                    "next_session": intel_flags.next_trading_day(date).isoformat(), "note": WORDS})
+        try:
+            doc["live"] = live_record(a)
+        except Exception as e:  # the failure card is written even when the record itself is the failure
+            doc["live"] = {"words": "the live record could not be read (%s)" % str(e)[:80]}
         dtio.write_json(a.out, doc)
         if a.publish:
             publish(a, doc)
@@ -599,6 +603,15 @@ def morning(a):
     kept = None
     if logged and not a.replace and (pick or {}).get("symbol") != logged.get("symbol"):
         forced = [c for c in cands if c[0] == logged["symbol"]]
+        if not forced:
+            # the name left every list since the pick was logged (or the run named other symbols): its row comes from its
+            # own store, so the card keeps its reasons, its ATR and the word
+            lrows = dtbars.daily_rows(logged["symbol"], a.cache_root)
+            lraw, ladv = dtpick.today_raw(logged["symbol"], lrows, date, extra, {"cache_root": a.cache_root, "earnings": earnings_all.get(logged["symbol"]) or {}}) if lrows else (None, None)
+            if lraw is not None:
+                raws[logged["symbol"]] = lraw
+                prev_close_of[logged["symbol"]] = float([r for r in lrows if r[0] < date][-1][4])
+                forced = [(logged["symbol"], dtpick.encode(spec, lraw, market), ladv, None)]
         if forced:
             pick = dtpick.score_candidates(model, forced)[0]
         else:
@@ -612,7 +625,7 @@ def morning(a):
     lk = likely_of(model, long_rec, ((raws.get(pick["symbol"]) or {}).get("atr_pct")) if pick else None, rule) if pick else None
     # a run that names the pick already logged (a retry, the pre-open refresh) carries that pick's own cutoff and says when it
     # was refreshed; its quotes are as of this run, so the card's pre-market print is the latest one
-    refreshed = bool(logged and not a.replace and pick and pick["symbol"] == logged.get("symbol") and (logged.get("cutoff") or a.at) != a.at)
+    refreshed = bool(logged and pick and pick["symbol"] == logged.get("symbol") and (logged.get("cutoff") or a.at) != a.at)
     cutoff_words = logged["cutoff"] if refreshed else a.at
     # the shadow: the most volatile eligible liquid name, the one lead the rule research left (over ten years it moved 2 %
     # either way more often than the pick, and sat in the 2 to 5 % band less often); tracked forward, graded each evening,
@@ -644,7 +657,12 @@ def morning(a):
     quotes = {}
     if not a.no_premarket and quote_syms:
         quotes = premarket_quotes(quote_syms, date, cutoff, a.pause, None if a.quiet else (lambda m: print(m, file=sys.stderr)), prev_close_of)
-    late = (real_day > date or (real_day == date and real_et.time() > LATE)) and not logged
+    # the clock at the write, not at the start: a run that began at 09:23 and writes at 09:26 is late; so is a --replace
+    # after 9:25, which is posted marked late and never logged (the first pick stays)
+    real_now = clock.utc_now() if not a.now else now_utc
+    real_et = clock.to_eastern(real_now)
+    real_day = real_et.date().isoformat()
+    late = (real_day > date or (real_day == date and real_et.time() > LATE)) and (not logged or a.replace)
     wf = model.get("walk_forward") or {}
     t_rec = (wf.get("baseline_highest_atr") or {})
     p_rec = (((wf.get("rules") or {}).get(rule) or {}).get("pick") or {})
@@ -676,7 +694,7 @@ def morning(a):
                 "reacting_today": len(reacting & set(raws)), "reacting_source": react_source,
                 "special_today": [{"symbol": s, "reason": special[s]} for s in sorted(special)], "special_move_pct": special_pct,
                 "pick": card(pick) if pick else None, "no_pick": pick is None, "kept_note": kept, "late": bool(late and pick),
-                "likely": bool(lk and lk["likely"]), "likely_words": lk["words"] if lk else None, "likely_cut": LIKELY_ATR_PCT,
+                "likely": bool(lk and lk["likely"]), "likely_words": lk["words"] if lk else None, "likely_cut": LIKELY_ATR_PCT, "likely_side": (lk or {}).get("side"),
                 "atr_group": (lk or {}).get("group"), "long_record": ({"built_at": long_rec.get("built_at"), "oos": long_rec.get("oos")} if long_rec else None),
                 "ranked": [card(r) for r in top], "next_session": intel_flags.next_trading_day(date).isoformat(),
                 "live": live_record(a), "graded_now": graded,
@@ -696,7 +714,7 @@ def morning(a):
             log_pick(a, doc)
             for rn, sym in shadow_syms.items():
                 log_shadow(a, doc, rn, sym, (raws.get(sym) or {}).get("atr_pct"))
-        elif not pick and logged and a.replace:
+        elif not pick and logged and a.replace and not late:
             supersede_day(a, date, None, doc["written_at"])
         doc["live"] = live_record(a)
         doc["shadow"]["live"] = live_record(a, a.shadow_record, "atr")
@@ -763,7 +781,7 @@ def log_shadow(a, doc, rule, sym, atr_pct=None):
 
 
 def _rewrite(path, rows):
-    tmp = path + ".tmp"
+    tmp = "%s.%d.tmp" % (path, os.getpid())        # a name no other process shares: two writers can never tear one file
     with open(tmp, "w", encoding="utf-8") as fh:
         for r in rows:
             fh.write(json.dumps(r, separators=(",", ":")) + "\n")
@@ -845,8 +863,9 @@ def live_record(a, path=None, rule=None):
     ulo, uhi = dtstats.wilson(up, n) if n else (None, None)
     dlo, dhi = dtstats.wilson(dn, n) if n else (None, None)
     ocs = [r["oc_pct"] for r in g if r.get("oc_pct") is not None]
-    words = ("%d graded: closed 2 %% up on %d (%s [%s, %s]), 2 %% down on %d (%s [%s, %s]), average %+.2f %%" % (
-        n, up, _pct(up / float(n), 0), _pct(ulo, 0), _pct(uhi, 0), dn, _pct(dn / float(n), 0), _pct(dlo, 0), _pct(dhi, 0), sum(ocs) / len(ocs))) if n else "no graded pick yet"
+    words = ("%d graded: closed 2 %% up on %d (%s [%s, %s]), 2 %% down on %d (%s [%s, %s]), average %s" % (
+        n, up, _pct(up / float(n), 0), _pct(ulo, 0), _pct(uhi, 0), dn, _pct(dn / float(n), 0), _pct(dlo, 0), _pct(dhi, 0),
+        ("%+.2f %%" % (sum(ocs) / len(ocs))) if ocs else "n/a")) if n else "no graded pick yet"
     if half:
         words += "; %d half-day pick%s shown, not counted" % (len(half), "" if len(half) == 1 else "s")
     tr = [r["fh_breakout"] for r in g if isinstance(r.get("fh_breakout"), dict) and r["fh_breakout"].get("entered") and r["fh_breakout"].get("r") is not None]
@@ -880,7 +899,8 @@ def print_pick(doc):
         print("  NO PICK: " + doc["no_pick_words"])
     else:
         what = ("more likely to close 2 % or more ABOVE its open than below it" if doc["claim"] == "up"
-                else "likely to MOVE 2 % or more from its open" if doc.get("likely") else "may MOVE 2 % or more from its open, about as likely as not")
+                else "likely to MOVE 2 % or more from its open" if doc.get("likely")
+                else "may MOVE 2 % or more from its open, about as likely as not" if doc.get("likely_side") == "low" else "may MOVE 2 % or more from its open")
         print("  %s: %s.%s" % (p["symbol"], what, "  (" + doc["kept_note"] + ")" if doc.get("kept_note") else ""))
         if doc.get("likely_words"):
             print("  the word: " + doc["likely_words"])
@@ -893,8 +913,10 @@ def print_pick(doc):
             _pct(p.get("p_up"), 0), _pct(p.get("p_dn"), 0), p.get("bin_shared") or 1))
         print("  why: " + "; ".join(p.get("reasons") or []))
         pm = p.get("premarket") or {}
-        if pm.get("last"):
-            print("  pre-market: %.2f at %s ET, %+.2f %% vs the prior close %.2f (shown, not scored)" % (pm["last"], pm.get("time"), pm.get("vs_prev_close_pct") or 0, pm.get("prev_close") or 0))
+        if pm.get("last") and isinstance(pm.get("vs_prev_close_pct"), (int, float)):
+            print("  pre-market: %.2f at %s ET, %+.2f %% vs the prior close %.2f (shown, not scored)" % (pm["last"], pm.get("time"), pm["vs_prev_close_pct"], pm.get("prev_close") or 0))
+        elif pm.get("last"):
+            print("  pre-market: %.2f at %s ET (no prior close to compare; shown, not scored)" % (pm["last"], pm.get("time")))
         if doc.get("half_day_note"):
             print("  HALF DAY: " + doc["half_day_note"])
         if doc.get("refreshed_at"):

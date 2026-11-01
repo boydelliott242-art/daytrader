@@ -604,6 +604,29 @@ class CliMore(unittest.TestCase):
         self.assertEqual(doc["long_record"]["oos"]["sessions"], 2335)
         self.assertIn("over ten years", doc["likely_words"])
 
+    def test_a_replacement_after_nine_twenty_five_is_late_and_the_first_pick_stays(self):
+        code, out, err = self.morning("--write")
+        self.assertEqual(code, 0, err)
+        first = dtio.read_json(os.path.join("trader", "pick.json"))["pick"]["symbol"]
+        code, out, err = run(["morning", "--date", "2026-10-23", "--no-premarket", "--now", "2026-10-23 10:05", "--at", "10:05", "--write", "--replace", "--exclude", first])
+        self.assertEqual(code, 0, err)
+        doc = dtio.read_json(os.path.join("trader", "pick.json"))
+        self.assertTrue(doc["late"] and doc["pick"]["symbol"] != first)
+        rows = records(os.path.join("trader", "pick", "record.jsonl"))
+        self.assertEqual([r["symbol"] for r in rows], [first])                                 # never logged; the first stays
+        self.assertNotEqual(rows[0]["status"], "superseded")                                   # (graded already: the fixture holds the session)
+        code, out, err = run(["morning", "--date", "2026-10-23", "--no-premarket", "--now", "2026-10-23 09:00", "--at", "09:00", "--write", "--replace"])
+        doc = dtio.read_json(os.path.join("trader", "pick.json"))                              # --replace naming the same pick is a refresh
+        self.assertEqual((doc["pick"]["symbol"], doc["cutoff"], doc["refreshed_at"]), (first, "08:05", "09:00"))
+
+    def test_a_graded_row_without_a_move_does_not_stop_the_morning(self):
+        write(os.path.join("trader", "pick", "record.jsonl"), json.dumps({"date": "2026-10-22", "symbol": "X", "status": "graded", "up": 1, "dn": 0}) + "\n")
+        live = cli.live_record(argparse.Namespace(record=os.path.join("trader", "pick", "record.jsonl")))
+        self.assertEqual((live["graded"], live["up"]), (1, 1))
+        self.assertIn("average n/a", live["words"])
+        code, out, err = self.morning("--json")
+        self.assertEqual(code, 0, err)
+
     def test_a_pre_open_rerun_keeps_the_pick_and_refreshes_the_card(self):
         code, out, err = self.morning("--write")
         self.assertEqual(code, 0, err)

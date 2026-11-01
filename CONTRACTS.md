@@ -688,9 +688,11 @@ the pick is scored over the names that are through, and the card says how many w
 Nasdaq read is no gap, not a crash. A new pick
 written after 9:25 ET on its date is posted marked late and never logged. A second run on a date keeps the pick already
 logged, late or not (the card and the record always name the same stock, and the day's shadow stays the day's shadow);
-`--replace` posts another, or NO PICK, and marks the first superseded, never graded. A run that names the pick already
-logged carries that pick's own `cutoff` and says when it was refreshed (`refreshed_at`, `quotes_at`): its pre-market print
-is the latest one, the pick does not change. A morning that fails posts a dated NO PICK card with the reason, so the site
+`--replace` posts another, or NO PICK, and marks the first superseded, never graded; after 9:25 ET a replacement is
+posted marked late and never logged, and the first pick stays. A run that names the pick already logged (with or
+without `--replace`) carries that pick's own `cutoff` and says when it was refreshed (`refreshed_at`, `quotes_at`): its
+pre-market print is the latest one, the pick does not change; a kept name that left every list since the morning still
+gets its row from its own store. Late is judged at the write, not at the start of the run. A morning that fails posts a dated NO PICK card with the reason, so the site
 never says "Not yet" all day, unless that day's pick is already logged, whose card then stays up. A half day's pick is
 posted with `half_day_note` and logged with `half_day`: shown, graded, never in the live record's rates. A line of the record that does not parse is skipped with a warning, and a broken calendar file counts
 as no file. The shadows: every candidate rule's name, logged to `trader/pick/shadow.jsonl` (one row a rule a
@@ -761,8 +763,10 @@ answer that failed: the intel ledger stands in, and the card says so.
 09:19 (`scripts/run.sh pick|preopen`): the store caught up, the calendars from the previous session to today, a fresh
 futures read unless today's file has a Nasdaq gap, `pick.py morning --write --publish`, seal and push, then the
 pre-market history for research. A retry does nothing when today's pick is on origin, only seals and pushes when today's
-card exists but did not land, and runs the morning again when today's card is a failure card. The pre-open run is the last
-chance before the 9:25 late line: it posts the pick when no run before it could, and otherwise keeps the logged pick and
+card exists but did not land, and runs the morning again when today's card is a failure card or a NO PICK that came from
+a stale store or names left behind (a NO PICK at the floor stays a result). The pick retries and the pre-open run share
+one lock and wait up to three minutes for a morning still running; every job's publish waits for the one publisher lock,
+so two bundles never land out of order. The pre-open run is the last chance before the 9:25 late line: it posts the pick when no run before it could, and otherwise keeps the logged pick and
 refreshes its pre-market print, so the card five minutes before the open carries the latest print, with a notification on
 the Mac. The Mac must be awake: `sudo pmset repeat wakeorpoweron MTWRF 06:55:00` (Chicago) is the user's to run. Every job runs
 under `caffeinate` (the Mac stays awake while it runs) and holds a lock that names its pid (a lock whose pid is gone or that
@@ -770,7 +774,9 @@ is over four hours old is broken and logged; one taken less than a minute ago wi
 fetch wait up to about a minute and a half for the network; a clock that cannot be read stops the job with a notice; and
 publishing happens only from `main`, only the bundle, with a notice when a build, an add, a commit or a push fails. The
 17:30 cache job grades the pick and the shadows and refreshes the calendar; `recache` at 21:30 fetches again every name
-the 17:30 job left behind (after waiting for it) and grades what it could not; the Saturday lab job retrains.
+the 17:30 job left behind (after waiting up to ninety minutes for it; still running, it leaves the rest to the morning's
+catch-up) and grades what it could not; the Saturday lab job retrains. Every JSON write goes through a temp name no other
+process shares, then an atomic replace.
 
 **Words.** Most people who day trade lose money. A stock that moves 2 percent one morning in three does not move two
 mornings in three, and the ones that move up are matched by the ones that move down until a record says otherwise.

@@ -18,7 +18,18 @@ log="trader/logs/$job.log"
 notify() { /usr/bin/osascript -e "display notification \"$1\" with title \"DAYTRADER $job\"" 2>/dev/null; }
 # the lock holds the run's pid: a run whose pid is gone (a restart, a kill, a crash) or that is over four hours old left it
 # behind, and the next run breaks it instead of skipping forever
-lock="trader/logs/.$job.lock"
+lockname="$job"
+[ "$job" = preopen ] && lockname=pick          # one morning at a time: the pre-open run and the pick retries share one lock
+lock="trader/logs/.$lockname.lock"
+if [ "$lockname" = pick ]; then
+  # a retry that finds the morning still running waits for it (up to three minutes) instead of giving up the slot
+  for i in $(seq 1 18); do
+    running=$(cat "$lock/pid" 2>/dev/null || true)
+    { [ -n "$running" ] && kill -0 "$running" 2>/dev/null; } || break
+    [ "$i" = 1 ] && echo "$(date) $job: a morning run is still going (pid $running); waiting" >> "$log"
+    sleep 10
+  done
+fi
 if ! mkdir "$lock" 2>/dev/null; then
   old=$(cat "$lock/pid" 2>/dev/null || true)
   if [ -n "$old" ] && kill -0 "$old" 2>/dev/null && [ -z "$(find "$lock" -maxdepth 0 -mmin +240 2>/dev/null)" ]; then
@@ -58,6 +69,18 @@ wait_net() {
 # that cannot find the passphrase or does not reopen fails closed and publishes nothing (never fatal to the job). Only the
 # bundle is committed, and only on main: a checkout left on another branch publishes nothing and says so.
 publish_docs() {
+  # one publisher at a time across the jobs (the pick and the desk's morning can land together after a wake): the lock
+  # waits up to two minutes, breaks one older than ten minutes, and is always released
+  plock="trader/logs/.publish.lock"
+  for i in $(seq 1 24); do
+    mkdir "$plock" 2>/dev/null && break
+    [ -n "$(find "$plock" -maxdepth 0 -mmin +10 2>/dev/null)" ] && rm -rf "$plock"
+    sleep 5
+  done
+  _publish_docs
+  rm -rf "$plock" 2>/dev/null
+}
+_publish_docs() {
   branch=$(git symbolic-ref --short -q HEAD 2>/dev/null || echo "a detached HEAD")
   if [ "$branch" != main ]; then
     echo "$(date) $job: the checkout is on $branch, not main; nothing published" >> "$log"
@@ -83,10 +106,11 @@ case "$job" in
     $py scripts/fetch_premarket.py --range 5d --max-age-hours 0 --threads 4 --quiet >> "$log" 2>&1
     publish_docs ;;
   futures)
+    # the 8:05 read the pick's model was trained on: a run that starts late (a wake) still reads the bars as of 08:05
     [ "$ny_trading" = yes ] || exit 0
     inwin 08:00 09:31 || { echo "outside 08:00-09:30" >> "$log"; exit 0; }
     wait_net
-    $py trader-montecarlo/montecarlo.py futures --write >> "$log" 2>&1 ;;
+    $py trader-montecarlo/montecarlo.py futures --write --at 08:05 >> "$log" 2>&1 ;;
   pick|preopen)
     # the 8:25 pick (08:08 ET; retries at 08:18, 08:40 and 09:05; the pre-open run at 09:19): the earnings calendars from the
     # previous session to today, the futures read at 08:05, the store through yesterday's close from the 17:30 cache job,
@@ -99,8 +123,9 @@ case "$job" in
     else
       inwin 07:59 09:25 || { echo "outside 08:00-09:25" >> "$log"; exit 0; }
     fi
-    # a failed or preview card is not a posted pick: the retry runs the morning again for it
-    posted=$($py -c "import json; d = json.load(open('trader/publish/pick.json')); print('redo' if d.get('failed') or d.get('preview') else d.get('date'))" 2>/dev/null || echo none)
+    # a failed or preview card is not a posted pick, nor is a NO PICK that came from a stale store or names left behind: the
+    # retry catches the store up and runs the morning again for each of those (a NO PICK at the floor stays a result)
+    posted=$($py -c "import json; d = json.load(open('trader/publish/pick.json')); print('redo' if d.get('failed') or d.get('preview') or (d.get('no_pick') and (d.get('store_stale') or d.get('behind_today'))) else d.get('date'))" 2>/dev/null || echo none)
     pushed=$(git log -1 --format=%h --grep="pick $ny_day" --grep="preopen $ny_day" origin/main 2>/dev/null || true)
     if [ "$posted" = "$ny_day" ] && [ -n "$pushed" ] && [ "$job" != preopen ]; then
       echo "$(date) $job: today's pick is already posted" >> "$log"; exit 0
@@ -119,14 +144,15 @@ case "$job" in
       $py scripts/fetch_cache.py --behind --threads 6 --deadline "$deadline" --quiet >> "$log" 2>&1
       days=$($py -c "import sys, datetime; sys.path.insert(0, '$root'); from dt import intel_flags; d = datetime.date.fromisoformat('$ny_day'); p = intel_flags.prev_trading_day(d); print(','.join((p + datetime.timedelta(days=k)).isoformat() for k in range((d - p).days + 1)))")
       $py scripts/fetch_earnings_history.py --dates "$days" --refresh-last 10 --threads 2 --quiet >> "$log" 2>&1
-      $py -c "import json, sys; f = json.load(open('trader/futures.json')); sys.exit(0 if f.get('date') == '$ny_day' and (f.get('nq') or {}).get('gap_pct') is not None else 1)" 2>/dev/null \
-        || $py trader-montecarlo/montecarlo.py futures --write >> "$log" 2>&1
+      # the model's feature is the NQ gap as of 08:05: a file from another time (the desk's 08:30 read) is read again at 08:05
+      $py -c "import json, sys; f = json.load(open('trader/futures.json')); sys.exit(0 if f.get('date') == '$ny_day' and f.get('cutoff') == '08:05' and (f.get('nq') or {}).get('gap_pct') is not None else 1)" 2>/dev/null \
+        || $py trader-montecarlo/montecarlo.py futures --write --at 08:05 >> "$log" 2>&1
     fi
     $py trader-pick/pick.py morning --at "$ny_hhmm" --write --publish --quiet >> "$log" 2>&1 \
       || notify "the 8:25 pick failed; see $log"
     publish_docs
     if [ "$job" = preopen ]; then
-      said=$($py -c "import json; d = json.load(open('trader/publish/pick.json')); p = d.get('pick') or {}; pm = p.get('premarket') or {}; print(('%s, pre-market %+.2f %% at %s ET (shown, not scored)' % (p['symbol'], pm.get('vs_prev_close_pct') or 0, pm.get('time') or '?')) if p and d.get('date') == '$ny_day' else 'no pick today: ' + str(d.get('no_pick_words') or '')[:90])" 2>/dev/null || echo "see the site")
+      said=$($py -c "import json; d = json.load(open('trader/publish/pick.json')); p = d.get('pick') or {}; pm = p.get('premarket') or {}; print((('%s, pre-market %+.2f %% at %s ET (shown, not scored)' % (p['symbol'], pm['vs_prev_close_pct'], pm.get('time') or '?')) if isinstance(pm.get('vs_prev_close_pct'), (int, float)) else '%s, no pre-market print by $ny_hhmm' % p['symbol']) if p and d.get('date') == '$ny_day' else 'no pick today: ' + str(d.get('no_pick_words') or '')[:90])" 2>/dev/null || echo "see the site")
       notify "before the open: $said"
     else
       # the pre-market history for research, after the card is out (the pick fetches its own quotes for its top ten)
@@ -144,6 +170,11 @@ case "$job" in
       [ "$i" = 1 ] && echo "$(date) $job: the cache job is still running (pid $cpid); waiting" >> "$log"
       sleep 60
     done
+    cpid=$(cat trader/logs/.cache.lock/pid 2>/dev/null || true)
+    if [ -n "$cpid" ] && kill -0 "$cpid" 2>/dev/null; then
+      # two refreshes over the same files would race; the morning's own catch-up covers what is left
+      echo "$(date) $job: the cache job is still running after ninety minutes (pid $cpid); leaving the rest to the morning" >> "$log"; exit 0
+    fi
     $py scripts/fetch_cache.py --behind --threads 4 --quiet >> "$log" 2>&1
     $py trader-pick/pick.py grade --write --publish --quiet >> "$log" 2>&1
     publish_docs ;;
