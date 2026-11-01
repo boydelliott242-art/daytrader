@@ -81,6 +81,11 @@ def study(rows, dates, workers_note=None, rules=pick.RULES, min_adv=pick.MIN_ADV
                         "note": ("the live rule's picks grouped by their own ATR at the prior close (14 sessions, percent of the close), at cuts "
                                  "fixed before the question was asked: 'high' is at or above the cut, 'low' below it; a cut is believed only "
                                  "when the research chose it on h1 and h2 agreed")},
+           "likely_cut": 8.0,
+           "likely_note": ("the research of 2026-10-31 (two independent researchers, four skeptics, none refuting) chose the cut on h1 among the "
+                           "six fixed in advance and judged it on h2: picks with an ATR at or above 8 percent moved 2 percent with intervals "
+                           "above one half in both halves, picks under it did not (about as likely as not), so the card says 'likely' only "
+                           "at or above the cut (trader-pick/pick.py likely_of, LIKELY_ATR_PCT)"),
            "configs_tested": len(res["rules"]) + len(ATR_CUTS), "rules_tested": sorted(res["rules"]), "note": NOTE}
     if workers_note:
         out["workers"] = workers_note

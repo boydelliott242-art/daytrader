@@ -186,7 +186,13 @@ chosen on the first half: each cut the pick's move rate in the second (reversal 
 study's own critic listed what the long record cannot do: today's lists run backward with constant share counts (PCG in
 2019 and QXO before 2024 carry today's shares; FRC, SIVB, TWTR and the other fallen names are missing), and a rough cut
 moves the second-half margin from +6.5 to +5.8 [+2.3, +9.3]; "likely to move" is weaker in calm years (43 to 46 % in
-2017 and 2018) and for picks with an ATR under 7 %; and the 8:05 print was never tested. Those are the next questions.
+2017 and 2018); and the 8:05 print was never tested. One question was then asked the pre-registered way (2026-10-31: six
+ATR cuts fixed in advance, the cut chosen on the first half, judged on the second, two independent researchers, four
+skeptics, none refuting): picks whose own ATR was 8 % or more moved 2 % on 67.6 % [63, 72] and 68.8 % [65, 72] of
+mornings in the two halves; picks under it on 47.0 % [44, 50] and 52.0 % [48, 56], about as likely as not. So the card
+says "likely to MOVE 2 %" only for a pick with an ATR of 8 % or more, and "may MOVE 2 %, about as likely as not" for a
+calmer one, with the ten-year rates of picks like it beside the two-year record. The share counts and the 8:05 print are
+the next questions.
 
 **The morning, no matter what (2026-10-31).** On 2026-10-30 the evening refresh met a flaky network and a sleeping Mac,
 left 332 names a session behind, and the morning posted NO PICK. Now the morning catches those names up itself before it

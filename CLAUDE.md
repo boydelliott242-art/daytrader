@@ -32,7 +32,8 @@
 - The 8:25 pick (trader-pick, dt/pick.py) is a count, not a prediction: the card prints the record of past picks (up AND
   down, with intervals) beside the base rates, and says "more likely to close 2 % ABOVE its open than below it" only when the live rule's
   out-of-sample pick closed up more often than down with separated Wilson intervals in BOTH halves (claim_of); otherwise
-  that it may MOVE 2 % ("likely" only when the move rate's interval sits above one half). Never "most likely", and never print the model's in-sample bin rates or its summed move score
+  that it may MOVE 2 % ("likely" only when the move rate's interval sits above one half AND the pick's own ATR is at or above
+  LIKELY_ATR_PCT, 8 %, the cut the ten-year record earned the word for; a calmer pick "may MOVE 2 %, about as likely as not"). Never "most likely", and never print the model's in-sample bin rates or its summed move score
   (e_oc) as a name's odds or expected move. A new feature or rule joins the model only through scripts/pick_research.py:
   chosen on h1, confirmed on h2, leak check clean (the highest-ATR shadow in trader/pick/shadow.jsonl stays a shadow
   until it earns that; over ten years it moved 2 % more often but sat in the 2-5 % band less often). The 08:08 ET job

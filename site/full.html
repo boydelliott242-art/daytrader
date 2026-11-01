@@ -635,7 +635,7 @@ footer .wrap { padding-top: 14px; padding-bottom: 24px; }
     var pk = res.doc;
     if (!pk) { el("pick-body").innerHTML = empty("pick"); sub("pick-sub", ""); return; }
     sub("pick-sub", (pk.date ? pk.date + (pk.cutoff ? ", data as of " + pk.cutoff + " ET, " : ", ") : "") + "rule " + (pk.rule || "up") + ", claim: " +
-        (pk.claim === "up" ? "close 2 % above the open" : "move 2 % (direction not proven)"));
+        (pk.claim === "up" ? "close 2 % above the open" : (pk.likely ? "likely to move 2 % (direction not proven)" : "may move 2 % (direction not proven)")));
     var html = "";
     var oos = pk.oos || {};
     var rec = (oos.pick || {}).all || {}, base = (oos.base || {}).all || {};
@@ -651,6 +651,7 @@ footer .wrap { padding-top: 14px; padding-bottom: 24px; }
       html += '<div class="empty">' + esc(pk.no_pick_words || "No pick this morning.") + "</div>";
     }
     html += '<p class="note"><b>Direction:</b> ' + esc(pk.direction || "") + ".</p>";
+    if (pk.likely_words) { html += '<p class="note"><b>The word on the card:</b> ' + esc(pk.likely_words) + ".</p>"; }
     var flags = [];
     if (pk.store_stale) { flags.push("the price store ends " + esc(pk.store_through) + ", not the previous session"); }
     if (pk.half_day_note) { flags.push(esc(pk.half_day_note)); }

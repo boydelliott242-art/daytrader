@@ -665,8 +665,15 @@ market's move. Anything chosen on `h1` (a rule, a feature) is believed only if `
 
 **The claim.** The card says "more likely to close 2 percent ABOVE its open than below it" only when the live rule's pick
 closed UP more often than DN with separated Wilson intervals in both halves (`claim_of`); otherwise it says the pick may
-MOVE 2 percent from its open, "likely" only when the lower end of the move rate's interval is above one half, with the
-move rate of past picks, then "they closed 2 percent down more often than up" when the down interval sits above the up
+MOVE 2 percent from its open, "likely" only when the lower end of the pooled move rate's interval is above one half AND
+the pick's own ATR at the prior close is at or above the cut the ten-year record earned the word for (`likely_of`,
+`LIKELY_ATR_PCT` = 8 percent: the research of 2026-10-31 fixed six cuts in advance, chose this one on h1 and judged it on
+h2, two independent researchers, four skeptics, none refuting; at or above it the picks moved 2 percent on 67.6 [62.5,
+72.3] and 68.8 [64.9, 72.4] percent of mornings in the two halves, under it on 47.0 [43.6, 50.4] and 52.0 [47.9, 56.0],
+about as likely as not), read each morning from `trader/pick/long_record.json` (no file, no word; a rebuilt record whose
+high group no longer clears one half in both halves takes the word away by itself); a calmer pick reads "may MOVE 2
+percent, about as likely as not" with the ten-year rates of picks like it (`likely_words` on the card). With the move
+rate of past picks, then "they closed 2 percent down more often than up" when the down interval sits above the up
 interval, or "up or down, the record cannot tell" (`direction_kind`). Never "most likely": the most volatile liquid name
 moved at least as often. The card's odds are the record of past picks with their intervals, beside the base rates and the
 highest-ATR name.
@@ -719,9 +726,10 @@ relative-strength variants chosen on h1 cut the pick's move rate on h2 (reversal
 lead, printed nowhere: the pick that opens 5 percent or more above the prior close closed 2 percent down more often than
 up in both halves, but two of four skeptics found the h2 margin resting on 2025 alone. Known limits of the long record:
 today's lists run backward with constant shares (`universe_caps`; PCG in 2019 and QXO before 2024 carry today's counts),
-the fallen names (FRC, SIVB, TWTR and others) are missing, "likely to move" is weaker in calm years and for picks with an
-ATR under 7 percent, and the 8:05 print exists only from 2026-08-04. Each is a question for `scripts/pick_research.py`,
-not a change to the card. The record itself is reproducible: `scripts/pick_long_study.py` (the live model's own
+the fallen names (FRC, SIVB, TWTR and others) are missing, "likely to move" is weaker in calm years (2017 and 2018), and
+the 8:05 print exists only from 2026-08-04. The ATR question was asked and answered the pre-registered way on 2026-10-31
+(see The claim): the word belongs to the picks with an ATR of 8 percent or more. The rest are questions for
+`scripts/pick_research.py`, not changes to the card. The record itself is reproducible: `scripts/pick_long_study.py` (the live model's own
 walk-forward over `trader/cache_long`, the picks grouped by their own ATR at cuts fixed in advance: 4, 5, 6, 7, 8 and 10
 percent) writes `trader/pick/long_record.json` and, with `--publish`, `trader/publish/pick_long.json`, the full
 dashboard's "Ten years of the pick" (by half, by calendar year, by ATR cut; `configs_tested` counts the rules and the

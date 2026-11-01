@@ -341,14 +341,15 @@
     var up = pk.claim === "up";
     var oos = pk.oos || {};
     var rec = (oos.pick || {}).all || {}, base = (oos.base || {}).all || {};
-    var likely = rec.move_ci && typeof rec.move_ci[0] === "number" && rec.move_ci[0] > 0.5;
+    var likely = pk.likely === true;   // the pick's own ATR at or above the cut the ten-year record earned the word for (likely_of)
     var verdict = up ? "More likely to close 2 % or more ABOVE its open than below it: past picks did on " + pctci(rec, "up") + " of mornings, below on " + pctci(rec, "dn") + "." :
       (likely ? "Likely to MOVE 2 % or more from its open today: past picks did on " : "It may MOVE 2 % or more from its open today: past picks did on ") +
       pctci(rec, "move") + " of mornings. " +
       (pk.direction_kind === "down" ? "They closed 2 % down more often than 2 % up." : "Up or down, the record cannot tell.");
     var html = '<div class="kicker">the 8:25 pick, ' + esc(pk.date) + ', data as of ' + esc(pk.cutoff) + ' ET</div>' +
       "<h1>" + esc(p.symbol) + "</h1>" +
-      '<p class="verdict ' + (up ? "ok" : "warn") + '">' + verdict + "</p>" + todayLine(pk) +
+      '<p class="verdict ' + (up ? "ok" : "warn") + '">' + verdict + "</p>" +
+      (pk.likely_words ? '<p class="small"><b>The word:</b> ' + esc(pk.likely_words) + ".</p>" : "") + todayLine(pk) +
       '<div class="card"><div class="row">' +
       '<div class="stat"><div class="k">past picks closed 2 % up</div><div class="v">' + pct(rec.up_rate) + '</div><div class="s">' + pci(rec.up_ci).trim() +
         " · any large cap " + pctci(base, "up") + "</div></div>" +

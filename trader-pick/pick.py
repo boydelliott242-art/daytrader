@@ -42,6 +42,8 @@ OUT = os.path.join("trader", "pick.json")
 NQ_TAGS = (os.path.join("trader", "nq", "session_tags_0805.json"), os.path.join("trader", "nq", "session_tags.json"))
 HOURLY = os.path.join("trader", "cache_long", "bars60m")    # two years of hourly bars (scripts/fetch_daily_history.py) for the first-hour table
 LATE = datetime.time(9, 25)          # a card written after this on its own date is posted marked late and never counted
+LONG_RECORD = os.path.join("trader", "pick", "long_record.json")   # the ten-year record (scripts/pick_long_study.py)
+LIKELY_ATR_PCT = 8.0                 # the word "likely" belongs to picks with an ATR at or above this (the research of 2026-10-31)
 STALE_SHARE = 0.5                    # more than this share of names a session behind: the store is stale (SPY behind is stale on its own)
 WORDS = ("A pick is a count over past mornings, not a prediction: its odds are the record of past picks, printed beside the "
          "base rates. It is not a buy. Most people who day trade lose money.")
@@ -152,6 +154,55 @@ def direction_words(wf, rule):
     if kind == "down":
         return "it fell 2 % or more MORE often than it rose: " + a
     return "direction has no measured edge: " + a
+
+
+def likely_of(model, long_rec, atr_pct, rule=None):
+    """Whether the card may say "likely to MOVE 2 %": the pooled record's move interval sits above one half, AND the pick's
+    own ATR at the prior close is at or above LIKELY_ATR_PCT, AND the ten-year record's picks at or above that cut moved 2 %
+    with intervals above one half in both halves. The research of 2026-10-31 (six cuts fixed in advance, the cut chosen on
+    h1, judged on h2, two researchers, four skeptics, none refuting): at or above 8 % the picks moved 2 % on 67.6 % and
+    68.8 % of mornings in the two halves; under it on 47.0 % and 52.0 %, about as likely as not. No ten-year record on the
+    machine, no word. -> {"likely", "words", "cut", "side", "group", ...}"""
+    wf = model.get("walk_forward") or {}
+    rule = rule or model.get("rule") or dtpick.DEFAULT_RULE
+    p = (((wf.get("rules") or {}).get(rule) or {}).get("pick") or {}).get("all") or {}
+    mci = p.get("move_ci") or [None, None]
+    pooled = bool(p.get("n")) and isinstance(mci[0], (int, float)) and mci[0] > 0.5
+    rows = ((long_rec or {}).get("atr_cuts") or {}).get("rows") or []
+    row = next((r for r in rows if isinstance(r.get("cut"), (int, float)) and float(r["cut"]) == LIKELY_ATR_PCT), None)
+    out = {"likely": False, "cut": LIKELY_ATR_PCT, "side": None, "group": None, "pooled": pooled, "confirmed_high": False}
+    if not isinstance(atr_pct, (int, float)):
+        out["words"] = "may MOVE 2 %: the pick's own ATR is unknown this morning, so the word 'likely' has no ground"
+        return out
+    side = "high" if atr_pct >= LIKELY_ATR_PCT else "low"
+    out["side"] = side
+    if not row:
+        out["words"] = ("may MOVE 2 %: the ten-year record by ATR is not on this machine (scripts/pick_long_study.py writes it), so the word "
+                        "'likely' has no ground")
+        return out
+    g = row.get(side) or {}
+    hi = row.get("high") or {}
+
+    def clears(h):
+        s = hi.get(h) or {}
+        ci = s.get("move_ci") or [None, None]
+        return bool(s.get("n")) and s["n"] >= 100 and isinstance(ci[0], (int, float)) and ci[0] > 0.5
+    confirmed = clears("h1") and clears("h2")
+
+    def seg(h):
+        s = g.get(h) or {}
+        return "%s%s of %d" % (_pct(s.get("move_rate"), 0), _ci(s.get("move_ci")), s.get("n") or 0)
+    where = "at or above" if side == "high" else "under"
+    tail = "over ten years, picks with an ATR %s %g %% moved 2 %% either way on %s and %s mornings in the two halves" % (where, LIKELY_ATR_PCT, seg("h1"), seg("h2"))
+    likely = pooled and side == "high" and confirmed
+    if likely:
+        words = "likely to MOVE 2 %%: its ATR is %.1f %%, and %s (the cut was chosen on the first half and the second half agreed)" % (atr_pct, tail)
+    elif side == "high":
+        words = "may MOVE 2 %%: its ATR is %.1f %%, and %s, but the record does not carry the word this morning" % (atr_pct, tail)
+    else:
+        words = "may MOVE 2 %%, about as likely as not: its ATR is %.1f %%, and %s" % (atr_pct, tail)
+    out.update({"likely": likely, "confirmed_high": confirmed, "group": {h: g.get(h) for h in ("h1", "h2")}, "words": words})
+    return out
 
 
 def record_fields(model, rule):
@@ -557,6 +608,8 @@ def morning(a):
         reason = None
         half_day_note = ("a 1:00 p.m. close today: the record holds full sessions only, so this pick is shown and not counted"
                          if half_day else None)
+    long_rec = dtio.read_json(a.long_record, None) or {}
+    lk = likely_of(model, long_rec, ((raws.get(pick["symbol"]) or {}).get("atr_pct")) if pick else None, rule) if pick else None
     # a run that names the pick already logged (a retry, the pre-open refresh) carries that pick's own cutoff and says when it
     # was refreshed; its quotes are as of this run, so the card's pre-market print is the latest one
     refreshed = bool(logged and not a.replace and pick and pick["symbol"] == logged.get("symbol") and (logged.get("cutoff") or a.at) != a.at)
@@ -623,6 +676,8 @@ def morning(a):
                 "reacting_today": len(reacting & set(raws)), "reacting_source": react_source,
                 "special_today": [{"symbol": s, "reason": special[s]} for s in sorted(special)], "special_move_pct": special_pct,
                 "pick": card(pick) if pick else None, "no_pick": pick is None, "kept_note": kept, "late": bool(late and pick),
+                "likely": bool(lk and lk["likely"]), "likely_words": lk["words"] if lk else None, "likely_cut": LIKELY_ATR_PCT,
+                "atr_group": (lk or {}).get("group"), "long_record": ({"built_at": long_rec.get("built_at"), "oos": long_rec.get("oos")} if long_rec else None),
                 "ranked": [card(r) for r in top], "next_session": intel_flags.next_trading_day(date).isoformat(),
                 "live": live_record(a), "graded_now": graded,
                 "shadow": dict(shadow or {}, live=live_record(a, a.shadow_record, "atr"), why=shadow_why), "preview": early,
@@ -824,8 +879,11 @@ def print_pick(doc):
     if not p:
         print("  NO PICK: " + doc["no_pick_words"])
     else:
-        what = "more likely to close 2 % or more ABOVE its open than below it" if doc["claim"] == "up" else "likely to MOVE 2 % or more from its open"
+        what = ("more likely to close 2 % or more ABOVE its open than below it" if doc["claim"] == "up"
+                else "likely to MOVE 2 % or more from its open" if doc.get("likely") else "may MOVE 2 % or more from its open, about as likely as not")
         print("  %s: %s.%s" % (p["symbol"], what, "  (" + doc["kept_note"] + ")" if doc.get("kept_note") else ""))
+        if doc.get("likely_words"):
+            print("  the word: " + doc["likely_words"])
         if o.get("n"):
             print("  its odds are the record of past picks (%d mornings): closed 2 %% up %s%s, 2 %% down %s%s; any large cap %s%s and %s%s; "
                   "the most volatile liquid name %s%s and %s%s." % (
@@ -1043,6 +1101,7 @@ def main(argv=None):
         p.add_argument("--model", default=MODEL)
         p.add_argument("--record", default=RECORD)
         p.add_argument("--shadow-record", default=SHADOW)
+        p.add_argument("--long-record", default=LONG_RECORD, help="the ten-year record (scripts/pick_long_study.py); the card's 'likely' needs it")
         p.add_argument("--out", default=OUT)
         p.add_argument("--publish", action="store_true")
         p.add_argument("--publish-dir", default=os.path.join("trader", "publish"))

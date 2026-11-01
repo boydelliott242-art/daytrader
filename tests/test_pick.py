@@ -584,6 +584,26 @@ class CliMore(unittest.TestCase):
         code, out, err = run(["morning", "--date", "2025-12-24", "--no-premarket", "--now", "2025-12-24 08:06", "--json"])
         self.assertEqual(json.loads(out)["pick"]["symbol"], doc["pick"]["symbol"])   # a re-run keeps it
 
+    def test_the_card_carries_the_word_and_its_ground(self):
+        code, out, err = self.morning("--json")                                          # no ten-year record in this folder
+        self.assertEqual(code, 0, err)
+        doc = json.loads(out)
+        self.assertEqual((doc["likely"], doc["likely_cut"], doc["long_record"]), (False, 8.0, None))
+        self.assertIn("pick_long_study", doc["likely_words"])
+        self.assertIn("may MOVE 2 %", out)
+        seg = lambda rate, lo, hi, n: {"n": n, "move_rate": rate, "move_ci": [lo, hi]}
+        rec = {"built_at": "2026-10-31T16:08:40Z", "oos": {"sessions": 2335}, "atr_cuts": {"rows": [
+            {"cut": 8.0, "high": {"h1": seg(0.676, 0.625, 0.723, 346), "h2": seg(0.688, 0.649, 0.724, 589)},
+             "low": {"h1": seg(0.47, 0.436, 0.504, 821), "h2": seg(0.52, 0.479, 0.56, 579)}}]}}
+        write(os.path.join("trader", "pick", "long_record.json"), json.dumps(rec))
+        code, out, err = self.morning("--json")
+        doc = json.loads(out)
+        atr = doc["pick"]["raw"]["atr_pct"]
+        pooled = (((doc["oos"].get("pick") or {}).get("all") or {}).get("move_ci") or [0])[0] > 0.5
+        self.assertEqual(doc["likely"], bool(pooled and atr >= 8.0))                    # the word follows the pick's own ATR and the record
+        self.assertEqual(doc["long_record"]["oos"]["sessions"], 2335)
+        self.assertIn("over ten years", doc["likely_words"])
+
     def test_a_pre_open_rerun_keeps_the_pick_and_refreshes_the_card(self):
         code, out, err = self.morning("--write")
         self.assertEqual(code, 0, err)
@@ -955,6 +975,35 @@ class LongStudy(unittest.TestCase):
         self.assertEqual([r[0] for r in rows], ["2016-01-04", "2026-10-22", "2026-10-23"])   # the history kept, the refreshed session replaced
         self.assertEqual(rows[1][4], 3.2)
         shutil.rmtree(d, ignore_errors=True)
+
+
+class Likely(unittest.TestCase):
+    """The word "likely": the pick's own ATR at or above the cut the ten-year record earned it for, and nothing less."""
+    def test_likely_needs_the_atr_cut_the_record_and_the_pooled_interval(self):
+        def seg(rate, lo, hi, n=300):
+            return {"n": n, "move_rate": rate, "move_ci": [lo, hi]}
+        model = {"rule": "up", "walk_forward": {"rules": {"up": {"pick": {"all": seg(0.62, 0.57, 0.67)}}}}}
+        high = {"h1": seg(0.676, 0.625, 0.723, 346), "h2": seg(0.688, 0.649, 0.724, 589)}
+        low = {"h1": seg(0.47, 0.436, 0.504, 821), "h2": seg(0.52, 0.479, 0.56, 579)}
+        rec = {"atr_cuts": {"rows": [{"cut": 8.0, "high": high, "low": low}]}}
+        hi = cli.likely_of(model, rec, 9.1)
+        self.assertTrue(hi["likely"])
+        self.assertIn("[65, 72] of 589", hi["words"])
+        self.assertTrue(hi["words"].startswith("likely to MOVE 2 %"))
+        lo = cli.likely_of(model, rec, 6.5)
+        self.assertFalse(lo["likely"])
+        self.assertIn("about as likely as not", lo["words"])
+        self.assertIn("under 8 %", lo["words"])
+        self.assertEqual(lo["group"]["h2"]["n"], 579)
+        none = cli.likely_of(model, {}, 9.1)                                             # no ten-year record on the machine: no word
+        self.assertFalse(none["likely"])
+        self.assertIn("pick_long_study", none["words"])
+        self.assertFalse(cli.likely_of(model, rec, None)["likely"])                      # an unknown ATR: no word
+        weak = {"atr_cuts": {"rows": [{"cut": 8.0, "high": {"h1": seg(0.55, 0.49, 0.61, 346), "h2": high["h2"]}, "low": low}]}}
+        self.assertFalse(cli.likely_of(model, weak, 9.1)["likely"])                      # one half not clear of one half: no word
+        calm = {"rule": "up", "walk_forward": {"rules": {"up": {"pick": {"all": seg(0.52, 0.47, 0.57)}}}}}
+        self.assertFalse(cli.likely_of(calm, rec, 9.1)["likely"])                        # the pooled two-year record must clear one half too
+        self.assertEqual(cli.LIKELY_ATR_PCT, 8.0)
 
 
 class CatchUp(unittest.TestCase):

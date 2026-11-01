@@ -48,8 +48,10 @@ python3 "${CLAUDE_SKILL_DIR}/pick.py" report                               # the
    base rate of every liquid name and the naive pick of the highest-ATR name each morning, every rate with an
    interval (Wilson for one pick a morning; whole mornings resampled for the base rate and the top five).
 4. **The claim.** The card says "likely to close 2 percent ABOVE its open" only when the live rule's pick closed up
-   more often than down, with separated intervals, in BOTH halves. Otherwise it says "likely to MOVE 2 percent" with
-   the move rate of past picks, and says whether the record leans down or cannot tell. Never "most likely": the most
+   more often than down, with separated intervals, in BOTH halves. Otherwise it says "likely to MOVE 2 percent" only for
+   a pick whose own ATR is 8 percent or more (over ten years such picks moved 2 percent on 68 percent of mornings in both
+   halves, with intervals clear of one half; calmer picks were about as likely as not, so for them the card says "may
+   MOVE 2 percent"), with the move rate of past picks, and says whether the record leans down or cannot tell. Never "most likely": the most
    volatile liquid name moved at least as often. The odds on the card are the record of past picks, not the model's
    bin rates.
 5. **The morning.** `morning` reads the store (the job first catches up every name not through the previous session;
