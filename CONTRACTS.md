@@ -730,8 +730,18 @@ up in both halves, but two of four skeptics found the h2 margin resting on 2025 
 today's lists run backward with constant shares (`universe_caps`; PCG in 2019 and QXO before 2024 carry today's counts),
 the fallen names (FRC, SIVB, TWTR and others) are missing, "likely to move" is weaker in calm years (2017 and 2018), and
 the 8:05 print exists only from 2026-08-04. The ATR question was asked and answered the pre-registered way on 2026-10-31
-(see The claim): the word belongs to the picks with an ATR of 8 percent or more. The rest are questions for
-`scripts/pick_research.py`, not changes to the card. The record itself is reproducible: `scripts/pick_long_study.py` (the live model's own
+(see The claim): the word belongs to the picks with an ATR of 8 percent or more. The share-count question was measured
+on 2026-11-01 with point-in-time counts from SEC companyconcept filings (the latest count filed on or before each
+session, splits put back, a 400-day staleness fallback): the four wrong admissions are real (QXO's SilverSun years, PCG
+in 2019, BMNR before its counts caught up, SKYD's shell), the ten-year "moved 2 percent" rate is overstated by 2.2
+[0.5, 3.9] and 1.5 [0.3, 2.6] points in the two halves through names that were not large caps on their mornings, and no
+conclusion changes: no direction, the highest-ATR name still moves 2 percent more often (h2 +7.1 [+3.7, +10.6]), the
+band edge stays inside its interval, and the ATR cut holds (65.2 [59.7, 70.4] and 68.2 [64.2, 72.0] moved at or above
+8 percent against 45.9 and 50.7 under it). Both skeptics refuted the measurement's data in part (successor-CIK shells
+such as LIN, BKR, VTRS and SKYD, class shares such as CRWD, spin-off-adjusted bars such as EQT, and issuance between
+filings such as BMNR and JHX mislabel about 1,300 sessions of real large caps) while finding its arithmetic sound and its
+conclusions standing after repair, so the live universe keeps the ratio method until the share series are complete and
+those cases are mapped. The rest are questions for `scripts/pick_research.py`, not changes to the card. The record itself is reproducible: `scripts/pick_long_study.py` (the live model's own
 walk-forward over `trader/cache_long`, the picks grouped by their own ATR at cuts fixed in advance: 4, 5, 6, 7, 8 and 10
 percent) writes `trader/pick/long_record.json` and, with `--publish`, `trader/publish/pick_long.json`, the full
 dashboard's "Ten years of the pick" (by half, by calendar year, by ATR cut; `configs_tested` counts the rules and the

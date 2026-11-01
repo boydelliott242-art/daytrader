@@ -191,8 +191,13 @@ ATR cuts fixed in advance, the cut chosen on the first half, judged on the secon
 skeptics, none refuting): picks whose own ATR was 8 % or more moved 2 % on 67.6 % [63, 72] and 68.8 % [65, 72] of
 mornings in the two halves; picks under it on 47.0 % [44, 50] and 52.0 % [48, 56], about as likely as not. So the card
 says "likely to MOVE 2 %" only for a pick with an ATR of 8 % or more, and "may MOVE 2 %, about as likely as not" for a
-calmer one, with the ten-year rates of picks like it beside the two-year record. The share counts and the 8:05 print are
-the next questions.
+calmer one, with the ten-year rates of picks like it beside the two-year record. The share counts were then measured
+(2026-11-01) with point-in-time counts from SEC filings: the four wrong admissions are real, the ten-year "moved 2 %"
+rate is overstated by about two points in each half through names that were not large caps on their mornings, and no
+conclusion changes (no direction; the most volatile name still moves more often; the band edge and the 8 % ATR cut
+hold). Both skeptics faulted the share data in part (successor-CIK shells, class shares, spin-off adjustments, issuance
+between filings), so the live rule keeps today's method until the series are complete. The 8:05 print is the next
+question.
 
 **The morning, no matter what (2026-10-31).** On 2026-10-30 the evening refresh met a flaky network and a sleeping Mac,
 left 332 names a session behind, and the morning posted NO PICK. Now the morning catches those names up itself before it
