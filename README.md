@@ -206,7 +206,8 @@ scores, posts the pick over the names that are through (NO PICK only when SPY or
 pick and refreshes its pre-market print, so the card five minutes before the open carries the latest print. A second
 evening pass at 21:30 fetches again whatever the 17:30 job left behind. A NO PICK that came from a stale store is
 retried, not kept; the retries and the pre-open run share one lock and one publisher, so two mornings never run or land
-at once; a replacement after 9:25 is late and never logged. A half day's pick is shown and not counted. The Mac has to
+at once; a replacement after 9:25 is late and never logged. Since a Mac on battery sleeps between jobs (on 2026-11-02 the
+09:19 run never fired), the run that posts the pick keeps the Mac awake and refreshes the card at 09:19 itself. A half day's pick is shown and not counted. The Mac has to
 be awake for any of it: `sudo pmset repeat wakeorpoweron MTWRF 06:55:00`.
 
 ```bash

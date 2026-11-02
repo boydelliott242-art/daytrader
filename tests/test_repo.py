@@ -32,7 +32,8 @@ def frontmatter(path):
 
 def every_text_file():
     for base, dirs, files in os.walk(ROOT):
-        dirs[:] = [d for d in dirs if d not in (".git", "__pycache__", "trader", "data", "vendor")]  # working files; vendor/ is upstream, verbatim
+        dirs[:] = [d for d in dirs if d not in (".git", ".claude", "__pycache__", "trader", "data", "vendor")]  # working files; vendor/ is upstream,
+        # verbatim; .claude/ is Claude Code's local folder (its worktrees hold whole other checkouts of this repo)
         for f in files:
             if f.endswith((".md", ".py", ".json", ".csv", ".txt", ".xml")) or f == "LICENSE":
                 yield os.path.join(base, f)
@@ -48,7 +49,7 @@ class Repo(unittest.TestCase):
             self.assertIn(d, SKILLS + NEW_SKILLS, "unexpected skill folder %s" % d)
 
     def test_root_matches_the_reel(self):
-        root = sorted(d for d in os.listdir(ROOT) if not d.startswith(".git") and d != ".DS_Store"
+        root = sorted(d for d in os.listdir(ROOT) if not d.startswith(".git") and d not in (".DS_Store", ".claude")
                       and not d.endswith(".pyc") and d != "__pycache__")
         for d in [".claude-plugin", "LICENSE", "README.md", "tests"] + SKILLS:
             self.assertIn(d, root, d)

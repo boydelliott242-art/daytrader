@@ -118,8 +118,21 @@ case "$job" in
     # run posts the pick if no run before it could; otherwise it keeps the logged pick and refreshes its pre-market print,
     # so the card five minutes before the open carries the latest print
     [ "$ny_trading" = yes ] || { echo "not a trading day" >> "$log"; exit 0; }
+    # the card refreshed at the clock time of the refresh: the logged pick kept, its pre-market print the latest one
+    refresh_card() {
+      now_hhmm=$($py -c "import sys; sys.path.insert(0, '$root'); from dt import clock; print(clock.to_eastern(clock.utc_now()).strftime('%H:%M'))")
+      $py trader-pick/pick.py morning --at "$now_hhmm" --write --publish --quiet >> "$log" 2>&1 \
+        || notify "the pre-open refresh failed; see $log"
+      publish_docs
+      said=$($py -c "import json; d = json.load(open('trader/publish/pick.json')); p = d.get('pick') or {}; pm = p.get('premarket') or {}; print((('%s, pre-market %+.2f %% at %s ET (shown, not scored)' % (p['symbol'], pm['vs_prev_close_pct'], pm.get('time') or '?')) if isinstance(pm.get('vs_prev_close_pct'), (int, float)) else '%s, no pre-market print by $now_hhmm' % p['symbol']) if p and d.get('date') == '$ny_day' else 'no pick today: ' + str(d.get('no_pick_words') or '')[:90])" 2>/dev/null || echo "see the site")
+      notify "before the open: $said"
+    }
     if [ "$job" = preopen ]; then
       inwin 09:09 09:25 || { echo "outside 09:10-09:25" >> "$log"; exit 0; }
+      done_at=$($py -c "import json; d = json.load(open('trader/publish/pick.json')); print(d.get('refreshed_at') or '' if d.get('date') == '$ny_day' and d.get('pick') else '')" 2>/dev/null || true)
+      if [ -n "$done_at" ] && [ ! "$done_at" \< 09:15 ]; then
+        echo "$(date) $job: the card was refreshed at $done_at ET already" >> "$log"; exit 0
+      fi
     else
       inwin 07:59 09:25 || { echo "outside 08:00-09:25" >> "$log"; exit 0; }
     fi
@@ -148,15 +161,30 @@ case "$job" in
       $py -c "import json, sys; f = json.load(open('trader/futures.json')); sys.exit(0 if f.get('date') == '$ny_day' and f.get('cutoff') == '08:05' and (f.get('nq') or {}).get('gap_pct') is not None else 1)" 2>/dev/null \
         || $py trader-montecarlo/montecarlo.py futures --write --at 08:05 >> "$log" 2>&1
     fi
-    $py trader-pick/pick.py morning --at "$ny_hhmm" --write --publish --quiet >> "$log" 2>&1 \
-      || notify "the 8:25 pick failed; see $log"
-    publish_docs
     if [ "$job" = preopen ]; then
-      said=$($py -c "import json; d = json.load(open('trader/publish/pick.json')); p = d.get('pick') or {}; pm = p.get('premarket') or {}; print((('%s, pre-market %+.2f %% at %s ET (shown, not scored)' % (p['symbol'], pm['vs_prev_close_pct'], pm.get('time') or '?')) if isinstance(pm.get('vs_prev_close_pct'), (int, float)) else '%s, no pre-market print by $ny_hhmm' % p['symbol']) if p and d.get('date') == '$ny_day' else 'no pick today: ' + str(d.get('no_pick_words') or '')[:90])" 2>/dev/null || echo "see the site")
-      notify "before the open: $said"
+      refresh_card
     else
+      $py trader-pick/pick.py morning --at "$ny_hhmm" --write --publish --quiet >> "$log" 2>&1 \
+        || notify "the 8:25 pick failed; see $log"
+      publish_docs
       # the pre-market history for research, after the card is out (the pick fetches its own quotes for its top ten)
       $py scripts/fetch_premarket.py --range 1d --max-age-hours 0 --threads 6 --quiet >> "$log" 2>&1
+      # a Mac on battery sleeps between jobs and launchd does not wake it for the 09:19 run (on 2026-11-02 it never ran):
+      # the run that posted today's pick stays (caffeinate holds the Mac awake) and refreshes the card at 09:19 itself; a
+      # refresh that would land after 09:25 (the Mac slept anyway, the lid closed) is skipped rather than posting a
+      # session price as a pre-market one
+      has_pick=$($py -c "import json; d = json.load(open('trader/publish/pick.json')); print('yes' if d.get('date') == '$ny_day' and d.get('pick') and not d.get('failed') else 'no')" 2>/dev/null || echo no)
+      wait_s=$($py -c "import sys; sys.path.insert(0, '$root'); from dt import clock; n = clock.to_eastern(clock.utc_now()); print(max(0, int((n.replace(hour=9, minute=19, second=5, microsecond=0) - n).total_seconds())))" 2>/dev/null || echo 0)
+      if [ "$has_pick" = yes ] && [ "$wait_s" -gt 0 ] && [ "$wait_s" -lt 5400 ]; then
+        echo "$(date) $job: holding the Mac awake for the 09:19 ET pre-open refresh ($wait_s s)" >> "$log"
+        sleep "$wait_s"
+        now_hhmm=$($py -c "import sys; sys.path.insert(0, '$root'); from dt import clock; print(clock.to_eastern(clock.utc_now()).strftime('%H:%M'))")
+        if [ "$now_hhmm" \< 09:25 ]; then
+          refresh_card
+        else
+          echo "$(date) $job: woke at $now_hhmm ET, past the pre-open window; no refresh" >> "$log"
+        fi
+      fi
     fi ;;
   recache)
     # the second evening pass (21:30 ET): the names the 17:30 refresh left behind (a flaky network, a Mac that slept) are

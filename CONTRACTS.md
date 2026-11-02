@@ -778,7 +778,12 @@ a stale store or names left behind (a NO PICK at the floor stays a result). The 
 one lock and wait up to three minutes for a morning still running; every job's publish waits for the one publisher lock,
 so two bundles never land out of order. The pre-open run is the last chance before the 9:25 late line: it posts the pick when no run before it could, and otherwise keeps the logged pick and
 refreshes its pre-market print, so the card five minutes before the open carries the latest print, with a notification on
-the Mac. The Mac must be awake: `sudo pmset repeat wakeorpoweron MTWRF 06:55:00` (Chicago) is the user's to run. Every job runs
+the Mac. A Mac on battery sleeps between jobs and launchd does not wake it for a job (on 2026-11-02 the 09:19 run never
+fired), so the run that posts the day's pick stays: `caffeinate` holds the Mac awake and the same run refreshes the card
+at 09:19 ET itself; a refresh that would land after 9:25 (the lid closed, the Mac slept anyway) is skipped rather than
+showing a session price as a pre-market one, and the `preopen` job then does nothing when the card was refreshed at 09:15
+or later. The Mac must wake for the first run: `sudo pmset repeat wakeorpoweron MTWRF 06:55:00` (Chicago) is the user's
+to run, and on battery it must not be closed. Every job runs
 under `caffeinate` (the Mac stays awake while it runs) and holds a lock that names its pid (a lock whose pid is gone or that
 is over four hours old is broken and logged; one taken less than a minute ago without a pid is respected); the jobs that
 fetch wait up to about a minute and a half for the network; a clock that cannot be read stops the job with a notice; and

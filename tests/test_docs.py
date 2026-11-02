@@ -121,6 +121,8 @@ class Scripts(unittest.TestCase):
         self.assertIn("d.get('store_stale') or d.get('behind_today')", text)  # a stale-store NO PICK is retried, not kept
         self.assertIn('[ "$job" = preopen ] && lockname=pick', text)       # one morning at a time
         self.assertIn('plock="trader/logs/.publish.lock"', text)           # one publisher at a time
+        self.assertIn("holding the Mac awake for the 09:19 ET pre-open refresh", text)   # the posting run refreshes the card itself
+        self.assertIn("past the pre-open window; no refresh", text)                      # never a session price as a pre-market one
         self.assertNotIn("ticket.py approve", text)
         self.assertNotIn("place_stock_order", text)
         self.assertNotIn("paper.py place", text)
