@@ -177,12 +177,32 @@ case "$job" in
       wait_s=$($py -c "import sys; sys.path.insert(0, '$root'); from dt import clock; n = clock.to_eastern(clock.utc_now()); print(max(0, int((n.replace(hour=9, minute=19, second=5, microsecond=0) - n).total_seconds())))" 2>/dev/null || echo 0)
       if [ "$has_pick" = yes ] && [ "$wait_s" -gt 0 ] && [ "$wait_s" -lt 5400 ]; then
         echo "$(date) $job: holding the Mac awake for the 09:19 ET pre-open refresh ($wait_s s)" >> "$log"
-        sleep "$wait_s"
+        # the hold gives the morning lock back, so the 09:19 preopen job can refresh the card itself if the Mac sleeps
+        # through the hold (2026-11-03: the lid closed on battery, which no caffeinate holds; the preopen job fired at 09:23
+        # in a dark wake, found the lock taken and quit); the exit trap goes first, so a signal between the two lines can
+        # never remove a lock another run has just taken
+        trap - EXIT INT TERM
+        rm -rf "$lock" 2>/dev/null
+        # short sleeps against the New York clock: one long sleep counts only awake time (it ran on to 10:03 that day)
+        while :; do
+          wait_s=$($py -c "import sys; sys.path.insert(0, '$root'); from dt import clock; n = clock.to_eastern(clock.utc_now()); print(max(0, int((n.replace(hour=9, minute=19, second=5, microsecond=0) - n).total_seconds())))" 2>/dev/null || echo 0)
+          [ "$wait_s" -gt 0 ] || break
+          [ "$wait_s" -gt 30 ] && wait_s=30
+          sleep "$wait_s"
+        done
         now_hhmm=$($py -c "import sys; sys.path.insert(0, '$root'); from dt import clock; print(clock.to_eastern(clock.utc_now()).strftime('%H:%M'))")
-        if [ "$now_hhmm" \< 09:25 ]; then
+        done_at=$($py -c "import json; d = json.load(open('trader/publish/pick.json')); print(d.get('refreshed_at') or '' if d.get('date') == '$ny_day' and d.get('pick') else '')" 2>/dev/null || true)
+        if [ -n "$done_at" ] && [ ! "$done_at" \< 09:15 ]; then
+          echo "$(date) $job: the preopen run refreshed the card at $done_at ET; nothing to do" >> "$log"
+        elif [ ! "$now_hhmm" \< 09:25 ]; then
+          echo "$(date) $job: woke at $now_hhmm ET, past the pre-open window; no refresh" >> "$log"
+        elif mkdir "$lock" 2>/dev/null; then
+          echo $$ > "$lock/pid"
+          trap 'rm -rf "$lock" 2>/dev/null' EXIT
+          trap 'rm -rf "$lock" 2>/dev/null; exit 143' INT TERM
           refresh_card
         else
-          echo "$(date) $job: woke at $now_hhmm ET, past the pre-open window; no refresh" >> "$log"
+          echo "$(date) $job: the preopen run holds the lock; it refreshes the card" >> "$log"
         fi
       fi
     fi ;;

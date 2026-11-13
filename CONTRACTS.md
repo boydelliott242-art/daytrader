@@ -782,7 +782,15 @@ the Mac. A Mac on battery sleeps between jobs and launchd does not wake it for a
 fired), so the run that posts the day's pick stays: `caffeinate` holds the Mac awake and the same run refreshes the card
 at 09:19 ET itself; a refresh that would land after 9:25 (the lid closed, the Mac slept anyway) is skipped rather than
 showing a session price as a pre-market one, and the `preopen` job then does nothing when the card was refreshed at 09:15
-or later. The Mac must wake for the first run: `sudo pmset repeat wakeorpoweron MTWRF 06:55:00` (Chicago) is the user's
+or later. While it holds, that run gives the morning lock back and waits in steps of at most 30 seconds against the New
+York clock, since one long `sleep` counts only awake time (on 2026-11-03 the lid closed on battery, which no `caffeinate`
+holds; the `preopen` job fired at 09:23 in a brief wake, found the lock taken and quit, and the hold woke at 10:03): a
+`preopen` job that fires during the hold, on time or on a wake after the lid closed, takes the lock and refreshes the card
+itself; at 09:19 the holding run does nothing when a refresh at 09:15 or later is on the card or another run holds the
+lock, skips past 9:25, and otherwise takes the lock again (`mkdir`, as at the start) and refreshes. The hold clears its
+exit trap before it gives the lock back, so it never removes a lock another run took. A refresh reads only the pre-market bars that
+ended by its own start time, so one that sleep cuts off and finishes later still shows a pre-market print with its time.
+The Mac must wake for the first run: `sudo pmset repeat wakeorpoweron MTWRF 06:55:00` (Chicago) is the user's
 to run, and on battery it must not be closed. Every job runs
 under `caffeinate` (the Mac stays awake while it runs) and holds a lock that names its pid (a lock whose pid is gone or that
 is over four hours old is broken and logged; one taken less than a minute ago without a pid is respected); the jobs that

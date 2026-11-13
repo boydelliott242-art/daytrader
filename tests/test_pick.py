@@ -904,6 +904,25 @@ class Wrapper(unittest.TestCase):
             self.assertIn(must, text, must)
         self.assertEqual(text.count("trader-pick/pick.py intraday --write --publish"), 2)      # the live jobs and the 16:20 job
 
+    def test_the_hold_to_the_pre_open_gives_the_lock_back_and_watches_the_clock(self):
+        """2026-11-03: the lid closed on battery during the hold, the 09:19 preopen job found the lock taken and quit, and
+        one long sleep (awake time only) ran on to 10:03. The hold must release the lock before it waits, wait in short
+        steps against the New York clock, and leave the refresh to the preopen job when that one already made it."""
+        with open(os.path.join(ROOT, "scripts", "run.sh"), encoding="utf-8") as fh:
+            text = fh.read()
+        hold = text.index("holding the Mac awake for the 09:19 ET pre-open refresh")
+        block = text[hold:text.index("past the pre-open window", hold)]
+        self.assertIn('rm -rf "$lock"', block)                                           # the lock goes back first
+        self.assertIn("trap - EXIT INT TERM", block)                                     # and the exit trap stops owning it
+        self.assertLess(block.index("trap - EXIT INT TERM"), block.index('rm -rf "$lock"'))  # first, so no signal removes a lock another run took
+        self.assertLess(block.index('rm -rf "$lock"'), block.index('sleep "$wait_s"'))
+        self.assertIn('[ "$wait_s" -gt 30 ] && wait_s=30', block)                        # short steps, never one long sleep
+        self.assertNotIn('sleep "$wait_s"\n        now_hhmm', block)
+        tail = text[hold:text.index("    fi ;;", hold)]
+        self.assertIn("the preopen run refreshed the card at", tail)                       # a refresh already made is not redone
+        self.assertIn('elif mkdir "$lock" 2>/dev/null; then', tail)                        # the lock taken again to refresh
+        self.assertIn("the preopen run holds the lock; it refreshes the card", tail)
+
     def test_the_front_page_keeps_one_interval_helper_of_each_kind(self):
         with open(os.path.join(ROOT, "site", "index.html"), encoding="utf-8") as fh:
             html = fh.read()
