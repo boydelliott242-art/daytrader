@@ -1048,9 +1048,16 @@ footer .wrap { padding-top: 14px; padding-bottom: 24px; }
   // ------------------------------------------------------------ the Monte Carlo book
   function renderMonteCarlo(res) {
     var doc = res.doc;
-    if (!doc || !doc.books || !doc.books.length) { el("montecarlo-body").innerHTML = empty("montecarlo"); sub("montecarlo-sub", ""); return; }
+    if (!doc || !doc.books) { el("montecarlo-body").innerHTML = empty("montecarlo"); sub("montecarlo-sub", ""); return; }
+    var asOf = doc.as_of ? "as of " + doc.as_of + ": " : "undated: ";
+    if (!doc.books.length) {
+      // the lab approved no config: a dated, empty book says so, never an older book for configs the lab now rejects
+      sub("montecarlo-sub", asOf + "configs tested: " + (doc.configs_tested || "n/a"));
+      el("montecarlo-body").innerHTML = '<div class="empty">' + esc(doc.note || "No approved config in the lab: nothing to resample.") + "</div>";
+      return;
+    }
     var r = doc.rules || {};
-    sub("montecarlo-sub", (doc.resamples || 0).toLocaleString() + " resamples of " + (doc.days || 20) + "-day windows, seed " + (doc.seed || 19) + ", one R = $" + (r.max_loss || 50) + ", at most " + (r.max_trades || 3) + " trades a day, $" + (r.max_daily_loss || 150) + " daily limit; configs tested: " + (doc.configs_tested || "n/a"));
+    sub("montecarlo-sub", asOf + (doc.resamples || 0).toLocaleString() + " resamples of " + (doc.days || 20) + "-day windows, seed " + (doc.seed || 19) + ", one R = $" + (r.max_loss || 50) + ", at most " + (r.max_trades || 3) + " trades a day, $" + (r.max_daily_loss || 150) + " daily limit; configs tested: " + (doc.configs_tested || "n/a"));
     var rows = doc.books.map(function (b) {
       var w = b.window || {}, t = w.total_R || {}, u = w.total_usd || {}, dd = w.max_dd_R || {};
       return "<tr><td>" + esc(b.config_id) + '</td><td class="r num">' + esc((b.real || {}).sessions) + '</td><td class="r num">' + esc((b.real || {}).trades_taken) +

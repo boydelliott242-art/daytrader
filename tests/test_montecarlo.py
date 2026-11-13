@@ -172,6 +172,50 @@ class Book(unittest.TestCase):
         self.assertEqual(code, 1)
         self.assertIn("no trade book", err)
 
+    def test_no_approved_config_publishes_a_dated_empty_book(self):
+        """2026-11-07: the lab approved no config, the book step stopped with an error, and the page kept the book of
+        2026-10-31, undated, for two configs the lab had since rejected. The empty result is now published, dated."""
+        with open(self.edge) as fh:
+            lab = json.load(fh)
+        lab.update({"as_of": "2026-11-07T14:16:05Z", "configs_tested": 50,
+                    "configs": [{"id": "good|r=1", "status": "rejected"}, {"id": "bad|r=1", "status": "watch"}]})
+        edge = os.path.join(self.d, "edge-none.json")
+        with open(edge, "w") as fh:
+            json.dump(lab, fh)
+        pub = os.path.join(self.d, "publish-none")
+        os.makedirs(pub)
+        with open(os.path.join(pub, "montecarlo.json"), "w") as fh:                   # last week's book, configs now rejected
+            json.dump({"created_by": "trader-montecarlo", "kind": "book", "as_of": "2026-10-31T13:25:10Z",
+                       "books": [{"config_id": "good|r=1"}]}, fh)
+        code, text, err = run(["book", "--all-approved", "--publish", "--docs-data", pub, "--edge", edge, "--trades", self.trades,
+                               "--config-file", self.cfg, "--now", "2026-11-07 09:30"])
+        self.assertEqual(code, 0, err)                                                 # an empty lab is a result, not an error
+        with open(os.path.join(pub, "montecarlo.json")) as fh:
+            doc = json.load(fh)
+        self.assertEqual((doc["created_by"], doc["kind"], doc["books"]), ("trader-montecarlo", "book", []))
+        self.assertEqual((doc["as_of"], doc["lab_as_of"], doc["configs_tested"]), ("2026-11-07T14:30:00Z", "2026-11-07T14:16:05Z", 50))
+        self.assertTrue(doc["note"].startswith("No approved config in the lab of 2026-11-07T14:16:05Z"), doc["note"])
+        self.assertIn("Most people who day trade lose money", doc["note"])
+        for must in ("No approved config in the lab of 2026-11-07T14:16:05Z", "configs tested: 50", "never a prediction",
+                     "an empty book dated 2026-11-07T14:30:00Z"):
+            self.assertIn(must, text, must)
+        code, text, err = run(["book", "--all-approved", "--include-watch", "--edge", edge, "--trades", self.trades,
+                               "--config-file", self.cfg, "--resamples", "500", "--json"])
+        self.assertEqual([b["config_id"] for b in json.loads(text)["books"]], ["bad|r=1"])   # a watch config still resamples
+        lab["configs"] = [{"id": "good|r=1", "status": "rejected"}]
+        with open(edge, "w") as fh:
+            json.dump(lab, fh)
+        code, text, err = run(["book", "--all-approved", "--include-watch", "--edge", edge, "--trades", self.trades,
+                               "--config-file", self.cfg, "--json"])
+        self.assertEqual(code, 0, err)
+        self.assertTrue(json.loads(text)["note"].startswith("No approved or watch config in the lab of"))
+        with open(os.path.join(ROOT, "site", "full.html"), encoding="utf-8") as fh:
+            page = fh.read()
+        mc_js = page[page.index("function renderMonteCarlo"):page.index("function renderNq")]
+        self.assertIn('"as of " + doc.as_of', mc_js)                                  # every book is dated on the page
+        self.assertIn("if (!doc.books.length)", mc_js)                               # and an empty one shows its note
+        self.assertIn("esc(doc.note", mc_js)
+
 
 class Futures(unittest.TestCase):
     def test_the_overnight_read_on_saved_charts(self):

@@ -330,6 +330,31 @@ def book_lines(b, configs_tested):
     return out
 
 
+def no_book(a, now, edge, configs_tested, rules):
+    """--all-approved with no config to resample is a result: a dated, empty book, written and published like any other,
+    so the page never keeps an older book for configs the lab now rejects (it did from 2026-10-31 to 2026-11-07)."""
+    lab_as_of = edge.get("as_of") or "an undated lab"
+    what = "approved or watch" if a.include_watch else "approved"
+    doc = {"created_by": "trader-montecarlo", "as_of": clock.iso(now), "kind": "book", "resamples": a.resamples, "seed": a.seed,
+           "days": a.days, "horizon_days": a.horizon_days, "fill": a.fill, "configs_tested": configs_tested, "rules": rules,
+           "books": [], "refused": [], "lab_as_of": lab_as_of,
+           "note": "No %s config in the lab of %s: nothing to resample. %s" % (what, lab_as_of, NOTE)}
+    if a.write:
+        io.write_json(a.out, doc)
+    if a.publish:
+        io.write_json(os.path.join(a.docs_data, "montecarlo.json"), doc)
+    if a.json:
+        print(json.dumps(doc, indent=2))
+        return 0
+    print("No %s config in the lab of %s (%s): nothing to resample. configs tested: %s." % (what, lab_as_of, a.edge, configs_tested))
+    print(NOTE)
+    if a.write:
+        print("Wrote %s." % a.out)
+    if a.publish:
+        print("Published %s, an empty book dated %s." % (os.path.join(a.docs_data, "montecarlo.json"), doc["as_of"]))
+    return 0
+
+
 def cmd_book(a):
     now = clock.parse_now(a.now)
     cfg = io.read_config(a.config)
@@ -343,7 +368,7 @@ def cmd_book(a):
         want = [c["id"] for c in edge.get("configs", []) if isinstance(c, dict) and (c.get("status") == "approved" or
                 (a.include_watch and c.get("status") == "watch"))]
         if not want:
-            raise MCError("no approved config in %s" % a.edge)
+            return no_book(a, now, edge, configs_tested, rules)
     elif a.config_id:
         want = [a.config_id]
     else:

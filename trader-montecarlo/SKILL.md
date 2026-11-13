@@ -53,7 +53,7 @@ trader/lab/edge.json`, `--trades trader/lab/trades.jsonl.gz`, `--config-file tra
 | Yahoo chart API | `futures`: NQ=F and ES=F, 5 days of 5-minute bars and 60 daily bars, free and unofficial |
 | `trader/montecarlo.json` | with `--write`: the plan run (`kind: plan`) or the book run (`kind: book`) |
 | `trader/futures.json` | with `--write`: `{date, cutoff, nq: {last, prev_settle, gap_pct, overnight_high, overnight_low, range_vs_20d, tags}, es: {...}, tags}`; trader-regime reads it when it is for the same day |
-| `trader/publish/montecarlo.json` | with `--publish`: the book run, for the dashboard |
+| `trader/publish/montecarlo.json` | with `--publish`: the book run, for the dashboard; with `--all-approved` and no approved config in the lab, an empty book dated by the run (`"books": []`, `lab_as_of`, the note "No approved config in the lab of ..."), so an older book never stands for configs the lab now rejects |
 
 ## How it works
 
@@ -85,6 +85,8 @@ trader/lab/edge.json`, `--trades trader/lab/trades.jsonl.gz`, `--config-file tra
 2. After `/trader-lab` runs: `montecarlo.py book --all-approved --publish`, then `book --config
    ID` for the one the user asks about. Read the window's percentiles, the share of windows
    that end red and the drawdown odds, and the caveat line as printed. Say "configs tested: 31".
+   When the lab approved no config, the run says so, publishes an empty book dated by the run
+   and exits 0: read that line as printed; there is nothing to resample.
 3. Before the open: `montecarlo.py futures --write`. Read the two lines. `/trader-regime live`
    folds the tags into the day's regime when the file is for today.
 
