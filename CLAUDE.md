@@ -11,8 +11,10 @@
 - Run the full suite before a commit: python3 -m unittest discover -s tests (the upstream 315 must stay green).
 - The project lives at ~/daytrader with a Desktop symlink: launchd jobs cannot read the Desktop folder. Long jobs
   (the cache refresh, the lab) run through scripts/bg.sh so they survive a Claude session restart.
-- trader/config.json holds the SEC user agent (an email): never commit it. trader/ is the working folder and is
-  gitignored except the examples.
+- trader/config.json holds the SEC user agent (an email): never commit it. trader/ is the working folder: nothing in it
+  is tracked, and .gitignore names its paths one by one (trader/shares/ the latest), so a new file a job writes there
+  needs its own line before any commit. The examples live in the skill folders (trader-budget/config.example.json and
+  the like), not in trader/.
 - Install the skills with scripts/install_skills.sh (it copies dt/ into each new skill folder).
 - The site is locked. site/ holds the pages; docs/ holds only the lock screen, 404.html, .nojekyll and
   data/bundle.enc (scripts/lock.py build seals site/ + trader/publish/ into it). Never put a page or a .json under
