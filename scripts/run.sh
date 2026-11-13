@@ -70,15 +70,24 @@ wait_net() {
 # bundle is committed, and only on main: a checkout left on another branch publishes nothing and says so.
 publish_docs() {
   # one publisher at a time across the jobs (the pick and the desk's morning can land together after a wake): the lock
-  # waits up to two minutes, breaks one older than ten minutes, and is always released
+  # waits up to two minutes and breaks one older than ten minutes; a job that never gets it publishes nothing and leaves
+  # it alone, and a job removes it only while its own pid is in it
   plock="trader/logs/.publish.lock"
+  got=no
   for i in $(seq 1 24); do
-    mkdir "$plock" 2>/dev/null && break
+    if mkdir "$plock" 2>/dev/null; then got=yes; break; fi
     [ -n "$(find "$plock" -maxdepth 0 -mmin +10 2>/dev/null)" ] && rm -rf "$plock"
     sleep 5
   done
+  if [ "$got" != yes ]; then
+    echo "$(date) $job: publish lock busy; nothing published by this job" >> "$log"
+    notify "the site was not updated: another job held the publish lock"
+    return 0
+  fi
+  echo $$ > "$plock/pid"
   _publish_docs
-  rm -rf "$plock" 2>/dev/null
+  [ "$(cat "$plock/pid" 2>/dev/null)" = "$$" ] && rm -rf "$plock" 2>/dev/null
+  return 0
 }
 _publish_docs() {
   branch=$(git symbolic-ref --short -q HEAD 2>/dev/null || echo "a detached HEAD")
@@ -92,7 +101,8 @@ _publish_docs() {
   git diff --cached --quiet -- docs/data/bundle.enc && return 0
   git -c user.name="daytrader" -c user.email="daytrader@localhost" commit -q -m "sealed dashboard: $job $ny_day $ny_hhmm ET" -- docs/data/bundle.enc >> "$log" 2>&1 \
     || { echo "$(date) $job: commit failed; nothing published" >> "$log"; notify "the site was not updated: the commit failed"; return 0; }
-  git push -q origin main >> "$log" 2>&1 || { echo "$(date) $job: docs push failed (the local dashboard is still current)" >> "$log"; notify "the site push failed: see trader/logs/$job.log"; }
+  # a push that stalls (under 1000 bytes a second for 60 seconds) fails instead of holding the publish lock
+  git -c http.lowSpeedLimit=1000 -c http.lowSpeedTime=60 push -q origin main >> "$log" 2>&1 || { echo "$(date) $job: docs push failed (the local dashboard is still current)" >> "$log"; notify "the site push failed: see trader/logs/$job.log"; }
 }
 case "$job" in
   cache)

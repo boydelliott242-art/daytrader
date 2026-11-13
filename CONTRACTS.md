@@ -791,7 +791,9 @@ pre-market history for research. A retry does nothing when today's pick is on or
 card exists but did not land, and runs the morning again when today's card is a failure card or a NO PICK that came from
 a stale store or names left behind (a NO PICK at the floor stays a result). The pick retries and the pre-open run share
 one lock and wait up to three minutes for a morning still running; every job's publish waits for the one publisher lock,
-so two bundles never land out of order. The pre-open run is the last chance before the 9:25 late line: it posts the pick when no run before it could, and otherwise keeps the logged pick and
+so two bundles never land out of order: up to two minutes, breaking one older than ten minutes; a job that never gets it
+publishes nothing, says so in its log ("publish lock busy; nothing published by this job") and leaves the lock alone, and
+a job removes the lock only while it is its own (its pid is in it). The pre-open run is the last chance before the 9:25 late line: it posts the pick when no run before it could, and otherwise keeps the logged pick and
 refreshes its pre-market print, so the card five minutes before the open carries the latest print, with a notification on
 the Mac. A Mac on battery sleeps between jobs and launchd does not wake it for a job (on 2026-11-02 the 09:19 run never
 fired), so the run that posts the day's pick stays: `caffeinate` holds the Mac awake and the same run refreshes the card
@@ -810,7 +812,10 @@ to run, and on battery it must not be closed. Every job runs
 under `caffeinate` (the Mac stays awake while it runs) and holds a lock that names its pid (a lock whose pid is gone or that
 is over four hours old is broken and logged; one taken less than a minute ago without a pid is respected); the jobs that
 fetch wait up to about a minute and a half for the network; a clock that cannot be read stops the job with a notice; and
-publishing happens only from `main`, only the bundle, with a notice when a build, an add, a commit or a push fails. The
+publishing happens only from `main`, only the bundle, with a notice when a build, an add, a commit or a push fails; a
+push that stalls (under 1,000 bytes a second for 60 seconds: `http.lowSpeedLimit`, `http.lowSpeedTime`) fails rather
+than holding the publisher lock. The build writes `docs/data/bundle.enc` through `bundle.enc.<pid>.tmp`, removed if the
+write fails, then an atomic replace. The
 17:30 cache job grades the pick and the shadows and refreshes the calendar; `recache` at 21:30 fetches again every name
 the 17:30 job left behind (after waiting up to ninety minutes for it; still running, it leaves the rest to the morning's
 catch-up), once more about three minutes later every name still behind, and grades what it could not; the Saturday lab

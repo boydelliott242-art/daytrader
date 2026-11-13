@@ -64,10 +64,17 @@ def cmd_build(a):
     if back["built"] != bundle["built"] or sorted(back["data"]) != sorted(bundle["data"]):
         raise lockbox.LockError("the sealed bundle did not open to what went in")
     os.makedirs(os.path.dirname(a.out), exist_ok=True)
-    tmp = a.out + ".tmp"
-    with open(tmp, "wb") as fh:
-        fh.write(blob)
-    os.replace(tmp, a.out)
+    # a temp name no other process shares (two builds never write one file), removed if the write fails, so docs/ never
+    # keeps a stray one
+    tmp = "%s.%d.tmp" % (a.out, os.getpid())
+    try:
+        with open(tmp, "wb") as fh:
+            fh.write(blob)
+        os.replace(tmp, a.out)
+    except BaseException:
+        if os.path.exists(tmp):
+            os.remove(tmp)
+        raise
     print("Wrote %s: %s plain, %s sealed, %d PBKDF2 rounds." % (a.out, _size(len(plain)), _size(len(blob)), a.iterations))
     describe(bundle, blob)
 

@@ -3,6 +3,7 @@
 import json
 import os
 import re
+import shutil
 import subprocess
 import tempfile
 import unittest
@@ -129,6 +130,52 @@ class Scripts(unittest.TestCase):
         r = subprocess.run(["sh", os.path.join(SCRIPTS, "run.sh")], capture_output=True, text=True)
         self.assertEqual(r.returncode, 2)
         self.assertIn("usage", r.stdout + r.stderr)
+
+    def test_publish_docs_publishes_only_under_its_own_lock_and_removes_only_its_own(self):
+        """A job that waited two minutes for the publisher lock used to publish anyway and then remove the lock another job
+        still held. run.sh's own publish_docs text runs here with the waits stubbed and the build replaced by a log line."""
+        with open(os.path.join(SCRIPTS, "run.sh"), encoding="utf-8") as fh:
+            text = fh.read()
+        funcs = text[text.index("publish_docs() {"):text.index('case "$job" in')]
+        self.assertIn("git -c http.lowSpeedLimit=1000 -c http.lowSpeedTime=60 push", funcs)   # a stalled push fails
+        harness = ('log=trader/logs/t.log; job=t\nsleep() { :; }\nnotify() { echo "notify: $1" >> "$log"; }\n' + funcs +
+                   '\n_publish_docs() { echo published >> "$log"; [ -z "${TAKE:-}" ] || echo 99999 > "$plock/pid"; }\n'
+                   'publish_docs\n')
+        d = tempfile.mkdtemp()
+        lock = os.path.join(d, "trader", "logs", ".publish.lock")
+
+        def run(env=None):
+            os.makedirs(os.path.join(d, "trader", "logs"), exist_ok=True)
+            open(os.path.join(d, "trader", "logs", "t.log"), "w").close()
+            subprocess.run(["sh", "-c", harness], cwd=d, env=dict(os.environ, **(env or {})), capture_output=True, text=True)
+            with open(os.path.join(d, "trader", "logs", "t.log"), encoding="utf-8") as fh:
+                return fh.read()
+
+        def held_by(pid):
+            os.makedirs(lock)
+            with open(os.path.join(lock, "pid"), "w") as fh:
+                fh.write(pid + "\n")
+        try:
+            out = run()
+            self.assertIn("published", out)
+            self.assertFalse(os.path.exists(lock))                                   # its own lock, released
+            held_by("4242")                                                          # another job holds it the whole time
+            out = run()
+            self.assertIn("publish lock busy; nothing published by this job", out)
+            self.assertNotIn("published\n", out)
+            with open(os.path.join(lock, "pid")) as fh:
+                self.assertEqual(fh.read().strip(), "4242")                          # and its lock is left alone
+            old = os.path.getmtime(lock) - 20 * 60                                   # a lock over ten minutes old is broken
+            os.utime(lock, (old, old))
+            out = run()
+            self.assertIn("published", out)
+            self.assertFalse(os.path.exists(lock))
+            out = run({"TAKE": "1"})                                                 # broken and taken by another mid-publish
+            self.assertIn("published", out)
+            with open(os.path.join(lock, "pid")) as fh:
+                self.assertEqual(fh.read().strip(), "99999")                         # not this job's to remove
+        finally:
+            shutil.rmtree(d, ignore_errors=True)
 
 
 class Repo(unittest.TestCase):

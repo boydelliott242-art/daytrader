@@ -3,6 +3,7 @@
 import json
 import os
 import re
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -169,6 +170,7 @@ class LockScript(unittest.TestCase):
         self.assertNotIn(PASS, r.stdout + r.stderr)
         self.assertTrue(os.path.exists(out))
         self.assertFalse(os.path.exists(out + ".tmp"))
+        self.assertEqual([f for f in os.listdir(os.path.dirname(out)) if f.endswith(".tmp")], [])   # no temp file of any name
         r = self.run_lock(["verify", "--out", out])
         self.assertEqual(r.returncode, 0, r.stderr)
         self.assertIn("Opens.", r.stdout)
@@ -189,6 +191,24 @@ class LockScript(unittest.TestCase):
         self.assertIn("iterations", r.stderr)
         r = self.run_lock([], env_pass=None)
         self.assertEqual(r.returncode, 2)
+
+    def test_a_build_writes_through_its_own_temp_name_and_leaves_none_behind(self):
+        """Two builds once shared docs/data/bundle.enc.tmp; each now writes through a name with its pid, removed when the
+        write cannot land (docs/ must hold only the four files the site serves)."""
+        with open(LOCK, encoding="utf-8") as fh:
+            self.assertIn('tmp = "%s.%d.tmp" % (a.out, os.getpid())', fh.read())
+        d = tempfile.mkdtemp()
+        pub, out = os.path.join(d, "publish"), os.path.join(d, "out", "bundle.enc")
+        os.makedirs(pub)
+        os.makedirs(out)                                   # the target is a folder, so the replace fails after the write
+        with open(os.path.join(pub, "desk.json"), "w") as fh:
+            json.dump({"created_by": "trader-desk", "mode": "morning", "date": "2026-10-26", "candidates": []}, fh)
+        r = self.run_lock(["build", "--site", SITE, "--publish-dir", pub, "--out", out, "--iterations", str(FAST)])
+        self.assertEqual(r.returncode, 1, r.stdout + r.stderr)
+        self.assertIn("lock:", r.stderr)
+        self.assertEqual([f for f in os.listdir(os.path.dirname(out)) if f.endswith(".tmp")], [])
+        self.assertNotIn(PASS, r.stdout + r.stderr)
+        shutil.rmtree(d, ignore_errors=True)
 
 
 class PublicDocs(unittest.TestCase):
