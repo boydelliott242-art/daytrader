@@ -204,7 +204,10 @@ left 332 names a session behind, and the morning posted NO PICK. Now the morning
 scores, posts the pick over the names that are through (NO PICK only when SPY or most names are behind), retries at
 08:18, 08:40 and 09:05, and a pre-open run at 09:19 ET posts the pick if nothing before it could, or keeps the logged
 pick and refreshes its pre-market print, so the card five minutes before the open carries the latest print. A second
-evening pass at 21:30 fetches again whatever the 17:30 job left behind. A NO PICK that came from a stale store is
+evening pass at 21:30 fetches again whatever the 17:30 job left behind, and once more three minutes later whatever is
+still behind (on 2026-11-12 Yahoo's daily answers lacked the day's candle for two minutes at 21:30 and 240 names stayed a
+session behind); the 17:30 job skips a name fetched that morning only when its daily store already has the day, and
+every pass logs how many names are still behind. A NO PICK that came from a stale store is
 retried, not kept; the retries and the pre-open run share one lock and one publisher, so two mornings never run or land
 at once; a replacement after 9:25 is late and never logged. Since a Mac on battery sleeps between jobs (on 2026-11-02 the
 09:19 run never fired), the run that posts the pick keeps the Mac awake and refreshes the card at 09:19 itself unless the

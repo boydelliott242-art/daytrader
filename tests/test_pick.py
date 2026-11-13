@@ -1088,6 +1088,86 @@ class CatchUp(unittest.TestCase):
             fc.refresh_symbol = orig
             shutil.rmtree(d, ignore_errors=True)
 
+    def test_a_young_store_is_skipped_only_when_its_daily_store_reaches_the_session(self):
+        """2026-11-12: the morning catch-up left every 5-minute store young and the daily store a session short, and the
+        17:30 job (--max-age-hours 12) skipped 940 names as fresh, so the day's session never reached the store."""
+        sys.path.insert(0, os.path.join(ROOT, "scripts"))
+        import fetch_cache as fc
+        from dt import bars
+        d = tempfile.mkdtemp()
+        fetched = []
+
+        def stub(sym, now_utc, daily=True, root=None):                                # writes nothing: the answer lacked the day
+            fetched.append(sym)
+            return {"sessions": 1, "total": 1, "dropped": []}
+        for sym, last in (("THRU", "2099-12-31"), ("SHORT", "2017-01-03")):         # both fetched a moment ago
+            bars.save_store(sym, {"symbol": sym, "interval": "5m", "sessions": {}, "updated_at": dtio.now_iso()}, "bars5m", d)
+            bars.save_store(sym, {"symbol": sym, "interval": "1d", "rows": [[last, 1, 1, 1, 1, 1]]}, "daily", d)
+        orig = fc.refresh_symbol
+        fc.refresh_symbol = stub
+        try:
+            out = _io.StringIO()
+            with redirect_stdout(out):
+                code = fc.main(["--root", d, "--only", "THRU,SHORT", "--max-age-hours", "12", "--pause", "0", "--quiet"])
+            self.assertEqual((code, fetched), (0, ["SHORT"]))                          # young but a session short: fetched anyway
+            self.assertIn("1 of 2 still not through", out.getvalue())                  # and said, even under --quiet
+            self.assertIn(": SHORT", out.getvalue())
+            fetched[:] = []
+            out = _io.StringIO()
+            with redirect_stdout(out):
+                code = fc.main(["--root", d, "--only", "THRU,SHORT", "--max-age-hours", "12", "--pause", "0", "--no-daily", "--quiet"])
+            self.assertEqual((code, fetched), (0, []))                                 # a run that never writes the daily store skips by age
+            self.assertNotIn("still not through", out.getvalue())
+        finally:
+            fc.refresh_symbol = orig
+            shutil.rmtree(d, ignore_errors=True)
+
+    def test_behind_fetches_the_names_still_behind_once_more_and_says_so_under_quiet(self):
+        """2026-11-12: Yahoo's daily answers came back without the day's candle for two minutes at 21:30 ET and the recache
+        left 240 names a session behind, SPY among them; the names still behind get a second pass about three minutes on,
+        unless the deadline leaves no time for one."""
+        sys.path.insert(0, os.path.join(ROOT, "scripts"))
+        import fetch_cache as fc
+        from dt import clock, bars
+        import datetime as _dt
+        d = tempfile.mkdtemp()
+        calls, slept = [], []
+
+        def stub(sym, now_utc, daily=True, root=None):                                # the first answer lacks the session, the
+            calls.append(sym)                                                          # second has it; NEVER's never does
+            ref = fc.last_completed_session(now_utc)
+            rows = [["2017-01-03", 1, 1, 1, 1, 1]]
+            if calls.count(sym) > 1 and sym != "NEVER":
+                rows.append([ref, 1, 1, 1, 1, 1])
+            bars.save_store(sym, {"symbol": sym, "interval": "1d", "rows": rows}, "daily", root)
+            bars.save_store(sym, {"symbol": sym, "interval": "5m", "sessions": {}, "updated_at": dtio.now_iso()}, "bars5m", root)
+            return {"sessions": 1, "total": 1, "dropped": []}
+        orig, orig_sleep = fc.refresh_symbol, fc.net.SLEEP
+        fc.refresh_symbol, fc.net.SLEEP = stub, slept.append                          # no real wait in a test
+        try:
+            self.assertEqual(fc.RETRY_WAIT_S, 180)
+            out = _io.StringIO()
+            with redirect_stdout(out):
+                code = fc.main(["--root", d, "--only", "AAA,NEVER", "--behind", "--threads", "2", "--pause", "0", "--quiet"])
+            self.assertEqual(code, 0)
+            self.assertEqual(sorted(calls), ["AAA", "AAA", "NEVER", "NEVER"])        # each name still behind fetched once more
+            self.assertEqual(slept, [180])                                              # after one wait of about three minutes
+            text = out.getvalue()
+            self.assertIn("1 of 2 still not through", text)                             # printed even under --quiet
+            self.assertIn("a second pass for 2 after 180 s", text)
+            self.assertIn(": NEVER", text)
+            calls[:], slept[:] = [], []
+            soon = (clock.to_eastern(clock.utc_now()) + _dt.timedelta(minutes=2)).strftime("%H:%M")
+            out = _io.StringIO()
+            with redirect_stdout(out):
+                fc.main(["--root", d, "--only", "NEVER", "--behind", "--pause", "0", "--deadline", soon, "--quiet"])
+            self.assertEqual(slept, [])                                                 # the deadline leaves no time: no wait
+            self.assertLessEqual(len(calls), 1)
+            self.assertIn("no second pass: the deadline %s ET left no time" % soon, out.getvalue())
+        finally:
+            fc.refresh_symbol, fc.net.SLEEP = orig, orig_sleep
+            shutil.rmtree(d, ignore_errors=True)
+
 
 class FirstHour(unittest.TestCase):
     def bars5(self, path_pct, open_=100.0, day="2026-10-23"):

@@ -49,10 +49,24 @@ US DST rule, NYSE holidays and 1:00 p.m. early closes for 2026 and 2027, the
   used; raw closes).
 - `trader/cache/meta.json`: `{"built_at", "symbols": N, "sessions_min", "sessions_max", "first_date", "last_date"}`.
 
-The fetcher is resumable (a symbol fetched in the last 20 hours is skipped),
-polite (0.5 s between requests, query2 then query1, one retry after a 429),
-and merges new sessions into an existing store so history grows past Yahoo's
+The fetcher is resumable (a symbol fetched in the last 20 hours, `--max-age-hours`,
+is skipped, but only when its daily store already reaches the last completed
+session, worked out once a run: a morning catch-up leaves the 5-minute store young
+and the daily store a session short, and on 2026-11-12 the 17:30 job skipped 940
+names that way; a `--no-daily` run, which never writes the daily store, skips by
+age alone), polite (0.5 s between requests, query2 then query1, one retry after a
+429), and merges new sessions into an existing store so history grows past Yahoo's
 60-day window over time.
+
+`--behind` (the morning's catch-up and the 21:30 `recache`) fetches only the names
+whose daily store is not through the last completed session, whatever their age.
+The names still behind after that pass get one more pass about three minutes later
+(`RETRY_WAIT_S`, 180 s), when the `--deadline`, if one is set, leaves time for it to
+start: a Yahoo daily answer can come back without the day's candle for minutes (on
+2026-11-12 every name fetched 21:30:07 to 21:31:58 ET did, 240 names, SPY, QQQ and
+the sector ETFs among them). Every run that writes the daily store prints how many
+of its names are still not through that session, even under `--quiet`, so the logs
+show what the store is missing.
 
 Context symbols always in the store: `SPY QQQ IWM DIA ^VIX ^VIX3M XLK XLF XLE XLV XLY XLP XLI XLU XLB XLRE XLC`.
 
@@ -681,7 +695,8 @@ highest-ATR name.
 **The morning's own rules.** A closed day is NO PICK. A run before its own cutoff (or for a later date) is a preview:
 shown, never written, logged or published, so a manual run at 07:30 cannot stand in for the 08:08 job. The morning first
 catches the store up (`scripts/fetch_cache.py --behind`: every name whose daily store is not through the last completed
-session, six threads, a deadline twelve minutes on and never past 09:21), because an evening refresh that met a flaky
+session, six threads, a deadline twelve minutes on and never past 09:21, and the second pass three minutes on only when
+it can start before that deadline), because an evening refresh that met a flaky
 network or a sleeping Mac must not cost the morning (it cost 2026-10-30). A name still behind is left out and counted; if
 SPY is behind, or more than half of the names are (`STALE_SHARE`), the store is stale and the card is NO PICK; otherwise
 the pick is scored over the names that are through, and the card says how many were left out. A futures file without a
@@ -798,7 +813,8 @@ fetch wait up to about a minute and a half for the network; a clock that cannot 
 publishing happens only from `main`, only the bundle, with a notice when a build, an add, a commit or a push fails. The
 17:30 cache job grades the pick and the shadows and refreshes the calendar; `recache` at 21:30 fetches again every name
 the 17:30 job left behind (after waiting up to ninety minutes for it; still running, it leaves the rest to the morning's
-catch-up) and grades what it could not; the Saturday lab job retrains. Every JSON write goes through a temp name no other
+catch-up), once more about three minutes later every name still behind, and grades what it could not; the Saturday lab
+job retrains. Every JSON write goes through a temp name no other
 process shares, then an atomic replace.
 
 **Words.** Most people who day trade lose money. A stock that moves 2 percent one morning in three does not move two

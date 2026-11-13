@@ -6,10 +6,13 @@
     python3 scripts/fetch_cache.py --max-age-hours 0       # force a refresh
     python3 scripts/fetch_cache.py --behind --threads 6    # only the names not through the last completed session
 
-Resumable: a symbol refreshed within --max-age-hours is skipped. Polite: 0.5 s between
-requests. Merges new full sessions into the existing store so history grows over time.
+Resumable: a symbol refreshed within --max-age-hours is skipped when its daily store already reaches the last completed
+session (a young 5-minute store alone is not enough: a morning catch-up leaves the daily store a session short). Polite:
+0.5 s between requests. Merges new full sessions into the existing store so history grows over time.
 --behind is the catch-up the morning pick and the late-evening job run: a name counts as behind when its daily store
-does not reach the last completed session (yesterday's before today's close, today's after it), whatever its age.
+does not reach the last completed session (yesterday's before today's close, today's after it), whatever its age. The
+names still behind after that pass get one more pass RETRY_WAIT_S later, when the --deadline leaves time to start it.
+Every run that writes the daily store prints how many names are still behind, even under --quiet.
 """
 
 import argparse
@@ -27,6 +30,9 @@ from dt import bars, clock, io, net, universe  # noqa: E402
 
 CONTEXT = ["SPY", "QQQ", "IWM", "DIA", "^VIX", "^VIX3M", "XLK", "XLF", "XLE", "XLV", "XLY", "XLP", "XLI", "XLU",
            "XLB", "XLRE", "XLC"]
+# --behind fetches the names still behind once more after this wait: a Yahoo daily answer can come back without the
+# day's candle for minutes (2026-11-12: every name fetched 21:30:07-21:31:58 ET did, 240 names, SPY among them)
+RETRY_WAIT_S = 180
 
 
 def fresh(store, max_age_hours):
@@ -157,15 +163,17 @@ def main(argv=None):
                 syms.append(s)
     if a.limit:
         syms = syms[:a.limit]
-    ref = None
+    # the last completed session, once a run: --behind keeps the names not through it, and a fresh name is skipped only
+    # when its daily store reaches it (2026-11-12: the 17:30 job skipped 940 names a morning catch-up had left a session short)
+    ref = last_completed_session(now)
     if a.behind:
-        ref = last_completed_session(now)
         syms = [s for s in syms if behind(s, ref, a.root)]
         a.max_age_hours = 0
         say("%d names are not through %s in the daily store; refreshing them with %d thread(s)" % (len(syms), ref, max(1, a.threads)))
     if not a.quiet:
-        print("%d symbols to refresh (skipping any fresher than %.0fh)" % (len(syms), a.max_age_hours), flush=True)
-    state = {"done": 0, "skipped": 0, "failed": {}, "dropped": {}, "i": 0, "late": 0}
+        print("%d symbols to refresh (skipping any fresher than %.0fh%s)" % (len(syms), a.max_age_hours,
+              "" if a.no_daily else " whose daily store is through " + ref), flush=True)
+    state = {"done": 0, "skipped": 0, "failed": {}, "dropped": {}, "i": 0, "n": 0, "late": 0}
     lock = threading.Lock()
     deadline = clock.parse_hhmm(a.deadline, "--deadline") if a.deadline else None
 
@@ -176,7 +184,8 @@ def main(argv=None):
                 state["i"] += 1
             return
         store = bars.load_store(sym, "bars5m", a.root)
-        if fresh(store, a.max_age_hours):
+        # young is not enough: the daily store must reach the session too (a --no-daily run never writes it)
+        if fresh(store, a.max_age_hours) and (a.no_daily or not behind(sym, ref, a.root)):
             with lock:
                 state["skipped"] += 1
                 state["i"] += 1
@@ -185,6 +194,7 @@ def main(argv=None):
             r = refresh_symbol(sym, now, daily=not a.no_daily, root=a.root)
             with lock:
                 state["done"] += 1
+                state["failed"].pop(sym, None)                 # a second pass that worked clears the first one's failure
                 if r["dropped"]:
                     state["dropped"][sym] = r["dropped"]
         except net.NetError as e:
@@ -196,24 +206,43 @@ def main(argv=None):
         with lock:
             state["i"] += 1
             i = state["i"]
-            if not a.quiet and (i % 25 == 0 or i == len(syms)):
-                print("  %d/%d  fetched %d  skipped %d  failed %d  %.0fs" % (i, len(syms), state["done"], state["skipped"], len(state["failed"]),
+            if not a.quiet and (i % 25 == 0 or i == state["n"]):
+                print("  %d/%d  fetched %d  skipped %d  failed %d  %.0fs" % (i, state["n"], state["done"], state["skipped"], len(state["failed"]),
                                                                           time.time() - t0), flush=True)
         if a.pause:
             net.SLEEP(a.pause)
 
-    if max(1, a.threads) == 1:
-        for sym in syms:
-            one(sym)
-    else:
-        with concurrent.futures.ThreadPoolExecutor(max_workers=a.threads) as pool:
-            list(pool.map(one, syms))
+    def run_pass(names):
+        state["i"], state["n"] = 0, len(names)
+        if max(1, a.threads) == 1:
+            for sym in names:
+                one(sym)
+        else:
+            with concurrent.futures.ThreadPoolExecutor(max_workers=a.threads) as pool:
+                list(pool.map(one, names))
+
+    run_pass(syms)
+    second = ""
+    if a.behind and not a.no_daily:
+        still = [s for s in syms if behind(s, ref, a.root)]
+        if still and RETRY_WAIT_S > 0:
+            et = clock.to_eastern(clock.utc_now())
+            if deadline and et + datetime.timedelta(seconds=RETRY_WAIT_S) >= datetime.datetime.combine(et.date(), deadline):
+                second = " (no second pass: the deadline %s ET left no time for one)" % a.deadline
+            else:
+                say("%d names still not through %s; fetching them again in %d s" % (len(still), ref, RETRY_WAIT_S))
+                net.SLEEP(RETRY_WAIT_S)
+                run_pass(still)
+                second = " (a second pass for %d after %d s)" % (len(still), RETRY_WAIT_S)
     done, skipped, failed, dropped = state["done"], state["skipped"], state["failed"], state["dropped"]
     if state["late"]:
         say("%d names were not fetched: the deadline %s ET passed" % (state["late"], a.deadline))
-    if ref:
+    if not a.no_daily:
+        # printed even under --quiet: the one line in the job's log that says what the store is still missing
         still = [s for s in syms if behind(s, ref, a.root)]
-        say("%d of %d still not through %s after the refresh%s" % (len(still), len(syms), ref, (": " + ", ".join(sorted(still)[:12])) if still else ""))
+        print("%d of %d still not through %s after the refresh%s%s" % (len(still), len(syms), ref, second,
+                                                                       (": " + ", ".join(sorted(still)[:12])) if still else ""),
+              flush=True)
     # meta
     counts = []
     first = last = None
